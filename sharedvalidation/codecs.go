@@ -105,8 +105,15 @@ func ValidateAudioCodec(a string) (string, error) {
 func ValidateGPUAccelType(accel string) (string, error) {
 	accel = strings.ToLower(strings.TrimSpace(accel))
 
-	if accel == "" {
-		return sharedconsts.AccelTypeAuto, nil
+	switch accel {
+	case "automatic", "automate", "automated":
+		accel = sharedconsts.AccelTypeAuto
+	case "radeon", "amd":
+		accel = sharedconsts.AccelTypeAMF
+	case "intel":
+		accel = sharedconsts.AccelTypeIntel
+	case "nvidia", "nvenc":
+		accel = sharedconsts.AccelTypeNvidia
 	}
 
 	if sharedconsts.ValidGPUAccelTypes[accel] {

@@ -66,29 +66,3 @@ func ValidateFile(f string, createIfNotFound bool) (os.FileInfo, error) {
 
 	return fileInfo, nil
 }
-
-// ValidateWritableDirectory validates that a directory exists and is writable.
-func ValidateWritableDirectory(dir string) error {
-	info, err := ValidateDirectory(dir, false)
-	if err != nil {
-		return err
-	}
-
-	// Check if writable by trying to create a temp file
-	testFile := dir + "/.write_test"
-	f, err := os.Create(testFile)
-	if err != nil {
-		return fmt.Errorf("directory %q is not writable: %w", dir, err)
-	}
-	f.Close()
-	os.Remove(testFile)
-
-	_ = info // suppress unused warning
-	return nil
-}
-
-// EnsureDirectory ensures a directory exists, creating it if necessary.
-func EnsureDirectory(dir string) error {
-	_, err := ValidateDirectory(dir, true)
-	return err
-}
