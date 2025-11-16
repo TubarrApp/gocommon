@@ -132,20 +132,20 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 		cfg.MaxBackups = 5
 	}
 
-	lj := &lumberjack.Logger{
+	// Set up zerolog
+	fileLogger := zerolog.New(&lumberjack.Logger{
 		Filename:   cfg.LogFilePath,
 		MaxSize:    cfg.MaxSizeMB,
 		MaxBackups: cfg.MaxBackups,
 		LocalTime:  true,
-	}
-
-	fileLogger := zerolog.New(lj).
+	}).
 		With().
 		Timestamp().
 		Logger()
 
 	Loggable = true
 
+	// Program logger model
 	pl := &ProgramLogger{
 		FileLogger: fileLogger,
 		LogBuffer:  make([][]byte, logBufferSize),
@@ -153,7 +153,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 		Console:    cfg.Console,
 	}
 
-	fmt.Fprintf(cfg.Console, "Loading log file from %q", cfg.Program)
+	pl.D(2, "Loading log file from %q", cfg.LogFilePath)
 	pl.loadLogsFromFile(cfg.LogFilePath)
 
 	LogAccessMap.Store(cfg.Program, pl)
@@ -383,7 +383,7 @@ func (pl *ProgramLogger) S(msg string, args ...any) {
 
 // D logs debug messages for this program.
 func (pl *ProgramLogger) D(l int, msg string, args ...any) {
-	if Level < l {
+	if l < Level {
 		return
 	}
 	pl.Log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
