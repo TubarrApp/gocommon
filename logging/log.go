@@ -2,8 +2,10 @@
 package logging
 
 import (
+	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -150,6 +152,10 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 		Program:    cfg.Program,
 		Console:    cfg.Console,
 	}
+
+	// Load existing logs from file into buffer
+	pl.loadLogsFromFile(cfg.LogFilePath)
+
 	LogAccessMap.Store(cfg.Program, pl)
 
 	b := getLogBuilder()
@@ -165,6 +171,52 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	fileLogger.Log().Msg(sharedregex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
 
 	return pl, nil
+}
+
+// loadLogsFromFile reads existing log entries from the log file into the buffer.
+func (pl *ProgramLogger) loadLogsFromFile(logFilePath string) {
+	file, err := os.Open(logFilePath)
+	if err != nil {
+		// File doesn't exist or can't be opened, start with empty buffer
+		return
+	}
+	defer file.Close()
+
+	// Read all lines from file
+	var lines [][]byte
+	scanner := bufio.NewScanner(file)
+	// Increase buffer size for potentially long log lines
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	for scanner.Scan() {
+		// Make a copy of the line since scanner reuses buffer
+		line := append([]byte(nil), scanner.Bytes()...)
+		lines = append(lines, line)
+	}
+
+	if scanner.Err() != nil || len(lines) == 0 {
+		return
+	}
+
+	// Take the last logBufferSize lines (or all if fewer)
+	startIdx := 0
+	if len(lines) > logBufferSize {
+		startIdx = len(lines) - logBufferSize
+	}
+
+	pl.LogBufferLock.Lock()
+	defer pl.LogBufferLock.Unlock()
+
+	// Load lines into buffer
+	for i := startIdx; i < len(lines); i++ {
+		pl.LogBuffer[pl.LogBufferPos] = lines[i]
+		pl.LogBufferPos++
+
+		if pl.LogBufferPos >= logBufferSize {
+			pl.LogBufferPos = 0
+			pl.LogBufferFull = true
+		}
+	}
 }
 
 // writeToConsole writes messages to console without using zerolog.
