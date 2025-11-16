@@ -46,6 +46,11 @@ func (mw *memoryWriter) Write(p []byte) (int, error) {
 	}
 	mw.pl.LogBufferLock.Unlock()
 
+	out := p
+	if len(p) > 0 && p[len(p)-1] != '\n' {
+		out = append(append([]byte{}, p...), '\n')
+	}
+
 	// Write to actual file
-	return mw.next.Write(p)
+	return mw.next.Write(out)
 }
