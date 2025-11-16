@@ -388,7 +388,7 @@ func (pl *ProgramLogger) S(msg string, args ...any) {
 
 // D logs debug messages for this program.
 func (pl *ProgramLogger) D(l int, msg string, args ...any) {
-	if l < Level {
+	if Level < l {
 		return
 	}
 	pl.Log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
