@@ -2,7 +2,7 @@
 package logging
 
 import (
-	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -180,42 +180,46 @@ func (pl *ProgramLogger) loadLogsFromFile(logFilePath string) {
 	}
 	defer file.Close()
 
-	// Read all lines from file
-	var lines [][]byte
-	scanner := bufio.NewScanner(file)
-	// Increase buffer size for potentially long log lines
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		// Make a copy of the line since scanner reuses buffer
-		line := append([]byte(nil), scanner.Bytes()...)
-		lines = append(lines, line)
-	}
-
-	if scanner.Err() != nil || len(lines) == 0 {
-		pl.W("Log file %q, is empty or got error: %v", logFilePath, scanner.Err())
+	data, err := io.ReadAll(file)
+	if err != nil {
+		pl.W("Could not read log file %q: %v", logFilePath, err)
 		return
 	}
 
-	// Take the last logBufferSize lines (or all if fewer)
-	startIdx := 0
-	if len(lines) > logBufferSize {
-		startIdx = len(lines) - logBufferSize
+	// Split on newline (zerolog has one entry per line)
+	rawLines := bytes.Split(data, []byte("\n"))
+
+	// Remove empty lines
+	var entries [][]byte
+	for _, line := range rawLines {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		entries = append(entries, append([]byte(nil), line...))
+	}
+
+	if len(entries) == 0 {
+		pl.W("Log file %q was empty", logFilePath)
+		return
+	}
+
+	// Only keep last N
+	if len(entries) > logBufferSize {
+		entries = entries[len(entries)-logBufferSize:]
 	}
 
 	pl.LogBufferLock.Lock()
 	defer pl.LogBufferLock.Unlock()
 
-	// Load lines into buffer
-	for i := startIdx; i < len(lines); i++ {
-		pl.LogBuffer[pl.LogBufferPos] = lines[i]
-		pl.LogBufferPos++
-
-		if pl.LogBufferPos >= logBufferSize {
-			pl.LogBufferPos = 0
-			pl.LogBufferFull = true
-		}
+	pos := 0
+	for _, e := range entries {
+		pl.LogBuffer[pos] = e
+		pos++
 	}
+
+	pl.LogBufferPos = pos
+	pl.LogBufferFull = pos == logBufferSize
 }
 
 // writeToConsole writes messages to console without using zerolog.
