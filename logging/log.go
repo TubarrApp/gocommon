@@ -157,6 +157,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	pl.loadLogsFromFile(cfg.LogFilePath)
 
 	LogAccessMap.Store(cfg.Program, pl)
+	fmt.Println("Stored logger in map as:", cfg.Program)
 
 	b := getLogBuilder()
 	defer b.Release()
