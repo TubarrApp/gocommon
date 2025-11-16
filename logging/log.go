@@ -29,7 +29,7 @@ var (
 )
 
 // Log buffer vars.
-const logBufferSize = 5000
+const logBufferSize = 2500
 
 // ProgramLogger holds logging state for a specific program instance.
 type ProgramLogger struct {
