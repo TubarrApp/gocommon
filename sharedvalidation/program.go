@@ -60,5 +60,5 @@ func ValidateMaxCPU(maxCPU float64) float64 {
 	if maxCPU == 0.0 {
 		return 101.0
 	}
-	return min(max(maxCPU, 101.0), 5.0)
+	return min(max(maxCPU, 5.0), 101.0)
 }
