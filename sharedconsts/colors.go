@@ -1,5 +1,5 @@
-// Package consts provides shared constants for terminal colors and other common values.
-package consts
+// Package sharedconsts provides shared constants for terminal colors and other common values.
+package sharedconsts
 
 // ANSI color codes for terminal output.
 const (

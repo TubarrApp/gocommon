@@ -12,8 +12,8 @@ import (
 	"runtime/trace"
 	"time"
 
-	"github.com/TubarrApp/gocommon/consts"
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // BenchFiles contain benchmarking files written on a benchmark-enabled run.
@@ -121,7 +121,7 @@ func makeBenchFilepaths(log *logging.ProgramLogger, baseDir, timestamp string) {
 	// Create timestamped subdirectory for this run
 	runDir := filepath.Join(baseDir, timestamp)
 
-	if err := os.MkdirAll(runDir, consts.PermsGenericDir); err != nil {
+	if err := os.MkdirAll(runDir, sharedconsts.PermsGenericDir); err != nil {
 		log.E("Failed to create benchmark run directory: %v", err)
 		return
 	}

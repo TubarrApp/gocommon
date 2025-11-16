@@ -1,5 +1,5 @@
-// Package regex compiles and caches various regex expressions.
-package regex
+// Package sharedregex compiles and caches various regex expressions.
+package sharedregex
 
 import (
 	"regexp"

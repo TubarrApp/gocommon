@@ -1,4 +1,4 @@
-package consts
+package sharedconsts
 
 // Video codec constants.
 const (

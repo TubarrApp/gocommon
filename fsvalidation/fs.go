@@ -1,11 +1,11 @@
-// Package validation provides common validation functions for filesystem operations.
-package validation
+// Package fsvalidation provides common validation functions for filesystem operations.
+package fsvalidation
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/TubarrApp/gocommon/consts"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
@@ -22,7 +22,7 @@ func ValidateDirectory(dir string, createIfNotFound bool) (os.FileInfo, error) {
 	case os.IsNotExist(err):
 		// path does not exist
 		if createIfNotFound {
-			if err := os.MkdirAll(dir, consts.PermsGenericDir); err != nil {
+			if err := os.MkdirAll(dir, sharedconsts.PermsGenericDir); err != nil {
 				return nil, fmt.Errorf("directory %q does not exist and failed to create: %w", dir, err)
 			}
 			if dirInfo, err = os.Stat(dir); err != nil { // re-stat to get correct FileInfo

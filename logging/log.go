@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TubarrApp/gocommon/consts"
-	"github.com/TubarrApp/gocommon/regex"
+	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedregex"
 
 	"github.com/rs/zerolog"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -44,9 +44,9 @@ type ProgramLogger struct {
 const (
 	timeFormat = "01/02 15:04:05"
 
-	tagFunc = "[" + consts.ColorDimCyan + "Function:" + consts.ColorReset + " "
-	tagFile = " - " + consts.ColorDimCyan + "File:" + consts.ColorReset + " "
-	tagLine = " : " + consts.ColorDimCyan + "Line:" + consts.ColorReset + " "
+	tagFunc = "[" + sharedconsts.ColorDimCyan + "Function:" + sharedconsts.ColorReset + " "
+	tagFile = " - " + sharedconsts.ColorDimCyan + "File:" + sharedconsts.ColorReset + " "
+	tagLine = " : " + sharedconsts.ColorDimCyan + "Line:" + sharedconsts.ColorReset + " "
 	tagEnd  = "]\n"
 
 	jFunction = "function"
@@ -162,7 +162,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 
 	startMsg := b.String()
 	pl.writeToConsole(startMsg)
-	fileLogger.Log().Msg(regex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
+	fileLogger.Log().Msg(sharedregex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
 
 	return pl, nil
 }
@@ -170,7 +170,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 // writeToConsole writes messages to console without using zerolog.
 func (pl *ProgramLogger) writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
-	if _, err := fmt.Fprintf(pl.Console, "%s%s%s %s", consts.ColorBrightBlack, timestamp, consts.ColorReset, msg); err != nil {
+	if _, err := fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg); err != nil {
 		// Can't log error here to avoid recursion, just ignore
 		_ = err
 	}
@@ -293,7 +293,7 @@ func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool,
 	if !Loggable {
 		return
 	}
-	cleanMsg := regex.AnsiEscapeCompile().ReplaceAllString(msg, "")
+	cleanMsg := sharedregex.AnsiEscapeCompile().ReplaceAllString(msg, "")
 	if caller != nil {
 		event := pl.getZerologEvent(level).
 			Str(jFunction, caller.funcName).
@@ -323,12 +323,12 @@ func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 
 // E logs error messages for this program.
 func (pl *ProgramLogger) E(msg string, args ...any) {
-	pl.Log(logError, consts.LogTagError, msg, true, args...)
+	pl.Log(logError, sharedconsts.LogTagError, msg, true, args...)
 }
 
 // S logs success messages for this program.
 func (pl *ProgramLogger) S(msg string, args ...any) {
-	pl.Log(logSuccess, consts.LogTagSuccess, msg, false, args...)
+	pl.Log(logSuccess, sharedconsts.LogTagSuccess, msg, false, args...)
 }
 
 // D logs debug messages for this program.
@@ -336,17 +336,17 @@ func (pl *ProgramLogger) D(l int, msg string, args ...any) {
 	if Level < l {
 		return
 	}
-	pl.Log(logDebug, consts.LogTagDebug, msg, true, args...)
+	pl.Log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
 }
 
 // W logs warning messages for this program.
 func (pl *ProgramLogger) W(msg string, args ...any) {
-	pl.Log(logWarn, consts.LogTagWarning, msg, false, args...)
+	pl.Log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
 }
 
 // I logs info messages for this program.
 func (pl *ProgramLogger) I(msg string, args ...any) {
-	pl.Log(logInfo, consts.LogTagInfo, msg, false, args...)
+	pl.Log(logInfo, sharedconsts.LogTagInfo, msg, false, args...)
 }
 
 // P logs plain messages for this program.
