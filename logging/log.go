@@ -133,12 +133,17 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	}
 
 	// Set up zerolog
-	fileLogger := zerolog.New(&lumberjack.Logger{
-		Filename:   cfg.LogFilePath,
-		MaxSize:    cfg.MaxSizeMB,
-		MaxBackups: cfg.MaxBackups,
-		LocalTime:  true,
-	}).
+	w := zerolog.ConsoleWriter{
+		Out: &lumberjack.Logger{
+			Filename:   cfg.LogFilePath,
+			MaxSize:    cfg.MaxSizeMB,
+			MaxBackups: cfg.MaxBackups,
+			LocalTime:  true,
+		},
+		NoColor: true,
+	}
+
+	fileLogger := zerolog.New(w).
 		With().
 		Timestamp().
 		Logger()
