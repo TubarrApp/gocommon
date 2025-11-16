@@ -1,5 +1,5 @@
-// Package fsvalidation provides common validation functions for filesystem operations.
-package fsvalidation
+// Package sharedvalidation provides common validation functions for filesystem operations.
+package sharedvalidation
 
 import (
 	"fmt"
