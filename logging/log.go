@@ -165,16 +165,8 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 
 	LogAccessMap.Store(cfg.Program, pl)
 
-	b := getLogBuilder()
-	defer b.Release()
-
-	b.WriteString("=========== ")
-	b.WriteString(time.Now().Format(time.RFC1123Z))
-	b.WriteString(" ===========")
-	b.WriteByte('\n')
-
-	startMsg := b.String()
-	pl.FileLogger.Log().Msg(sharedregex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
+	startMsg := fmt.Sprintf("=========== %s ===========", time.Now().Format(time.RFC1123Z))
+	pl.FileLogger.Log().Msg(startMsg)
 
 	return pl, nil
 }
