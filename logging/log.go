@@ -153,7 +153,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 		Console:    cfg.Console,
 	}
 
-	pl.D(2, "Loading log file from %q", cfg.Program)
+	fmt.Fprintf(cfg.Console, "Loading log file from %q", cfg.Program)
 	pl.loadLogsFromFile(cfg.LogFilePath)
 
 	LogAccessMap.Store(cfg.Program, pl)
