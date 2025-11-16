@@ -153,7 +153,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 		Console:    cfg.Console,
 	}
 
-	// Load existing logs from file into buffer
+	pl.D(2, "Loading log file from %q", cfg.Program)
 	pl.loadLogsFromFile(cfg.LogFilePath)
 
 	LogAccessMap.Store(cfg.Program, pl)
@@ -177,7 +177,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 func (pl *ProgramLogger) loadLogsFromFile(logFilePath string) {
 	file, err := os.Open(logFilePath)
 	if err != nil {
-		// File doesn't exist or can't be opened, start with empty buffer
+		pl.W("Could not open file from path %q", logFilePath)
 		return
 	}
 	defer file.Close()
@@ -195,6 +195,7 @@ func (pl *ProgramLogger) loadLogsFromFile(logFilePath string) {
 	}
 
 	if scanner.Err() != nil || len(lines) == 0 {
+		pl.W("Log file %q, is empty or got error: %v", logFilePath, scanner.Err())
 		return
 	}
 
@@ -222,10 +223,7 @@ func (pl *ProgramLogger) loadLogsFromFile(logFilePath string) {
 // writeToConsole writes messages to console without using zerolog.
 func (pl *ProgramLogger) writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
-	if _, err := fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg); err != nil {
-		// Can't log error here to avoid recursion, just ignore
-		_ = err
-	}
+	fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg)
 }
 
 // buildLogMessage constructs a log message with optional caller info.
