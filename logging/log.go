@@ -184,7 +184,11 @@ func (pl *ProgramLogger) loadLogsFromFile(path string) {
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
 	for scanner.Scan() {
-		line := append([]byte(nil), scanner.Bytes()...)
+		raw := scanner.Bytes()
+		line := make([]byte, len(raw)+1)
+		copy(line, raw)
+		line[len(raw)] = '\n'
+
 		pl.addToRAMLine(line)
 	}
 
