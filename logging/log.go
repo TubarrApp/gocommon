@@ -167,7 +167,6 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	b.WriteByte('\n')
 
 	startMsg := b.String()
-	pl.writeToConsole(startMsg)
 	fileLogger.Log().Msg(sharedregex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
 
 	return pl, nil
