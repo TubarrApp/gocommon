@@ -4,16 +4,16 @@ package sharedconsts
 // ANSI color codes for terminal output.
 const (
 	ColorReset       = "\033[0m"
-	ColorRed         = "\033[31m"
-	ColorGreen       = "\033[32m"
-	ColorYellow      = "\033[33m"
+	ColorRed         = "\033[91m"
+	ColorGreen       = "\033[92m"
+	ColorYellow      = "\033[93m"
 	ColorBlue        = "\033[34m"
 	ColorPurple      = "\033[35m"
-	ColorCyan        = "\033[36m"
-	ColorDimCyan     = "\033[2;36m"
+	ColorCyan        = "\033[96m"
+	ColorDimCyan     = "\x1b[36m"
 	ColorWhite       = "\033[37m"
-	ColorBrightBlack = "\033[90m"
-	ColorDimWhite    = "\033[2;37m"
+	ColorBrightBlack = "\x1b[90m"
+	ColorDimWhite    = "\x1b[2;37m"
 )
 
 // Log message prefixes with colors.
