@@ -13,7 +13,7 @@ func ValidateConcurrencyLimit(c int) int {
 
 // ValidateMinFreeMem verifies that a minimum free memory string is valid.
 // Accepts formats like: "2G", "2GB", "500M", "500MB", "200K", "200KB", "2000" (plain int).
-func ValidateMinFreeMem(input string) (valid string, err error) {
+func ValidateMinFreeMem(input string) (num string, err error) {
 	if input == "" {
 		return "", nil
 	}
@@ -33,7 +33,7 @@ func ValidateMinFreeMem(input string) (valid string, err error) {
 	}
 
 	if hasUnit {
-		// Must be at least "1G"
+		// Must be at least "0K"
 		if len(s) < 2 {
 			return "", fmt.Errorf("invalid format for min free mem: %q", input)
 		}
@@ -57,5 +57,5 @@ func ValidateMinFreeMem(input string) (valid string, err error) {
 // ValidateMaxCPU validates a max CPU percentage (0.0 to 100.0).
 // Returns the clamped value.
 func ValidateMaxCPU(maxCPU float64) float64 {
-	return min(max(maxCPU, 100.0), 0.0)
+	return min(max(maxCPU, 101.0), 0.0)
 }
