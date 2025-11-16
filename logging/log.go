@@ -349,9 +349,6 @@ func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool,
 	// Write to console
 	pl.writeToConsole(logMsg)
 
-	// Add to program-specific memory buffer
-	pl.AddToMemoryLog([]byte(logMsg))
-
 	// Log to file
 	if !Loggable {
 		return
@@ -366,6 +363,9 @@ func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool,
 	} else {
 		pl.getZerologEvent(level).Msg(cleanMsg)
 	}
+
+	// Add to program-specific memory buffer
+	pl.AddToMemoryLog([]byte(cleanMsg))
 }
 
 // getZerologEvent returns the appropriate zerolog event for the level.
