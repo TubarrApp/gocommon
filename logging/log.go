@@ -68,6 +68,9 @@ const (
 	logPrint
 )
 
+// Logging package level variables.
+var ansiStripper = sharedregex.AnsiEscapeCompile()
+
 // init zerolog time format.
 func init() {
 	zerolog.TimeFieldFormat = time.RFC3339
@@ -133,17 +136,12 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	}
 
 	// Set up zerolog
-	w := zerolog.ConsoleWriter{
-		Out: &lumberjack.Logger{
-			Filename:   cfg.LogFilePath,
-			MaxSize:    cfg.MaxSizeMB,
-			MaxBackups: cfg.MaxBackups,
-			LocalTime:  true,
-		},
-		NoColor: true,
-	}
-
-	fileLogger := zerolog.New(w).
+	fileLogger := zerolog.New(&lumberjack.Logger{
+		Filename:   cfg.LogFilePath,
+		MaxSize:    cfg.MaxSizeMB,
+		MaxBackups: cfg.MaxBackups,
+		LocalTime:  true,
+	}).
 		With().
 		Timestamp().
 		Logger()
@@ -299,7 +297,10 @@ func (pl *ProgramLogger) AddToMemoryLog(p []byte) {
 	pl.LogBufferLock.Lock()
 	defer pl.LogBufferLock.Unlock()
 
-	pl.LogBuffer[pl.LogBufferPos] = append([]byte(nil), p...)
+	// Strip ANSI sequences
+	clean := ansiStripper.ReplaceAll(p, nil)
+
+	pl.LogBuffer[pl.LogBufferPos] = append([]byte(nil), clean...)
 	pl.LogBufferPos++
 
 	if pl.LogBufferPos >= logBufferSize {
@@ -313,13 +314,21 @@ func (pl *ProgramLogger) GetRecentLogs() [][]byte {
 	pl.LogBufferLock.RLock()
 	defer pl.LogBufferLock.RUnlock()
 
+	// Buffer not full:
 	if !pl.LogBufferFull {
 		return append([][]byte(nil), pl.LogBuffer[:pl.LogBufferPos]...)
 	}
 
-	out := make([][]byte, logBufferSize)
-	copy(out, pl.LogBuffer[pl.LogBufferPos:])
-	copy(out[logBufferSize-pl.LogBufferPos:], pl.LogBuffer[:pl.LogBufferPos])
+	// Buffer is full:
+	// Build output with correct ordering and count
+	out := make([][]byte, 0, logBufferSize)
+
+	// From current write position to end
+	out = append(out, pl.LogBuffer[pl.LogBufferPos:]...)
+
+	// From start to current write position
+	out = append(out, pl.LogBuffer[:pl.LogBufferPos]...)
+
 	return out
 }
 
