@@ -32,12 +32,20 @@ type memoryWriter struct {
 	next io.Writer
 }
 
+// Write writes the current JSON log line into RAM.
 func (mw *memoryWriter) Write(p []byte) (int, error) {
-	// p contains the FINAL zerolog JSON log entry
-	mw.pl.AddToMemoryLog(p)
+	// Strip ANSI escape sequences
+	clean := ansiStripper.ReplaceAll(p, nil)
 
-	if mw.next != nil {
-		return mw.next.Write(p)
+	// Copy into buffer
+	mw.pl.LogBufferLock.Lock()
+	mw.pl.LogBuffer[mw.pl.LogBufferPos] = append([]byte(nil), clean...)
+	mw.pl.LogBufferPos = (mw.pl.LogBufferPos + 1) % len(mw.pl.LogBuffer)
+	if mw.pl.LogBufferPos == 0 {
+		mw.pl.LogBufferFull = true
 	}
-	return len(p), nil
+	mw.pl.LogBufferLock.Unlock()
+
+	// Write to actual file
+	return mw.next.Write(p)
 }

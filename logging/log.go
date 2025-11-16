@@ -345,24 +345,22 @@ func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool,
 		caller = &c
 	}
 
+	// Build human-readable console message
 	logMsg := buildLogMessage(prefix, msg, caller)
 
 	// Write to console
 	pl.writeToConsole(logMsg)
 
-	// Log to file
-	if !Loggable {
-		return
-	}
-	cleanMsg := sharedregex.AnsiEscapeCompile().ReplaceAllString(msg, "")
+	// Call zerolog event
+	clean := ansiStripper.ReplaceAllString(msg, "")
 	if caller != nil {
-		event := pl.getZerologEvent(level).
+		pl.getZerologEvent(level).
 			Str(jFunction, caller.funcName).
 			Str(jFile, caller.file).
-			Int(jLine, caller.line)
-		event.Msg(cleanMsg)
+			Int(jLine, caller.line).
+			Msg(clean)
 	} else {
-		pl.getZerologEvent(level).Msg(cleanMsg)
+		pl.getZerologEvent(level).Msg(clean)
 	}
 }
 
