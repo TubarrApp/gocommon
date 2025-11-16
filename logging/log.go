@@ -160,8 +160,13 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 
 	pl.FileLogger = zerolog.New(mw).With().Timestamp().Logger()
 
-	pl.D(2, "Loading log file from %q", cfg.LogFilePath)
-	pl.loadLogsFromFile(cfg.LogFilePath)
+	// Only load in file from Tubarr on start, Metarr can be loaded once
+	// statically by the handler, then from RAM once a Metarr sub-process
+	// is spawned.
+	if cfg.Program == "Tubarr" {
+		pl.D(2, "Loading log file from %q", cfg.LogFilePath)
+		pl.loadLogsFromFile(cfg.LogFilePath)
+	}
 
 	LogAccessMap.Store(cfg.Program, pl)
 
