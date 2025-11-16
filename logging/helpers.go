@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"io"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -23,4 +24,20 @@ func getCaller(skip int) callerInfo {
 		line:     line,
 		lineStr:  strconv.Itoa(line),
 	}
+}
+
+// memoryWriter writes JSON log output into RAM then forwards to the real writer.
+type memoryWriter struct {
+	pl   *ProgramLogger
+	next io.Writer
+}
+
+func (mw *memoryWriter) Write(p []byte) (int, error) {
+	// p contains the FINAL zerolog JSON log entry
+	mw.pl.AddToMemoryLog(p)
+
+	if mw.next != nil {
+		return mw.next.Write(p)
+	}
+	return len(p), nil
 }

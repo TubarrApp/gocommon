@@ -136,25 +136,29 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	}
 
 	// Set up zerolog
-	fileLogger := zerolog.New(&lumberjack.Logger{
+	fileWriter := &lumberjack.Logger{
 		Filename:   cfg.LogFilePath,
 		MaxSize:    cfg.MaxSizeMB,
 		MaxBackups: cfg.MaxBackups,
 		LocalTime:  true,
-	}).
-		With().
-		Timestamp().
-		Logger()
+	}
 
 	Loggable = true
 
 	// Program logger model
 	pl := &ProgramLogger{
-		FileLogger: fileLogger,
-		LogBuffer:  make([][]byte, logBufferSize),
-		Program:    cfg.Program,
-		Console:    cfg.Console,
+		LogBuffer: make([][]byte, logBufferSize),
+		Program:   cfg.Program,
+		Console:   cfg.Console,
 	}
+
+	// Write to file + RAM
+	mw := &memoryWriter{
+		pl:   pl,
+		next: fileWriter,
+	}
+
+	pl.FileLogger = zerolog.New(mw).With().Timestamp().Logger()
 
 	pl.D(2, "Loading log file from %q", cfg.LogFilePath)
 	pl.loadLogsFromFile(cfg.LogFilePath)
@@ -170,7 +174,7 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	b.WriteByte('\n')
 
 	startMsg := b.String()
-	fileLogger.Log().Msg(sharedregex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
+	pl.FileLogger.Log().Msg(sharedregex.AnsiEscapeCompile().ReplaceAllString(startMsg, ""))
 
 	return pl, nil
 }
