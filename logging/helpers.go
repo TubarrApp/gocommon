@@ -34,17 +34,7 @@ type memoryWriter struct {
 
 // Write writes the current JSON log line into RAM.
 func (mw *memoryWriter) Write(p []byte) (int, error) {
-	// Strip ANSI escape sequences
-	clean := ansiStripper.ReplaceAll(p, nil)
-
-	// Copy into buffer
-	mw.pl.LogBufferLock.Lock()
-	mw.pl.LogBuffer[mw.pl.LogBufferPos] = append([]byte(nil), clean...)
-	mw.pl.LogBufferPos = (mw.pl.LogBufferPos + 1) % len(mw.pl.LogBuffer)
-	if mw.pl.LogBufferPos == 0 {
-		mw.pl.LogBufferFull = true
-	}
-	mw.pl.LogBufferLock.Unlock()
+	mw.pl.addToRAMLine(p)
 
 	out := p
 	if len(p) > 0 && p[len(p)-1] != '\n' {
@@ -53,4 +43,17 @@ func (mw *memoryWriter) Write(p []byte) (int, error) {
 
 	// Write to actual file
 	return mw.next.Write(out)
+}
+
+// addToRAMLine adds the current line to the log buffer.
+func (pl *ProgramLogger) addToRAMLine(p []byte) {
+	clean := ansiStripper.ReplaceAll(p, nil)
+
+	pl.LogBufferLock.Lock()
+	pl.LogBuffer[pl.LogBufferPos] = append([]byte(nil), clean...)
+	pl.LogBufferPos = (pl.LogBufferPos + 1) % len(pl.LogBuffer)
+	if pl.LogBufferPos == 0 {
+		pl.LogBufferFull = true
+	}
+	pl.LogBufferLock.Unlock()
 }

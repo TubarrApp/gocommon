@@ -2,7 +2,7 @@
 package logging
 
 import (
-	"bytes"
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -172,54 +172,25 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 }
 
 // loadLogsFromFile reads existing log entries from the log file into the buffer.
-func (pl *ProgramLogger) loadLogsFromFile(logFilePath string) {
-	file, err := os.Open(logFilePath)
+func (pl *ProgramLogger) loadLogsFromFile(path string) {
+	file, err := os.Open(path)
 	if err != nil {
-		pl.W("Could not open file from path %q", logFilePath)
+		pl.W("Could not open file %q", path)
 		return
 	}
 	defer file.Close()
 
-	data, err := io.ReadAll(file)
-	if err != nil {
-		pl.W("Could not read log file %q: %v", logFilePath, err)
-		return
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	for scanner.Scan() {
+		line := append([]byte(nil), scanner.Bytes()...)
+		pl.addToRAMLine(line)
 	}
 
-	// Split on newline (zerolog has one entry per line)
-	rawLines := bytes.Split(data, []byte("\n"))
-
-	// Remove empty lines
-	var entries [][]byte
-	for _, line := range rawLines {
-		line = bytes.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		entries = append(entries, append([]byte(nil), line...))
+	if err := scanner.Err(); err != nil {
+		pl.W("Error scanning log file %q: %v", path, err)
 	}
-
-	if len(entries) == 0 {
-		pl.W("Log file %q was empty", logFilePath)
-		return
-	}
-
-	// Only keep last N
-	if len(entries) > logBufferSize {
-		entries = entries[len(entries)-logBufferSize:]
-	}
-
-	pl.LogBufferLock.Lock()
-	defer pl.LogBufferLock.Unlock()
-
-	pos := 0
-	for _, e := range entries {
-		pl.LogBuffer[pos] = e
-		pos++
-	}
-
-	pl.LogBufferPos = pos
-	pl.LogBufferFull = pos == logBufferSize
 }
 
 // writeToConsole writes messages to console without using zerolog.
