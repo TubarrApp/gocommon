@@ -1,0 +1,249 @@
+package sharedvalidation
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
+)
+
+// Codecs ------------------------------------------------------------------------------------
+func TestValidateVideoCodec(t *testing.T) {
+	tests := []struct {
+		in     string
+		expect string
+		ok     bool
+	}{
+		{"x264", sharedconsts.VCodecH264, true},
+		{"libx265", sharedconsts.VCodecHEVC, true},
+		{"av01", sharedconsts.VCodecAV1, true},
+		{"vp09", sharedconsts.VCodecVP9, true},
+		{sharedconsts.VCodecH264, sharedconsts.VCodecH264, true},
+		{"", "", true},
+		{"invalid", "", false},
+	}
+
+	for _, tt := range tests {
+		out, err := ValidateVideoCodec(tt.in)
+		if tt.ok && err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("expected error for %q", tt.in)
+		}
+		if out != tt.expect {
+			t.Errorf("expected %q got %q", tt.expect, out)
+		}
+	}
+}
+
+func TestValidateVideoCodecWithAccel(t *testing.T) {
+	tests := []struct {
+		codec     string
+		accelType string
+		expect    string
+		ok        bool
+	}{
+		// Pass states.
+		{"x264", sharedconsts.AccelTypeAMF, sharedconsts.VCodecH264, true},
+		{"libx265", sharedconsts.AccelTypeAuto, sharedconsts.VCodecHEVC, true},
+		{sharedconsts.VCodecAV1, "", sharedconsts.VCodecAV1, true},
+		{"vp09", "", sharedconsts.VCodecVP9, true},
+		{"", sharedconsts.AccelTypeAuto, "", true},
+		{"", "", "", true},
+
+		// Fail states.
+		{"invalid", "", "", false},
+		{"", sharedconsts.AccelTypeNvidia, "", false},
+	}
+
+	for _, tt := range tests {
+		out, err := ValidateVideoCodecWithAccel(tt.codec, tt.accelType)
+
+		if tt.ok && err != nil {
+			t.Errorf("unexpected error for %#v: %v", tt, err)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("expected error for %#v", tt)
+		}
+		if out != tt.expect {
+			t.Errorf("expected %q got %q", tt.expect, out)
+		}
+	}
+}
+
+func TestValidateAudioCodec(t *testing.T) {
+	tests := []struct {
+		in     string
+		expect string
+		ok     bool
+	}{
+		// Pass states.
+		{sharedconsts.ACodecMP3, sharedconsts.ACodecMP3, true},
+		{"libmp3lame", sharedconsts.ACodecMP3, true},
+		{"wave", sharedconsts.ACodecWAV, true},
+		{"", "", true},
+
+		// Fail states.
+		{"badcodec", "", false},
+	}
+
+	for _, tt := range tests {
+		out, err := ValidateAudioCodec(tt.in)
+		if tt.ok && err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("expected error for %q", tt.in)
+		}
+		if out != tt.expect {
+			t.Errorf("expected %q got %q", tt.expect, out)
+		}
+	}
+}
+
+func TestValidateGPUAccelType(t *testing.T) {
+	out, ok := ValidateGPUAccelType(sharedconsts.AccelTypeNvidia)
+	if !ok || out != sharedconsts.AccelTypeNvidia {
+		t.Errorf("expected nvidia")
+	}
+
+	out, ok = ValidateGPUAccelType("nvenc")
+	if !ok || out != sharedconsts.AccelTypeNvidia {
+		t.Errorf("expected nvidia")
+	}
+
+	out, ok = ValidateGPUAccelType("vAaPi")
+	if !ok || out != sharedconsts.AccelTypeVAAPI {
+		t.Errorf("expected vaapi")
+	}
+
+	_, ok = ValidateGPUAccelType("badtype")
+	if ok {
+		t.Errorf("expected failure for invalid accel")
+	}
+}
+
+// Filesystem --------------------------------------------------------------------------------
+
+func TestValidateDirectory(t *testing.T) {
+	now := time.Now()
+	tmp := filepath.Join(os.TempDir(), "sv_test_dir"+now.String())
+	t.Cleanup(func() {
+		os.RemoveAll(tmp)
+	})
+
+	_, err := ValidateDirectory(tmp, false)
+	if err == nil {
+		t.Errorf("expected error")
+	}
+
+	// Creates directory.
+	_, err = ValidateDirectory(tmp, true)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Directory should now exist.
+	_, err = ValidateDirectory(tmp, false)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateFile(t *testing.T) {
+	now := time.Now()
+	tmp := filepath.Join(os.TempDir(), "sv_test_file.txt"+now.String())
+	t.Cleanup(func() {
+		os.RemoveAll(tmp)
+	})
+
+	_, err := ValidateFile(tmp, false)
+	if err == nil {
+		t.Errorf("expected error")
+	}
+
+	// Creates file.
+	_, err = ValidateFile(tmp, true)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// File should now exist.
+	_, err = ValidateFile(tmp, false)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// Media -------------------------------------------------------------------------------------
+func TestValidateTranscodeQuality(t *testing.T) {
+	out, err := ValidateTranscodeQuality("25")
+	if err != nil || out != "25" {
+		t.Errorf("unexpected result")
+	}
+
+	out, err = ValidateTranscodeQuality("100")
+	if err != nil || out != "51" {
+		t.Errorf("clamp failed")
+	}
+}
+
+func TestValidateConcurrencyLimit(t *testing.T) {
+	if ValidateConcurrencyLimit(0) != 1 {
+		t.Errorf("expected 1")
+	}
+	if ValidateConcurrencyLimit(5) != 5 {
+		t.Errorf("expected 5")
+	}
+}
+
+func TestValidateMinFreeMem(t *testing.T) {
+	tests := []struct {
+		in     string
+		expect string
+		ok     bool
+	}{
+		{"2G", "2G", true},
+		{"500M", "500M", true},
+		{"200K", "200K", true},
+		{"2000", "2000", true},
+		{"x1", "", false},
+	}
+
+	for _, tt := range tests {
+		out, err := ValidateMinFreeMem(tt.in)
+		if tt.ok && err != nil {
+			t.Errorf("unexpected error for %q", tt.in)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("expected error for %q", tt.in)
+		}
+		if out != tt.expect {
+			t.Errorf("expected %q got %q", tt.expect, out)
+		}
+	}
+}
+
+func TestValidateMaxCPU(t *testing.T) {
+	// Zero values.
+	if ValidateMaxCPU(0.0, false) != 101.0 {
+		t.Errorf("expected 101")
+	}
+	if ValidateMaxCPU(0, true) != 0.0 {
+		t.Errorf("expected passthrough")
+	}
+
+	// Non-zero values.
+	if ValidateMaxCPU(100.0, false) != 101.0 {
+		t.Errorf("expected 101")
+	}
+	if ValidateMaxCPU(10.0, false) != 10.0 {
+		t.Errorf("expected passthrough")
+	}
+	if ValidateMaxCPU(2.0, false) != 5.0 {
+		t.Errorf("expected clamp to 5")
+	}
+}

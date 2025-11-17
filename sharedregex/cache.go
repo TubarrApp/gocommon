@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// Regex strings for compilation.
 const (
 	ansiEscapeStr = `\x1b\[[0-9;]*m`
 )
@@ -13,7 +14,10 @@ const (
 // Regex expressions, compiled once.
 var (
 	onceAnsiEscape sync.Once
+)
 
+// Compiled regex cache.
+var (
 	AnsiEscape *regexp.Regexp
 )
 

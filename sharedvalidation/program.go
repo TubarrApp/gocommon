@@ -20,10 +20,10 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 
 	s := strings.ToUpper(strings.TrimSpace(input))
 
-	// Remove trailing B (so KB/MB/GB all become K/M/G)
+	// Remove trailing B (so KB/MB/GB all become K/M/G).
 	s = strings.TrimSuffix(s, "B")
 
-	// After trimming B, valid suffixes are G, M, K, or no suffix
+	// After trimming B, valid suffixes are G, M, K, or no suffix.
 	hasUnit := false
 	switch {
 	case strings.HasSuffix(s, "G"),
@@ -33,7 +33,7 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 	}
 
 	if hasUnit {
-		// Must be at least "0K"
+		// Must be at least "0K".
 		if len(s) < 2 {
 			return "", fmt.Errorf("invalid format for min free mem: %q", input)
 		}
@@ -46,7 +46,7 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 		return s, nil
 	}
 
-	// No unit: must be a raw integer e.g. "2000"
+	// No unit: must be a raw integer e.g. "2000".
 	if _, err := strconv.Atoi(s); err != nil {
 		return "", fmt.Errorf("invalid min free memory argument %q, must end with G, GB, M, MB, K, KB, or be an integer", input)
 	}
@@ -57,6 +57,7 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 // ValidateMaxCPU validates a max CPU percentage (0.0 to 100.0).
 // Returns the clamped value.
 func ValidateMaxCPU(maxCPU float64, allowZero bool) float64 {
+	// Handle zero value.
 	if maxCPU == 0.0 {
 		if allowZero {
 			return 0.0
@@ -65,9 +66,11 @@ func ValidateMaxCPU(maxCPU float64, allowZero bool) float64 {
 		}
 	}
 
+	// Handle 100.0 case (set to 101 to bypass CPU limitation).
 	if maxCPU == 100.0 {
 		return 101.0
 	}
 
+	// Clamp non-zero value between accepted bounds.
 	return min(max(maxCPU, 5.0), 101.0)
 }

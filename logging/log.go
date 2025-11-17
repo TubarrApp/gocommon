@@ -71,11 +71,6 @@ const (
 // Logging package level variables.
 var ansiStripper = sharedregex.AnsiEscapeCompile()
 
-// init zerolog time format.
-func init() {
-	zerolog.TimeFieldFormat = time.RFC3339
-}
-
 // LogBuilder wraps strings.Builder for logging with automatic pooling.
 type logBuilder struct {
 	*strings.Builder
@@ -111,11 +106,16 @@ func (lb *logBuilder) Release() {
 
 // LoggingConfig holds configuration for the logger.
 type LoggingConfig struct {
-	LogFilePath string    // Full path to the log file
-	MaxSizeMB   int       // Max size of log file in MB before rotation
-	MaxBackups  int       // Number of old log files to keep
-	Console     io.Writer // Where to write console output (os.Stdout or os.Stderr)
-	Program     string    // Tubarr or Metarr
+	LogFilePath string    // Full path to the log file.
+	MaxSizeMB   int       // Max size of log file in MB before rotation.
+	MaxBackups  int       // Number of old log files to keep.
+	Console     io.Writer // Where to write console output (os.Stdout or os.Stderr).
+	Program     string    // Tubarr or Metarr.
+}
+
+// init runs before other functions.
+func init() {
+	zerolog.TimeFieldFormat = time.RFC3339
 }
 
 // SetupLogging sets up logging for the application.
@@ -154,15 +154,14 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 
 	// Write to file + RAM
 	mw := &memoryWriter{
-		pl:   pl,
-		next: fileWriter,
+		pl:     pl,
+		writer: fileWriter,
 	}
 
 	pl.FileLogger = zerolog.New(mw).With().Timestamp().Logger()
 
-	// Only load in file from Tubarr on start, Metarr can be loaded once
-	// statically by the handler, then from RAM once a Metarr sub-process
-	// is spawned.
+	// Only load in file from Tubarr on start, Metarr load in should
+	// be handled by the caller (usually in server handlers).
 	if cfg.Program == "Tubarr" {
 		pl.D(2, "Loading log file from %q", cfg.LogFilePath)
 		pl.loadLogsFromFile(cfg.LogFilePath)
@@ -174,6 +173,26 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 	pl.FileLogger.Log().Msg(startMsg)
 
 	return pl, nil
+}
+
+// GetRecentLogsForProgram returns logs from RAM for a specific program.
+// Usually used by server handlers to fill display views.
+func GetRecentLogsForProgram(program string) [][]byte {
+	pl, ok := GetProgramLogger(program)
+	if !ok {
+		return nil
+	}
+	return pl.GetRecentLogs()
+}
+
+// GetProgramLogger retrieves a program-specific logger from LogAccessMap.
+func GetProgramLogger(program string) (*ProgramLogger, bool) {
+	val, ok := LogAccessMap.Load(program)
+	if !ok {
+		return nil, false
+	}
+	pl, ok := val.(*ProgramLogger)
+	return pl, ok
 }
 
 // loadLogsFromFile reads existing log entries from the log file into the buffer.
@@ -253,57 +272,23 @@ func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 	return b.String()
 }
 
-// GetProgramLogger retrieves a program-specific logger from LogAccessMap.
-func GetProgramLogger(program string) (*ProgramLogger, bool) {
-	val, ok := LogAccessMap.Load(program)
-	if !ok {
-		return nil, false
-	}
-	pl, ok := val.(*ProgramLogger)
-	return pl, ok
-}
-
-// GetRecentLogsForProgram returns logs from RAM for a specific program.
-func GetRecentLogsForProgram(program string) [][]byte {
-	pl, ok := GetProgramLogger(program)
-	if !ok {
-		return nil
-	}
-	return pl.GetRecentLogs()
-}
-
-// AddToMemoryLog adds an entry to the program's memory log.
-func (pl *ProgramLogger) AddToMemoryLog(p []byte) {
-	pl.LogBufferLock.Lock()
-	defer pl.LogBufferLock.Unlock()
-
-	pl.LogBuffer[pl.LogBufferPos] = append([]byte(nil), p...)
-	pl.LogBufferPos++
-
-	if pl.LogBufferPos >= logBufferSize {
-		pl.LogBufferPos = 0
-		pl.LogBufferFull = true
-	}
-}
-
 // GetRecentLogs returns logs from RAM for this program logger.
 func (pl *ProgramLogger) GetRecentLogs() [][]byte {
 	pl.LogBufferLock.RLock()
 	defer pl.LogBufferLock.RUnlock()
 
-	// Buffer not full:
+	// BUFFER FULL:
 	if !pl.LogBufferFull {
 		return append([][]byte(nil), pl.LogBuffer[:pl.LogBufferPos]...)
 	}
 
-	// Buffer is full:
-	// Build output with correct ordering and count
+	// BUFFER NOT FULL:
 	out := make([][]byte, 0, logBufferSize)
 
-	// From current write position to end
+	// From current write position to end.
 	out = append(out, pl.LogBuffer[pl.LogBufferPos:]...)
 
-	// From start to current write position
+	// From start to current write position.
 	out = append(out, pl.LogBuffer[:pl.LogBufferPos]...)
 
 	return out
@@ -317,17 +302,17 @@ func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool,
 
 	var caller *callerInfo
 	if withCaller {
-		c := getCaller(3)
+		c := getCaller(3) // skip lines: getCaller -> Log -> D/E/W/I/P (etc.) -> [ DESIRED FUNCTION ]
 		caller = &c
 	}
 
-	// Build human-readable console message
+	// Build human-readable console message.
 	logMsg := buildLogMessage(prefix, msg, caller)
 
-	// Write to console
+	// Write to console.
 	pl.writeToConsole(logMsg)
 
-	// Call zerolog event
+	// Call zerolog event.
 	clean := ansiStripper.ReplaceAllString(msg, "")
 	if caller != nil {
 		pl.getZerologEvent(level).
@@ -356,15 +341,7 @@ func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 	}
 }
 
-// E logs error messages for this program.
-func (pl *ProgramLogger) E(msg string, args ...any) {
-	pl.Log(logError, sharedconsts.LogTagError, msg, true, args...)
-}
-
-// S logs success messages for this program.
-func (pl *ProgramLogger) S(msg string, args ...any) {
-	pl.Log(logSuccess, sharedconsts.LogTagSuccess, msg, false, args...)
-}
+// ---- OUTER PROGRAM LOG CALLS ----
 
 // D logs debug messages for this program.
 func (pl *ProgramLogger) D(l int, msg string, args ...any) {
@@ -374,9 +351,9 @@ func (pl *ProgramLogger) D(l int, msg string, args ...any) {
 	pl.Log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
 }
 
-// W logs warning messages for this program.
-func (pl *ProgramLogger) W(msg string, args ...any) {
-	pl.Log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
+// E logs error messages for this program.
+func (pl *ProgramLogger) E(msg string, args ...any) {
+	pl.Log(logError, sharedconsts.LogTagError, msg, true, args...)
 }
 
 // I logs info messages for this program.
@@ -387,4 +364,14 @@ func (pl *ProgramLogger) I(msg string, args ...any) {
 // P logs plain messages for this program.
 func (pl *ProgramLogger) P(msg string, args ...any) {
 	pl.Log(logPrint, "", msg, false, args...)
+}
+
+// S logs success messages for this program.
+func (pl *ProgramLogger) S(msg string, args ...any) {
+	pl.Log(logSuccess, sharedconsts.LogTagSuccess, msg, false, args...)
+}
+
+// W logs warning messages for this program.
+func (pl *ProgramLogger) W(msg string, args ...any) {
+	pl.Log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
 }

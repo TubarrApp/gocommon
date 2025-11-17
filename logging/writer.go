@@ -1,5 +1,7 @@
 package logging
 
+// Backup of line-count based writer (instead of Lumberjack).
+
 // import (
 // 	"bufio"
 // 	"os"

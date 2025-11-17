@@ -12,34 +12,34 @@ import (
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
 func ValidateDirectory(dir string, createIfNotFound bool) (os.FileInfo, error) {
-	// Check directory existence
+	// Check directory existence.
 	dir = filepath.Clean(dir)
 
-	// Stat path
+	// Stat path.
 	info, err := os.Stat(dir)
-	if err == nil { // Err IS nil
+	if err == nil { // Err IS nil.
 		if !info.IsDir() {
 			return nil, fmt.Errorf("path %q is a file, not a directory", dir)
 		}
 		return info, nil
 	}
 
-	// Error other than non-existence
+	// Error other than non-existence.
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to stat directory %q: %w", dir, err)
 	}
 
-	// Does not exist, should not create
+	// Does not exist, should not create.
 	if !createIfNotFound {
 		return nil, fmt.Errorf("directory %q does not exist", dir)
 	}
 
-	// Generate new directories
+	// Generate new directories.
 	if err := os.MkdirAll(dir, sharedconsts.PermsGenericDir); err != nil {
 		return nil, fmt.Errorf("directory %q does not exist and failed to create: %w", dir, err)
 	}
 
-	// Stat newly generated directory
+	// Stat newly generated directory.
 	info, err = os.Stat(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %q", dir)
@@ -51,26 +51,26 @@ func ValidateDirectory(dir string, createIfNotFound bool) (os.FileInfo, error) {
 func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
 	path = filepath.Clean(path)
 
-	// Stat path
+	// Stat path.
 	info, err := os.Stat(path)
-	if err == nil { // Err IS nil
+	if err == nil { // Err IS nil.
 		if info.IsDir() {
 			return nil, fmt.Errorf("path %q is a directory, not a file", path)
 		}
 		return info, nil
 	}
 
-	// Error other than non-existence
+	// Error other than non-existence.
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to stat file %q: %w", path, err)
 	}
 
-	// Does not exist, should not create
+	// Does not exist, should not create.
 	if !createIfNotFound {
 		return nil, fmt.Errorf("file %q does not exist", path)
 	}
 
-	// Generate new file (must close after os.Create())
+	// Generate new file (must close after os.Create()).
 	file, err := os.Create(path)
 	if err != nil {
 		return nil, fmt.Errorf("file %q does not exist and failed to create: %w", path, err)
@@ -81,6 +81,6 @@ func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
 		}
 	}()
 
-	// Return info and nil/err
+	// Return info and nil/err.
 	return os.Stat(path)
 }

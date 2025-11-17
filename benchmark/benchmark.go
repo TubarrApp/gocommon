@@ -118,15 +118,15 @@ func CloseBenchFiles(log *logging.ProgramLogger, b *BenchFiles, noErrExit string
 
 // makeBenchFilepaths makes paths for benchmarking files in a timestamped subdirectory.
 func makeBenchFilepaths(log *logging.ProgramLogger, baseDir, timestamp string) {
-	// Create timestamped subdirectory for this run
 	runDir := filepath.Join(baseDir, timestamp)
 
+	// Create directory with perms.
 	if err := os.MkdirAll(runDir, sharedconsts.PermsGenericDir); err != nil {
 		log.E("Failed to create benchmark run directory: %v", err)
 		return
 	}
 
-	// Simple filenames (no timestamp needed since they're in timestamped folder)
+	// Create filenames.
 	cpuProfPath = filepath.Join(runDir, "cpu.prof")
 	memProfPath = filepath.Join(runDir, "mem.prof")
 	traceOutPath = filepath.Join(runDir, "trace.out")

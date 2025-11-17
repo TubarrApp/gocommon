@@ -13,15 +13,16 @@ func ValidateTranscodeQuality(q string) (string, error) {
 		return "", nil
 	}
 
-	q = strings.TrimSpace(q)
+	// Normalize input.
 	q = strings.ReplaceAll(q, " ", "")
 
+	// Validate integer.
 	qNum, err := strconv.ParseInt(q, 10, 64)
 	if err != nil {
 		return "", fmt.Errorf("transcode quality should be numerical (0-51), got %q", q)
 	}
 
-	// Clamp to valid range
+	// Clamp to valid range.
 	qNum = min(max(qNum, 0), 51)
 
 	return strconv.FormatInt(qNum, 10), nil

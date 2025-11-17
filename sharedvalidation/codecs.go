@@ -2,6 +2,7 @@ package sharedvalidation
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -10,12 +11,13 @@ import (
 // ValidateVideoCodec validates a video codec string and returns the normalized codec name.
 // Handles common aliases and synonyms (e.g., "x264" -> "h264", "libx265" -> "hevc").
 func ValidateVideoCodec(c string) (string, error) {
+	// Normalize input.
 	c = strings.ToLower(strings.TrimSpace(c))
 	c = strings.ReplaceAll(c, ".", "")
 	c = strings.ReplaceAll(c, "-", "")
 	c = strings.ReplaceAll(c, "_", "")
 
-	// Synonym and alias mapping
+	// Synonym and alias mapping.
 	switch c {
 	case "", "none", "auto", "automatic", "automated":
 		return "", nil
@@ -33,6 +35,7 @@ func ValidateVideoCodec(c string) (string, error) {
 		c = sharedconsts.VCodecVP9
 	}
 
+	// Check against valid codec map.
 	if sharedconsts.ValidVideoCodecs[c] {
 		return c, nil
 	}
@@ -42,14 +45,16 @@ func ValidateVideoCodec(c string) (string, error) {
 
 // ValidateVideoCodecWithAccel validates a video codec string with GPU acceleration context.
 // Returns an error if auto/none codec is used with specific GPU acceleration.
-func ValidateVideoCodecWithAccel(c, accel string) (string, error) {
+func ValidateVideoCodecWithAccel(c, accel string) (validCodec string, err error) {
+	// Ensure valid codec.
 	validated, err := ValidateVideoCodec(c)
 	if err != nil {
 		return "", err
 	}
 
-	// Check if empty codec is allowed with the given acceleration
-	if validated == "" && accel != "" && accel != sharedconsts.AccelTypeAuto {
+	// Check if empty codec is allowed with the given acceleration type.
+	if validated == "" &&
+		(accel != "" && accel != sharedconsts.AccelTypeAuto) {
 		return "", fmt.Errorf("GPU acceleration %q requires a codec (entered %q)", accel, c)
 	}
 
@@ -59,12 +64,13 @@ func ValidateVideoCodecWithAccel(c, accel string) (string, error) {
 // ValidateAudioCodec validates an audio codec string and returns the normalized codec name.
 // Handles common aliases and synonyms (e.g., "mp3" -> "mp3", "libmp3lame" -> "mp3").
 func ValidateAudioCodec(a string) (string, error) {
+	// Normalize input.
 	a = strings.ToLower(strings.TrimSpace(a))
 	a = strings.ReplaceAll(a, ".", "")
 	a = strings.ReplaceAll(a, "-", "")
 	a = strings.ReplaceAll(a, "_", "")
 
-	// Synonym and alias mapping
+	// Synonym and alias mapping.
 	switch a {
 	case "", "none", "auto", "automatic", "automated":
 		return "", nil
@@ -94,6 +100,7 @@ func ValidateAudioCodec(a string) (string, error) {
 		a = sharedconsts.ACodecWAV
 	}
 
+	// Check against valid codec map.
 	if sharedconsts.ValidAudioCodecs[a] {
 		return a, nil
 	}
@@ -102,9 +109,11 @@ func ValidateAudioCodec(a string) (string, error) {
 }
 
 // ValidateGPUAccelType validates a GPU acceleration type string.
-func ValidateGPUAccelType(accel string) (string, error) {
+func ValidateGPUAccelType(accel string) (string, bool) {
+	// Normalize input.
 	accel = strings.ToLower(strings.TrimSpace(accel))
 
+	// Synonym and alias mapping.
 	switch accel {
 	case "automatic", "automate", "automated":
 		accel = sharedconsts.AccelTypeAuto
@@ -116,9 +125,15 @@ func ValidateGPUAccelType(accel string) (string, error) {
 		accel = sharedconsts.AccelTypeNvidia
 	}
 
+	// Check against valid acceleration type map.
 	if sharedconsts.ValidGPUAccelTypes[accel] {
-		return accel, nil
+		return accel, true
 	}
 
-	return "", fmt.Errorf("GPU acceleration type %q is not valid. Supported: %v", accel, sharedconsts.ValidGPUAccelTypes)
+	if accel != "" {
+		fmt.Fprintf(os.Stderr, "%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, accel, sharedconsts.ValidGPUAccelTypes)
+	}
+
+	// Return error on map check failure.
+	return "", false
 }
