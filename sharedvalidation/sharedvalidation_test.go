@@ -105,29 +105,33 @@ func TestValidateAudioCodec(t *testing.T) {
 }
 
 func TestValidateGPUAccelType(t *testing.T) {
-	out, ok := ValidateGPUAccelType(sharedconsts.AccelTypeNvidia)
-	if !ok || out != sharedconsts.AccelTypeNvidia {
-		t.Errorf("expected nvidia")
+	out, err := ValidateGPUAccelType(sharedconsts.AccelTypeNvidia)
+	if err != nil || out != sharedconsts.AccelTypeNvidia {
+		t.Errorf("expected nvidia (got error? %v)", err)
 	}
 
-	out, ok = ValidateGPUAccelType("nvenc")
-	if !ok || out != sharedconsts.AccelTypeNvidia {
-		t.Errorf("expected nvidia")
+	out, err = ValidateGPUAccelType("nvenc")
+	if err != nil || out != sharedconsts.AccelTypeNvidia {
+		t.Errorf("expected nvidia (got error? %v)", err)
 	}
 
-	out, ok = ValidateGPUAccelType("vAaPi")
-	if !ok || out != sharedconsts.AccelTypeVAAPI {
-		t.Errorf("expected vaapi")
+	out, err = ValidateGPUAccelType("vAaPi")
+	if err != nil || out != sharedconsts.AccelTypeVAAPI {
+		t.Errorf("expected vaapi (got error? %v)", err)
 	}
 
-	_, ok = ValidateGPUAccelType("badtype")
-	if ok {
+	_, err = ValidateGPUAccelType("badtype")
+	if err == nil {
 		t.Errorf("expected failure for invalid accel")
+	}
+
+	_, err = ValidateGPUAccelType("")
+	if err == nil {
+		t.Errorf("expected failure for blank accel")
 	}
 }
 
 // Filesystem --------------------------------------------------------------------------------
-
 func TestValidateDirectory(t *testing.T) {
 	now := time.Now()
 	tmp := filepath.Join(os.TempDir(), "sv_test_dir"+now.String())

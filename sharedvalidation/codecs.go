@@ -2,7 +2,6 @@ package sharedvalidation
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -109,7 +108,7 @@ func ValidateAudioCodec(a string) (string, error) {
 }
 
 // ValidateGPUAccelType validates a GPU acceleration type string.
-func ValidateGPUAccelType(accel string) (string, bool) {
+func ValidateGPUAccelType(accel string) (string, error) {
 	// Normalize input.
 	accel = strings.ToLower(strings.TrimSpace(accel))
 
@@ -127,13 +126,9 @@ func ValidateGPUAccelType(accel string) (string, bool) {
 
 	// Check against valid acceleration type map.
 	if sharedconsts.ValidGPUAccelTypes[accel] {
-		return accel, true
-	}
-
-	if accel != "" {
-		fmt.Fprintf(os.Stderr, "%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, accel, sharedconsts.ValidGPUAccelTypes)
+		return accel, nil
 	}
 
 	// Return error on map check failure.
-	return "", false
+	return "", fmt.Errorf("%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, accel, sharedconsts.ValidGPUAccelTypes)
 }
