@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
@@ -83,4 +84,32 @@ func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
 
 	// Return info and nil/err.
 	return os.Stat(path)
+}
+
+// GetRenameFlag maps aliases from input if needed.
+func GetRenameFlag(inFlag string) (outFlag string) {
+	// Normalize string.
+	f := inFlag
+	f = strings.ReplaceAll(f, " ", "")
+	f = strings.ToLower(f)
+
+	// Check map.
+	if sharedconsts.ValidRenameFlags[f] {
+		return f
+	}
+
+	// Find aliases.
+	switch f {
+	case "space", "spaced":
+		return sharedconsts.RenameSpaces
+	case "underscore", "underscored":
+		return sharedconsts.RenameUnderscores
+	case "fix", "fixed", "fixes", "fixesonly":
+		return sharedconsts.RenameFixesOnly
+	case "skipped", "none", "":
+		return sharedconsts.RenameSkip
+	}
+
+	// No alias, send back input.
+	return inFlag
 }

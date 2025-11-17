@@ -182,6 +182,29 @@ func TestValidateFile(t *testing.T) {
 	}
 }
 
+func TestGetRenameFlag(t *testing.T) {
+	tests := []struct {
+		in     string
+		expect string
+	}{
+		// Passthrough.
+		{sharedconsts.RenameFixesOnly, sharedconsts.RenameFixesOnly},
+		{sharedconsts.RenameSkip, sharedconsts.RenameSkip},
+
+		// Aliases.
+		{"fixed", sharedconsts.RenameFixesOnly},
+		{"none", sharedconsts.RenameSkip},
+		{"", sharedconsts.RenameSkip},
+	}
+
+	for _, tt := range tests {
+		flag := GetRenameFlag(tt.in)
+		if flag != tt.expect {
+			t.Fatalf("unexpected flag: sent %q, want %q, got: %q", tt.in, tt.expect, flag)
+		}
+	}
+}
+
 // Media -------------------------------------------------------------------------------------
 func TestValidateTranscodeQuality(t *testing.T) {
 	out, err := ValidateTranscodeQuality("25")
