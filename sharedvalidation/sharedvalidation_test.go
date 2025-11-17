@@ -194,7 +194,7 @@ func TestGetRenameFlag(t *testing.T) {
 		// Aliases.
 		{"fixed", sharedconsts.RenameFixesOnly},
 		{"none", sharedconsts.RenameSkip},
-		{"", sharedconsts.RenameSkip},
+		{"", ""},
 	}
 
 	for _, tt := range tests {
