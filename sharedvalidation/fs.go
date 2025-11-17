@@ -88,6 +88,10 @@ func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
 
 // GetRenameFlag maps aliases from input if needed.
 func GetRenameFlag(inFlag string) (outFlag string) {
+	if inFlag == "" {
+		return ""
+	}
+
 	// Normalize string.
 	f := inFlag
 	f = strings.ReplaceAll(f, " ", "")
