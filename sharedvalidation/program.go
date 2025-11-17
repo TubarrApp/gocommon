@@ -56,9 +56,18 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 
 // ValidateMaxCPU validates a max CPU percentage (0.0 to 100.0).
 // Returns the clamped value.
-func ValidateMaxCPU(maxCPU float64) float64 {
+func ValidateMaxCPU(maxCPU float64, allowZero bool) float64 {
 	if maxCPU == 0.0 {
+		if allowZero {
+			return 0.0
+		} else {
+			return 101.0
+		}
+	}
+
+	if maxCPU == 100.0 {
 		return 101.0
 	}
+
 	return min(max(maxCPU, 5.0), 101.0)
 }
