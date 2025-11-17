@@ -106,7 +106,7 @@ func GetRenameFlag(inFlag string) (outFlag string) {
 		return sharedconsts.RenameUnderscores
 	case "fix", "fixed", "fixes", "fixesonly":
 		return sharedconsts.RenameFixesOnly
-	case "skipped", "none":
+	case "skipped", "skipping", "skips", "none":
 		return sharedconsts.RenameSkip
 	}
 
