@@ -143,28 +143,28 @@ func TestValidateDirectory(t *testing.T) {
 
 	// Valid template directory.
 	validTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{year}}")
-	if hasTemplating, _, err := ValidateDirectory(validTemplateTmp, false); !hasTemplating || err != nil {
-		t.Errorf("expected pass")
+	if hasTemplating, _, err := ValidateDirectory(validTemplateTmp, false, sharedconsts.AllTemplatesMap); !hasTemplating || err != nil {
+		t.Errorf("expected template detection and pass")
 	}
 
 	// Invalid template directory.
 	invalidTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{BOGUS}}")
-	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false); !hasTemplating || err == nil {
-		t.Errorf("expected fail")
+	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false, sharedconsts.AllTemplatesMap); !hasTemplating || err == nil {
+		t.Errorf("expected template detection and fail")
 	}
 
 	// Invalid directory.
-	if _, _, err := ValidateDirectory(tmp, false); err == nil {
+	if _, _, err := ValidateDirectory(tmp, false, sharedconsts.AllTemplatesMap); err == nil {
 		t.Errorf("expected error")
 	}
 
 	// Creates directory.
-	if _, _, err := ValidateDirectory(tmp, true); err != nil {
+	if _, _, err := ValidateDirectory(tmp, true, sharedconsts.AllTemplatesMap); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// Directory should now exist.
-	if _, _, err := ValidateDirectory(tmp, false); err != nil {
+	if _, _, err := ValidateDirectory(tmp, false, sharedconsts.AllTemplatesMap); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -178,28 +178,28 @@ func TestValidateFile(t *testing.T) {
 
 	// Valid template directory.
 	validTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{year}}", "sv_test_file.txt"+now.String())
-	if hasTemplating, _, err := ValidateDirectory(validTemplateTmp, false); !hasTemplating || err != nil {
+	if hasTemplating, _, err := ValidateDirectory(validTemplateTmp, false, sharedconsts.AllTemplatesMap); !hasTemplating || err != nil {
 		t.Errorf("expected pass")
 	}
 
 	// Invalid template directory.
 	invalidTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{BOGUS}}", "sv_test_file.txt"+now.String())
-	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false); !hasTemplating || err == nil {
+	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false, sharedconsts.AllTemplatesMap); !hasTemplating || err == nil {
 		t.Errorf("expected fail")
 	}
 
 	// Non-existent path.
-	if _, _, err := ValidateFile(tmp, false); err == nil {
+	if _, _, err := ValidateFile(tmp, false, sharedconsts.AllTemplatesMap); err == nil {
 		t.Errorf("expected error")
 	}
 
 	// Creates non-existent file.
-	if _, _, err := ValidateFile(tmp, true); err != nil {
+	if _, _, err := ValidateFile(tmp, true, sharedconsts.AllTemplatesMap); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// File should now exist.
-	if _, _, err := ValidateFile(tmp, false); err != nil {
+	if _, _, err := ValidateFile(tmp, false, sharedconsts.AllTemplatesMap); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

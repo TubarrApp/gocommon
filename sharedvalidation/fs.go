@@ -12,11 +12,11 @@ import (
 )
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
-func ValidateDirectory(dir string, createIfNotFound bool) (hasTemplating bool, fileInfo os.FileInfo, err error) {
+func ValidateDirectory(dir string, createIfNotFound bool, templateMap map[string]bool) (hasTemplating bool, fileInfo os.FileInfo, err error) {
 	dir = filepath.Clean(dir)
 
 	// Check template tags.
-	if hasTemplating, errOrNil := checkTemplateTags(dir); hasTemplating {
+	if hasTemplating, errOrNil := checkTemplateTags(dir, templateMap); hasTemplating {
 		return hasTemplating, nil, errOrNil // Do not stat templated directories, condition normal if tags are valid.
 	}
 
@@ -53,11 +53,11 @@ func ValidateDirectory(dir string, createIfNotFound bool) (hasTemplating bool, f
 }
 
 // ValidateFile validates that the file exists, else creates it if desired.
-func ValidateFile(path string, createIfNotFound bool) (hasTemplating bool, fileInfo os.FileInfo, err error) {
+func ValidateFile(path string, createIfNotFound bool, templateMap map[string]bool) (hasTemplating bool, fileInfo os.FileInfo, err error) {
 	path = filepath.Clean(path)
 
 	// Check template tags.
-	if hasTemplating, errOrNil := checkTemplateTags(path); hasTemplating {
+	if hasTemplating, errOrNil := checkTemplateTags(path, templateMap); hasTemplating {
 		return hasTemplating, nil, errOrNil // Do not stat templated directories, condition normal if tags are valid.
 	}
 
@@ -131,14 +131,14 @@ func GetRenameFlag(inFlag string) (outFlag string) {
 // **** Private **********************************************************************************
 
 // checkTemplateTags checks if the input string contains template elements.
-func checkTemplateTags(s string) (hasTemplating bool, err error) {
+func checkTemplateTags(s string, templateMap map[string]bool) (hasTemplating bool, err error) {
 	if strings.Contains(s, "{{") && strings.Contains(s, "}}") {
 
 		// Check all template tags for validity.
-		allValid := checkAllTemplateTags(s)
+		allValid := checkAllTemplateTags(s, templateMap)
 		if !allValid {
-			tags := make([]string, 0, len(sharedconsts.TemplateMap))
-			for k := range sharedconsts.TemplateMap {
+			tags := make([]string, 0, len(templateMap))
+			for k := range templateMap {
 				tags = append(tags, k)
 			}
 			return true, fmt.Errorf("directory contains unsupported template tags. Supported tags: %v", tags)
@@ -150,7 +150,7 @@ func checkTemplateTags(s string) (hasTemplating bool, err error) {
 }
 
 // checkAllTemplateTags recursively checks template tags in string.
-func checkAllTemplateTags(s string) bool {
+func checkAllTemplateTags(s string, templateMap map[string]bool) bool {
 	for {
 		// Start tag index.
 		start := strings.Index(s, "{{")
@@ -172,7 +172,7 @@ func checkAllTemplateTags(s string) bool {
 
 		// Extract tag, compare against map.
 		tag := s[start+2 : endAbs]
-		if !sharedconsts.TemplateMap[tag] {
+		if !templateMap[tag] {
 			return false
 		}
 

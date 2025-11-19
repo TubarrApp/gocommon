@@ -35,7 +35,7 @@ const (
 // TemplateMap contains the different template tags available.
 //
 // E.g. ChannelName 'true' as '{{channel_name}}' is replaced with a Channel.Name variable.
-var TemplateMap = map[string]bool{
+var AllTemplatesMap = map[string]bool{
 	ChannelID:   true,
 	ChannelName: true,
 	ChannelURL:  true,
