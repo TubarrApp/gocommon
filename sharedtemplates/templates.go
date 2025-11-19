@@ -1,4 +1,5 @@
-package sharedconsts
+// Package sharedtemplates holds templating elements used across Tubarr and Metarr.
+package sharedtemplates
 
 // Template tags for channel elements.
 const (
@@ -32,7 +33,7 @@ const (
 	MetDomain = "domain"
 )
 
-// TemplateMap contains the different template tags available.
+// AllTemplatesMap contains the different template tags available.
 //
 // E.g. ChannelName 'true' as '{{channel_name}}' is replaced with a Channel.Name variable.
 var AllTemplatesMap = map[string]bool{
