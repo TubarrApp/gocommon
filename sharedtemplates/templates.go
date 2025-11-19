@@ -50,3 +50,13 @@ var AllTemplatesMap = map[string]bool{
 	MetDirector: true,
 	MetDomain:   true,
 }
+
+// MetarrTemplateTags contains templating tags which are fillable by Metarr.
+var MetarrTemplateTags = map[string]bool{
+	MetYear:     true,
+	MetMonth:    true,
+	MetDay:      true,
+	MetAuthor:   true,
+	MetDirector: true,
+	MetDomain:   true,
+}
