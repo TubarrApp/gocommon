@@ -10,6 +10,7 @@ import (
 )
 
 // Codecs ------------------------------------------------------------------------------------
+
 func TestValidateVideoCodec(t *testing.T) {
 	tests := []struct {
 		in     string
@@ -132,6 +133,7 @@ func TestValidateGPUAccelType(t *testing.T) {
 }
 
 // Filesystem --------------------------------------------------------------------------------
+
 func TestValidateDirectory(t *testing.T) {
 	now := time.Now()
 	tmp := filepath.Join(os.TempDir(), "sv_test_dir"+now.String())
@@ -139,20 +141,30 @@ func TestValidateDirectory(t *testing.T) {
 		os.RemoveAll(tmp)
 	})
 
-	_, err := ValidateDirectory(tmp, false)
-	if err == nil {
+	// Valid template directory.
+	validTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{year}}")
+	if hasTemplating, _, err := ValidateDirectory(validTemplateTmp, false); !hasTemplating || err != nil {
+		t.Errorf("expected pass")
+	}
+
+	// Invalid template directory.
+	invalidTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{BOGUS}}")
+	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false); !hasTemplating || err == nil {
+		t.Errorf("expected fail")
+	}
+
+	// Invalid directory.
+	if _, _, err := ValidateDirectory(tmp, false); err == nil {
 		t.Errorf("expected error")
 	}
 
 	// Creates directory.
-	_, err = ValidateDirectory(tmp, true)
-	if err != nil {
+	if _, _, err := ValidateDirectory(tmp, true); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// Directory should now exist.
-	_, err = ValidateDirectory(tmp, false)
-	if err != nil {
+	if _, _, err := ValidateDirectory(tmp, false); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -164,20 +176,30 @@ func TestValidateFile(t *testing.T) {
 		os.RemoveAll(tmp)
 	})
 
-	_, err := ValidateFile(tmp, false)
-	if err == nil {
+	// Valid template directory.
+	validTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{year}}", "sv_test_file.txt"+now.String())
+	if hasTemplating, _, err := ValidateDirectory(validTemplateTmp, false); !hasTemplating || err != nil {
+		t.Errorf("expected pass")
+	}
+
+	// Invalid template directory.
+	invalidTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{BOGUS}}", "sv_test_file.txt"+now.String())
+	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false); !hasTemplating || err == nil {
+		t.Errorf("expected fail")
+	}
+
+	// Non-existent path.
+	if _, _, err := ValidateFile(tmp, false); err == nil {
 		t.Errorf("expected error")
 	}
 
-	// Creates file.
-	_, err = ValidateFile(tmp, true)
-	if err != nil {
+	// Creates non-existent file.
+	if _, _, err := ValidateFile(tmp, true); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 
 	// File should now exist.
-	_, err = ValidateFile(tmp, false)
-	if err != nil {
+	if _, _, err := ValidateFile(tmp, false); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -206,6 +228,7 @@ func TestGetRenameFlag(t *testing.T) {
 }
 
 // Media -------------------------------------------------------------------------------------
+
 func TestValidateTranscodeQuality(t *testing.T) {
 	out, err := ValidateTranscodeQuality("25")
 	if err != nil || out != "25" {
