@@ -21,6 +21,7 @@ const (
 	AVIComment     = "ICMT"
 	AVIDateCreated = "ICRD"
 	AVIEngineer    = "IENG"
+	AVIStar        = "STAR"
 	AVITitle       = "INAM"
 	AVISubject     = "ISBJ"
 	AVIYear        = "YEAR"
