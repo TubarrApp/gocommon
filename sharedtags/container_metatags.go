@@ -1,3 +1,4 @@
+// Package sharedtags holds tag information for things like JSON fields, and container metatags.
 package sharedtags
 
 // ISOBMFF container metatag keys.
