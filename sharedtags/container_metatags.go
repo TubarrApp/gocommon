@@ -20,7 +20,7 @@ const (
 	AVIArtist      = "IART"
 	AVIComment     = "ICMT"
 	AVIDateCreated = "ICRD"
-	AVIProducer    = "IENG"
+	AVIEngineer    = "IENG"
 	AVITitle       = "INAM"
 	AVISubject     = "ISBJ"
 	AVIYear        = "YEAR"
