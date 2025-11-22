@@ -61,3 +61,36 @@ var AllMetaExtensions = map[string]bool{
 	MExtJSON: true,
 	MExtNFO:  true,
 }
+
+// FilterByVidExtensions is a list of found video file extensions.
+// Set true if user wants to work on files of this type.
+var FilterByVidExtensions = map[string]bool{
+	Ext3GP:  false,
+	Ext3G2:  false,
+	ExtASF:  false,
+	ExtAVI:  false,
+	ExtF4V:  false,
+	ExtFLV:  false,
+	ExtOGM:  false,
+	ExtOGV:  false,
+	ExtM4V:  false,
+	ExtMKV:  false,
+	ExtMOV:  false,
+	ExtMP4:  false,
+	ExtMPEG: false,
+	ExtMPG:  false,
+	ExtMTS:  false,
+	ExtRM:   false,
+	ExtRMVB: false,
+	ExtTS:   false,
+	ExtVOB:  false,
+	ExtWEBM: false,
+	ExtWMV:  false,
+}
+
+// FilterByMetaExtension is a list of found meta file extensions.
+// Set true if user wants to work on files of this type.
+var FilterByMetaExtension = map[string]bool{
+	MExtJSON: false,
+	MExtNFO:  false,
+}
