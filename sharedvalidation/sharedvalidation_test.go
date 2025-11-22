@@ -41,6 +41,34 @@ func TestValidateVideoCodec(t *testing.T) {
 	}
 }
 
+func TestValidateOutputExt(t *testing.T) {
+	tests := []struct {
+		in     string
+		expect string
+		ok     bool
+	}{
+		{sharedconsts.ExtMP4, sharedconsts.ExtMP4, true},
+		{"mp4", sharedconsts.ExtMP4, true},
+		{sharedconsts.ExtOGV, sharedconsts.ExtOGV, true},
+		{"rm", sharedconsts.ExtRM, true},
+		{"    MP4   ", sharedconsts.ExtMP4, true},
+		{"    JUNK   ", "", false},
+	}
+
+	for _, tt := range tests {
+		out, err := ValidateOutputExt(tt.in)
+		if tt.ok && err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("expected error for %q", tt.in)
+		}
+		if out != tt.expect {
+			t.Errorf("expected %q got %q", tt.expect, out)
+		}
+	}
+}
+
 func TestValidateVideoCodecWithAccel(t *testing.T) {
 	tests := []struct {
 		codec     string

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // ValidateConcurrencyLimit validates a concurrency limit, returning at least 1.
@@ -73,4 +75,20 @@ func ValidateMaxCPU(maxCPU float64, allowZero bool) float64 {
 
 	// Clamp non-zero value between accepted bounds.
 	return min(max(maxCPU, 5.0), 101.0)
+}
+
+// ValidateOutputExt validates that the output extension is correct.
+func ValidateOutputExt(o string) (string, error) {
+	o = strings.TrimSpace(o)
+	o = strings.ToLower(o)
+	if !strings.HasPrefix(o, ".") {
+		o = "." + o
+	}
+
+	// Check valid video extension.
+	if sharedconsts.AllVidExtensions[o] {
+		return o, nil
+	}
+
+	return "", fmt.Errorf("output filetype %q is not supported", o)
 }
