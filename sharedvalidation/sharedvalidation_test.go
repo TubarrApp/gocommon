@@ -56,7 +56,7 @@ func TestValidateOutputExt(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		out, err := ValidateOutputExt(tt.in)
+		out, err := ValidateFFmpegOutputExt(tt.in)
 		if tt.ok && err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}

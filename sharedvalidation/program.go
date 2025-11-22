@@ -77,8 +77,8 @@ func ValidateMaxCPU(maxCPU float64, allowZero bool) float64 {
 	return min(max(maxCPU, 5.0), 101.0)
 }
 
-// ValidateOutputExt validates that the output extension is correct.
-func ValidateOutputExt(o string) (string, error) {
+// ValidateFFmpegOutputExt validates that the output extension is correct.
+func ValidateFFmpegOutputExt(o string) (string, error) {
 	o = strings.TrimSpace(o)
 	o = strings.ToLower(o)
 	if !strings.HasPrefix(o, ".") {
