@@ -18,6 +18,10 @@ const (
 	OpDateTag       = "date-tag"
 	OpDeleteDateTag = "delete-date-tag"
 
+	// Locations.
+	OpLocPrefix = "prefix"
+	OpLocSuffix = "suffix"
+
 	// Replacement operations.
 	OpReplace       = "replace"
 	OpReplaceSuffix = "replace-suffix"
