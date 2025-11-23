@@ -12,7 +12,7 @@ import (
 )
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
-func ValidateDirectory(dir string, createIfNotFound bool, templateMap map[string]bool) (hasTemplating bool, fileInfo os.FileInfo, err error) {
+func ValidateDirectory(dir string, createIfNotFound bool, templateMap map[string]struct{}) (hasTemplating bool, fileInfo os.FileInfo, err error) {
 	dir = filepath.Clean(dir)
 
 	// Check template tags.
@@ -53,7 +53,7 @@ func ValidateDirectory(dir string, createIfNotFound bool, templateMap map[string
 }
 
 // ValidateFile validates that the file exists, else creates it if desired.
-func ValidateFile(path string, createIfNotFound bool, templateMap map[string]bool) (hasTemplating bool, fileInfo os.FileInfo, err error) {
+func ValidateFile(path string, createIfNotFound bool, templateMap map[string]struct{}) (hasTemplating bool, fileInfo os.FileInfo, err error) {
 	path = filepath.Clean(path)
 
 	// Check template tags.
@@ -97,41 +97,32 @@ func ValidateFile(path string, createIfNotFound bool, templateMap map[string]boo
 }
 
 // GetRenameFlag maps aliases from input if needed.
-func GetRenameFlag(inFlag string) (outFlag string) {
-	if inFlag == "" {
+func GetRenameFlag(f string) (validRenameFlag string) {
+	if f == "" {
 		return ""
 	}
 
 	// Normalize string.
-	f := inFlag
 	f = strings.ReplaceAll(f, " ", "")
 	f = strings.ToLower(f)
 
+	if mapped, ok := sharedconsts.RenameAlias[f]; ok {
+		f = mapped
+	}
+
 	// Check map.
-	if sharedconsts.ValidRenameFlags[f] {
+	if _, ok := sharedconsts.ValidRenameFlags[f]; ok {
 		return f
 	}
 
-	// Find aliases.
-	switch f {
-	case "space", "spaced":
-		return sharedconsts.RenameSpaces
-	case "underscore", "underscored":
-		return sharedconsts.RenameUnderscores
-	case "fix", "fixed", "fixes", "fixesonly":
-		return sharedconsts.RenameFixesOnly
-	case "skipped", "skipping", "skips", "none":
-		return sharedconsts.RenameSkip
-	}
-
-	// No alias, send back input.
-	return inFlag
+	// No alias, send back zero.
+	return ""
 }
 
 // **** Private **********************************************************************************
 
 // checkTemplateTags checks if the input string contains template elements.
-func checkTemplateTags(s string, templateMap map[string]bool) (hasTemplating bool, err error) {
+func checkTemplateTags(s string, templateMap map[string]struct{}) (hasTemplating bool, err error) {
 	if strings.Contains(s, "{{") && strings.Contains(s, "}}") {
 
 		// Check all template tags for validity.
@@ -150,7 +141,7 @@ func checkTemplateTags(s string, templateMap map[string]bool) (hasTemplating boo
 }
 
 // checkAllTemplateTags recursively checks template tags in string.
-func checkAllTemplateTags(s string, templateMap map[string]bool) bool {
+func checkAllTemplateTags(s string, templateMap map[string]struct{}) bool {
 	for {
 		// Start tag index.
 		start := strings.Index(s, "{{")
@@ -172,7 +163,7 @@ func checkAllTemplateTags(s string, templateMap map[string]bool) bool {
 
 		// Extract tag, compare against map.
 		tag := s[start+2 : endAbs]
-		if !templateMap[tag] {
+		if _, ok := templateMap[tag]; !ok {
 			return false
 		}
 

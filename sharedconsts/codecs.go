@@ -39,41 +39,41 @@ const (
 )
 
 // ValidVideoCodecs maps valid video codec names to true.
-var ValidVideoCodecs = map[string]bool{
-	VCodecCopy:  true,
-	VCodecAV1:   true,
-	VCodecH264:  true,
-	VCodecHEVC:  true,
-	VCodecMPEG2: true,
-	VCodecVP8:   true,
-	VCodecVP9:   true,
+var ValidVideoCodecs = map[string]struct{}{
+	VCodecCopy:  {},
+	VCodecAV1:   {},
+	VCodecH264:  {},
+	VCodecHEVC:  {},
+	VCodecMPEG2: {},
+	VCodecVP8:   {},
+	VCodecVP9:   {},
 }
 
 // ValidAudioCodecs maps valid audio codec names to true.
-var ValidAudioCodecs = map[string]bool{
-	ACodecCopy:   true,
-	ACodecAAC:    true,
-	ACodecAC3:    true,
-	ACodecALAC:   true,
-	ACodecDTS:    true,
-	ACodecEAC3:   true,
-	ACodecFLAC:   true,
-	ACodecMP2:    true,
-	ACodecMP3:    true,
-	ACodecOpus:   true,
-	ACodecPCM:    true,
-	ACodecTrueHD: true,
-	ACodecVorbis: true,
-	ACodecWAV:    true,
+var ValidAudioCodecs = map[string]struct{}{
+	ACodecCopy:   {},
+	ACodecAAC:    {},
+	ACodecAC3:    {},
+	ACodecALAC:   {},
+	ACodecDTS:    {},
+	ACodecEAC3:   {},
+	ACodecFLAC:   {},
+	ACodecMP2:    {},
+	ACodecMP3:    {},
+	ACodecOpus:   {},
+	ACodecPCM:    {},
+	ACodecTrueHD: {},
+	ACodecVorbis: {},
+	ACodecWAV:    {},
 }
 
 // ValidGPUAccelTypes maps valid GPU acceleration type names to true.
-var ValidGPUAccelTypes = map[string]bool{
-	AccelTypeAuto:   true,
-	AccelTypeAMF:    true,
-	AccelTypeIntel:  true,
-	AccelTypeNvidia: true,
-	AccelTypeVAAPI:  true,
+var ValidGPUAccelTypes = map[string]struct{}{
+	AccelTypeAuto:   {},
+	AccelTypeAMF:    {},
+	AccelTypeIntel:  {},
+	AccelTypeNvidia: {},
+	AccelTypeVAAPI:  {},
 }
 
 // ** Aliases ***********************************************************************************************

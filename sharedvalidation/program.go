@@ -86,7 +86,7 @@ func ValidateFFmpegOutputExt(o string) (string, error) {
 	}
 
 	// Check valid video extension.
-	if sharedconsts.AllVidExtensions[o] {
+	if _, ok := sharedconsts.AllVidExtensions[o]; ok {
 		return o, nil
 	}
 

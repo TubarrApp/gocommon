@@ -21,12 +21,12 @@ func ValidateVideoCodec(c string) (string, error) {
 	c = strings.ReplaceAll(c, "_", "")
 
 	// Synonym and alias mapping.
-	if mapped, exists := sharedconsts.VideoCodecAlias[c]; exists {
+	if mapped, ok := sharedconsts.VideoCodecAlias[c]; ok {
 		c = mapped
 	}
 
 	// Check against valid codec map.
-	if sharedconsts.ValidVideoCodecs[c] {
+	if _, ok := sharedconsts.ValidVideoCodecs[c]; ok {
 		return c, nil
 	}
 
@@ -35,25 +35,24 @@ func ValidateVideoCodec(c string) (string, error) {
 
 // ValidateVideoCodecWithAccel validates a video codec string with GPU acceleration context.
 // Returns an error if auto/none codec is used with specific GPU acceleration.
-func ValidateVideoCodecWithAccel(c, accel string) (validCodec string, err error) {
+func ValidateVideoCodecWithAccel(c, accelType string) (validVideoCodec string, err error) {
 	// Ensure valid codec.
-	validated, err := ValidateVideoCodec(c)
-	if err != nil {
+	if c, err = ValidateVideoCodec(c); err != nil {
 		return "", err
 	}
 
 	// Check if empty codec is allowed with the given acceleration type.
-	if validated == "" &&
-		(accel != "" && accel != sharedconsts.AccelTypeAuto) {
-		return "", fmt.Errorf("GPU acceleration type %q requires a codec (entered %q)", accel, c)
+	if c == "" &&
+		(accelType != "" && accelType != sharedconsts.AccelTypeAuto) {
+		return "", fmt.Errorf("GPU acceleration type %q requires a codec (entered %q)", accelType, c)
 	}
 
-	return validated, nil
+	return c, nil
 }
 
 // ValidateAudioCodec validates an audio codec string and returns the normalized codec name.
 // Handles common aliases and synonyms (e.g., "mp3" -> "mp3", "libmp3lame" -> "mp3").
-func ValidateAudioCodec(a string) (string, error) {
+func ValidateAudioCodec(a string) (validAudioCodec string, err error) {
 	if a == "" {
 		return "", nil
 	}
@@ -65,12 +64,12 @@ func ValidateAudioCodec(a string) (string, error) {
 	a = strings.ReplaceAll(a, "_", "")
 
 	// Synonym and alias mapping.
-	if mapped, exists := sharedconsts.AudioCodecAlias[a]; exists {
+	if mapped, ok := sharedconsts.AudioCodecAlias[a]; ok {
 		a = mapped
 	}
 
 	// Check against valid codec map.
-	if sharedconsts.ValidAudioCodecs[a] {
+	if _, ok := sharedconsts.ValidAudioCodecs[a]; ok {
 		return a, nil
 	}
 
@@ -78,20 +77,20 @@ func ValidateAudioCodec(a string) (string, error) {
 }
 
 // ValidateGPUAccelType validates a GPU acceleration type string.
-func ValidateGPUAccelType(accel string) (string, error) {
+func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 	// Normalize input.
-	accel = strings.ToLower(strings.TrimSpace(accel))
+	a = strings.ToLower(strings.TrimSpace(a))
 
 	// Synonym and alias mapping.
-	if mapped, exists := sharedconsts.AccelAlias[accel]; exists {
-		accel = mapped
+	if mapped, ok := sharedconsts.AccelAlias[a]; ok {
+		a = mapped
 	}
 
 	// Check against valid acceleration type map.
-	if sharedconsts.ValidGPUAccelTypes[accel] {
-		return accel, nil
+	if _, ok := sharedconsts.ValidGPUAccelTypes[a]; ok {
+		return a, nil
 	}
 
 	// Return error on map check failure.
-	return "", fmt.Errorf("%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, accel, sharedconsts.ValidGPUAccelTypes)
+	return "", fmt.Errorf("%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, a, sharedconsts.ValidGPUAccelTypes)
 }

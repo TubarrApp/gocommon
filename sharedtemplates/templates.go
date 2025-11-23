@@ -33,30 +33,28 @@ const (
 	MetDomain = "domain"
 )
 
-// AllTemplatesMap contains the different template tags available.
-//
-// E.g. ChannelName 'true' as '{{channel_name}}' is replaced with a Channel.Name variable.
-var AllTemplatesMap = map[string]bool{
-	ChannelID:   true,
-	ChannelName: true,
-	ChannelURL:  true,
-	VideoID:     true,
-	VideoTitle:  true,
-	VideoURL:    true,
-	MetDay:      true,
-	MetMonth:    true,
-	MetYear:     true,
-	MetAuthor:   true,
-	MetDirector: true,
-	MetDomain:   true,
+// AllTemplatesMap contains the different template tags available across both Tubarr and Metarr.
+var AllTemplatesMap = map[string]struct{}{
+	ChannelID:   {},
+	ChannelName: {},
+	ChannelURL:  {},
+	VideoID:     {},
+	VideoTitle:  {},
+	VideoURL:    {},
+	MetDay:      {},
+	MetMonth:    {},
+	MetYear:     {},
+	MetAuthor:   {},
+	MetDirector: {},
+	MetDomain:   {},
 }
 
 // MetarrTemplateTags contains templating tags which are fillable by Metarr.
-var MetarrTemplateTags = map[string]bool{
-	MetYear:     true,
-	MetMonth:    true,
-	MetDay:      true,
-	MetAuthor:   true,
-	MetDirector: true,
-	MetDomain:   true,
+var MetarrTemplateTags = map[string]struct{}{
+	MetYear:     {},
+	MetMonth:    {},
+	MetDay:      {},
+	MetAuthor:   {},
+	MetDirector: {},
+	MetDomain:   {},
 }

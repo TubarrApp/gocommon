@@ -32,34 +32,34 @@ const (
 )
 
 // AllVidExtensions is a list of video file extensions.
-var AllVidExtensions = map[string]bool{
-	Ext3GP:  true,
-	Ext3G2:  true,
-	ExtASF:  true,
-	ExtAVI:  true,
-	ExtF4V:  true,
-	ExtFLV:  true,
-	ExtOGM:  true,
-	ExtOGV:  true,
-	ExtM4V:  true,
-	ExtMKV:  true,
-	ExtMOV:  true,
-	ExtMP4:  true,
-	ExtMPEG: true,
-	ExtMPG:  true,
-	ExtMTS:  true,
-	ExtRM:   true,
-	ExtRMVB: true,
-	ExtTS:   true,
-	ExtVOB:  true,
-	ExtWEBM: true,
-	ExtWMV:  true,
+var AllVidExtensions = map[string]struct{}{
+	Ext3GP:  {},
+	Ext3G2:  {},
+	ExtASF:  {},
+	ExtAVI:  {},
+	ExtF4V:  {},
+	ExtFLV:  {},
+	ExtOGM:  {},
+	ExtOGV:  {},
+	ExtM4V:  {},
+	ExtMKV:  {},
+	ExtMOV:  {},
+	ExtMP4:  {},
+	ExtMPEG: {},
+	ExtMPG:  {},
+	ExtMTS:  {},
+	ExtRM:   {},
+	ExtRMVB: {},
+	ExtTS:   {},
+	ExtVOB:  {},
+	ExtWEBM: {},
+	ExtWMV:  {},
 }
 
 // AllMetaExtensions contains the list of meta extensions.
-var AllMetaExtensions = map[string]bool{
-	MExtJSON: true,
-	MExtNFO:  true,
+var AllMetaExtensions = map[string]struct{}{
+	MExtJSON: {},
+	MExtNFO:  {},
 }
 
 // FilterByVidExtensions is a list of found video file extensions.

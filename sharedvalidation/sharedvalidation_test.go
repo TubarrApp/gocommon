@@ -44,10 +44,8 @@ func TestValidateVideoCodec(t *testing.T) {
 
 func FuzzValidateVideoCodec(f *testing.F) {
 	f.Add("")
-	for k, v := range sharedconsts.ValidVideoCodecs {
-		if v {
-			f.Add(k)
-		}
+	for k := range sharedconsts.ValidVideoCodecs {
+		f.Add(k)
 	}
 	for k := range sharedconsts.VideoCodecAlias {
 		f.Add(k)
@@ -66,7 +64,7 @@ func FuzzValidateVideoCodec(f *testing.F) {
 			return
 		}
 
-		if !sharedconsts.ValidVideoCodecs[out] {
+		if _, ok := sharedconsts.ValidVideoCodecs[out]; !ok {
 			t.Fatalf("Input %q gave invalid output string %q", a, out)
 		}
 	})
@@ -166,10 +164,8 @@ func TestValidateAudioCodec(t *testing.T) {
 
 func FuzzValidateAudioCodec(f *testing.F) {
 	f.Add("")
-	for k, v := range sharedconsts.ValidAudioCodecs {
-		if v {
-			f.Add(k)
-		}
+	for k := range sharedconsts.ValidAudioCodecs {
+		f.Add(k)
 	}
 	for k := range sharedconsts.AudioCodecAlias {
 		f.Add(k)
@@ -188,7 +184,7 @@ func FuzzValidateAudioCodec(f *testing.F) {
 			return
 		}
 
-		if !sharedconsts.ValidAudioCodecs[out] {
+		if _, ok := sharedconsts.ValidAudioCodecs[out]; !ok {
 			t.Fatalf("Input %q gave invalid output string %q", a, out)
 		}
 	})
@@ -223,10 +219,8 @@ func TestValidateGPUAccelType(t *testing.T) {
 
 func FuzzValidateGPUAccelType(f *testing.F) {
 	f.Add("")
-	for k, v := range sharedconsts.ValidGPUAccelTypes {
-		if v {
-			f.Add(k)
-		}
+	for k := range sharedconsts.ValidGPUAccelTypes {
+		f.Add(k)
 	}
 	for k := range sharedconsts.AccelAlias {
 		f.Add(k)
@@ -245,7 +239,7 @@ func FuzzValidateGPUAccelType(f *testing.F) {
 			return
 		}
 
-		if !sharedconsts.ValidGPUAccelTypes[out] {
+		if _, ok := sharedconsts.ValidGPUAccelTypes[out]; !ok {
 			t.Fatalf("Input %q gave invalid output string %q", a, out)
 		}
 	})
@@ -336,6 +330,7 @@ func TestGetRenameFlag(t *testing.T) {
 		{"fixed", sharedconsts.RenameFixesOnly},
 		{"none", sharedconsts.RenameSkip},
 		{"", ""},
+		{"INVALID", ""},
 	}
 
 	for _, tt := range tests {
