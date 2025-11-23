@@ -17,21 +17,8 @@ func ValidateVideoCodec(c string) (string, error) {
 	c = strings.ReplaceAll(c, "_", "")
 
 	// Synonym and alias mapping.
-	switch c {
-	case "", "none", "auto", "automatic", "automated":
-		return "", nil
-	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
-		c = sharedconsts.VCodecAV1
-	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
-		c = sharedconsts.VCodecH264
-	case "x265", "h265", "hevc265", "libx265", "hevc":
-		c = sharedconsts.VCodecHEVC
-	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
-		c = sharedconsts.VCodecMPEG2
-	case "libvpx", "vp08", "vpx", "vpx8":
-		c = sharedconsts.VCodecVP8
-	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
-		c = sharedconsts.VCodecVP9
+	if mapped, exists := sharedconsts.VideoCodecAlias[c]; exists {
+		c = mapped
 	}
 
 	// Check against valid codec map.
@@ -70,33 +57,8 @@ func ValidateAudioCodec(a string) (string, error) {
 	a = strings.ReplaceAll(a, "_", "")
 
 	// Synonym and alias mapping.
-	switch a {
-	case "", "none", "auto", "automatic", "automated":
-		return "", nil
-	case "aac", "aaclc", "m4a", "mp4a", "aaclowcomplexity":
-		a = sharedconsts.ACodecAAC
-	case "alac", "applelossless", "m4aalac":
-		a = sharedconsts.ACodecALAC
-	case "dca", "dts", "dtshd", "dtshdma", "dtsma", "dtsmahd", "dtscodec":
-		a = sharedconsts.ACodecDTS
-	case "ddplus", "dolbydigitalplus", "ac3e", "ec3", "eac3":
-		a = sharedconsts.ACodecEAC3
-	case "flac", "flaccodec", "fla", "losslessflac":
-		a = sharedconsts.ACodecFLAC
-	case "mp2", "mpa", "mpeg2audio", "mpeg2", "m2a", "mp2codec":
-		a = sharedconsts.ACodecMP2
-	case "mp3", "libmp3lame", "mpeg3", "mpeg3audio", "mpg3", "mp3codec":
-		a = sharedconsts.ACodecMP3
-	case "opus", "opuscodec", "oggopus", "webmopus":
-		a = sharedconsts.ACodecOpus
-	case "pcm", "wavpcm", "rawpcm", "pcm16", "pcms16le", "pcms24le", "pcmcodec":
-		a = sharedconsts.ACodecPCM
-	case "truehd", "dolbytruehd", "thd", "truehdcodec":
-		a = sharedconsts.ACodecTrueHD
-	case "vorbis", "oggvorbis", "webmvorbis", "vorbiscodec", "vorb":
-		a = sharedconsts.ACodecVorbis
-	case "wav", "wave", "waveform", "pcmwave", "wavcodec":
-		a = sharedconsts.ACodecWAV
+	if mapped, exists := sharedconsts.AudioCodecAlias[a]; exists {
+		a = mapped
 	}
 
 	// Check against valid codec map.
@@ -113,15 +75,8 @@ func ValidateGPUAccelType(accel string) (string, error) {
 	accel = strings.ToLower(strings.TrimSpace(accel))
 
 	// Synonym and alias mapping.
-	switch accel {
-	case "automatic", "automate", "automated":
-		accel = sharedconsts.AccelTypeAuto
-	case "radeon", "amd":
-		accel = sharedconsts.AccelTypeAMF
-	case "intel":
-		accel = sharedconsts.AccelTypeIntel
-	case "nvidia", "nvenc":
-		accel = sharedconsts.AccelTypeNvidia
+	if mapped, exists := sharedconsts.AccelAlias[accel]; exists {
+		accel = mapped
 	}
 
 	// Check against valid acceleration type map.

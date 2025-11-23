@@ -1,6 +1,7 @@
 package sharedvalidation
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,6 +40,36 @@ func TestValidateVideoCodec(t *testing.T) {
 			t.Errorf("expected %q got %q", tt.expect, out)
 		}
 	}
+}
+
+func FuzzValidateVideoCodec(f *testing.F) {
+	for k, v := range sharedconsts.ValidVideoCodecs {
+		if v {
+			f.Add(k)
+		}
+	}
+	for k := range sharedconsts.VideoCodecAlias {
+		f.Add(k)
+	}
+
+	f.Fuzz(func(t *testing.T, a string) {
+		fmt.Printf("Testing input %q", a)
+		out, err := ValidateVideoCodec(a)
+		if err != nil {
+			if out != "" {
+				t.Fatalf("Got non-empty output %q despite error: %v", out, err)
+			}
+		}
+
+		if out == "" {
+			return
+		}
+
+		if !sharedconsts.ValidVideoCodecs[out] {
+			t.Fatalf("Input %q gave invalid output string %q", a, out)
+		}
+	})
+
 }
 
 func TestValidateOutputExt(t *testing.T) {
