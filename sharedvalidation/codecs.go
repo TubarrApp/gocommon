@@ -45,7 +45,7 @@ func ValidateVideoCodecWithAccel(c, accel string) (validCodec string, err error)
 	// Check if empty codec is allowed with the given acceleration type.
 	if validated == "" &&
 		(accel != "" && accel != sharedconsts.AccelTypeAuto) {
-		return "", fmt.Errorf("GPU acceleration %q requires a codec (entered %q)", accel, c)
+		return "", fmt.Errorf("GPU acceleration type %q requires a codec (entered %q)", accel, c)
 	}
 
 	return validated, nil
