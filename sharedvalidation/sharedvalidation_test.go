@@ -43,6 +43,7 @@ func TestValidateVideoCodec(t *testing.T) {
 }
 
 func FuzzValidateVideoCodec(f *testing.F) {
+	f.Add("")
 	for k, v := range sharedconsts.ValidVideoCodecs {
 		if v {
 			f.Add(k)
@@ -69,7 +70,6 @@ func FuzzValidateVideoCodec(f *testing.F) {
 			t.Fatalf("Input %q gave invalid output string %q", a, out)
 		}
 	})
-
 }
 
 func TestValidateOutputExt(t *testing.T) {
@@ -112,7 +112,6 @@ func TestValidateVideoCodecWithAccel(t *testing.T) {
 		{"libx265", sharedconsts.AccelTypeAuto, sharedconsts.VCodecHEVC, true},
 		{sharedconsts.VCodecAV1, "", sharedconsts.VCodecAV1, true},
 		{"vp09", "", sharedconsts.VCodecVP9, true},
-		{"", sharedconsts.AccelTypeAuto, "", true},
 		{"", "", "", true},
 
 		// Fail states.
@@ -165,6 +164,36 @@ func TestValidateAudioCodec(t *testing.T) {
 	}
 }
 
+func FuzzValidateAudioCodec(f *testing.F) {
+	f.Add("")
+	for k, v := range sharedconsts.ValidAudioCodecs {
+		if v {
+			f.Add(k)
+		}
+	}
+	for k := range sharedconsts.AudioCodecAlias {
+		f.Add(k)
+	}
+
+	f.Fuzz(func(t *testing.T, a string) {
+		fmt.Printf("Testing input %q", a)
+		out, err := ValidateAudioCodec(a)
+		if err != nil {
+			if out != "" {
+				t.Fatalf("Got non-empty output %q despite error: %v", out, err)
+			}
+		}
+
+		if out == "" {
+			return
+		}
+
+		if !sharedconsts.ValidAudioCodecs[out] {
+			t.Fatalf("Input %q gave invalid output string %q", a, out)
+		}
+	})
+}
+
 func TestValidateGPUAccelType(t *testing.T) {
 	out, err := ValidateGPUAccelType(sharedconsts.AccelTypeNvidia)
 	if err != nil || out != sharedconsts.AccelTypeNvidia {
@@ -190,6 +219,36 @@ func TestValidateGPUAccelType(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected failure for blank accel")
 	}
+}
+
+func FuzzValidateGPUAccelType(f *testing.F) {
+	f.Add("")
+	for k, v := range sharedconsts.ValidGPUAccelTypes {
+		if v {
+			f.Add(k)
+		}
+	}
+	for k := range sharedconsts.AccelAlias {
+		f.Add(k)
+	}
+
+	f.Fuzz(func(t *testing.T, a string) {
+		fmt.Printf("Testing input %q", a)
+		out, err := ValidateGPUAccelType(a)
+		if err != nil {
+			if out != "" {
+				t.Fatalf("Got non-empty output %q despite error: %v", out, err)
+			}
+		}
+
+		if out == "" {
+			return
+		}
+
+		if !sharedconsts.ValidGPUAccelTypes[out] {
+			t.Fatalf("Input %q gave invalid output string %q", a, out)
+		}
+	})
 }
 
 // Filesystem --------------------------------------------------------------------------------

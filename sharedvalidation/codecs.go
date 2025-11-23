@@ -10,6 +10,10 @@ import (
 // ValidateVideoCodec validates a video codec string and returns the normalized codec name.
 // Handles common aliases and synonyms (e.g., "x264" -> "h264", "libx265" -> "hevc").
 func ValidateVideoCodec(c string) (string, error) {
+	if c == "" {
+		return "", nil
+	}
+
 	// Normalize input.
 	c = strings.ToLower(strings.TrimSpace(c))
 	c = strings.ReplaceAll(c, ".", "")
@@ -50,6 +54,10 @@ func ValidateVideoCodecWithAccel(c, accel string) (validCodec string, err error)
 // ValidateAudioCodec validates an audio codec string and returns the normalized codec name.
 // Handles common aliases and synonyms (e.g., "mp3" -> "mp3", "libmp3lame" -> "mp3").
 func ValidateAudioCodec(a string) (string, error) {
+	if a == "" {
+		return "", nil
+	}
+
 	// Normalize input.
 	a = strings.ToLower(strings.TrimSpace(a))
 	a = strings.ReplaceAll(a, ".", "")
