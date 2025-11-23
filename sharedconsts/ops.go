@@ -25,7 +25,7 @@ const (
 
 	// Append and suffix.
 	OpAppend = "append"
-	OpSuffix = "suffix"
+	OpPrefix = "prefix"
 
 	// Set.
 	OpSet = "set"
