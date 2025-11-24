@@ -2,7 +2,6 @@ package sharedvalidation
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
@@ -89,12 +88,6 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 	// Synonym and alias mapping.
 	if mapped, ok := sharedconsts.AccelAlias[a]; ok {
 		a = mapped
-	}
-
-	OS := runtime.GOOS
-	if OS != "windows" && a == sharedconsts.AccelTypeAMF {
-		fmt.Fprint(os.Stderr, "AMF only supported on Windows, omitting.")
-		a = sharedconsts.AccelTypeAuto
 	}
 
 	// Check against valid acceleration type map.
