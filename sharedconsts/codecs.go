@@ -31,11 +31,12 @@ const (
 
 // GPU acceleration type constants.
 const (
-	AccelTypeAuto   = "auto"
-	AccelTypeAMF    = "amf"
-	AccelTypeIntel  = "qsv"
-	AccelTypeNvidia = "cuda"
-	AccelTypeVAAPI  = "vaapi"
+	AccelTypeAuto         = "auto"
+	AccelTypeAMF          = "amf"
+	AccelTypeIntel        = "qsv"
+	AccelTypeNvidia       = "cuda"
+	AccelTypeVAAPI        = "vaapi"
+	AccelTypeVideoToolbox = "videotoolbox"
 )
 
 // ValidVideoCodecs maps valid video codec names to true.
@@ -69,11 +70,12 @@ var ValidAudioCodecs = map[string]struct{}{
 
 // ValidGPUAccelTypes maps valid GPU acceleration type names to true.
 var ValidGPUAccelTypes = map[string]struct{}{
-	AccelTypeAuto:   {},
-	AccelTypeAMF:    {},
-	AccelTypeIntel:  {},
-	AccelTypeNvidia: {},
-	AccelTypeVAAPI:  {},
+	AccelTypeAuto:         {},
+	AccelTypeAMF:          {},
+	AccelTypeIntel:        {},
+	AccelTypeNvidia:       {},
+	AccelTypeVAAPI:        {},
+	AccelTypeVideoToolbox: {},
 }
 
 // ** Aliases ***********************************************************************************************

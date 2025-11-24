@@ -2,12 +2,15 @@ package sharedvalidation
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // ValidateVideoCodec validates a video codec string and returns the normalized codec name.
+//
 // Handles common aliases and synonyms (e.g., "x264" -> "h264", "libx265" -> "hevc").
 func ValidateVideoCodec(c string) (string, error) {
 	if c == "" {
@@ -34,6 +37,7 @@ func ValidateVideoCodec(c string) (string, error) {
 }
 
 // ValidateVideoCodecWithAccel validates a video codec string with GPU acceleration context.
+//
 // Returns an error if auto/none codec is used with specific GPU acceleration.
 func ValidateVideoCodecWithAccel(c, accelType string) (validVideoCodec string, err error) {
 	// Ensure valid codec.
@@ -51,6 +55,7 @@ func ValidateVideoCodecWithAccel(c, accelType string) (validVideoCodec string, e
 }
 
 // ValidateAudioCodec validates an audio codec string and returns the normalized codec name.
+//
 // Handles common aliases and synonyms (e.g., "mp3" -> "mp3", "libmp3lame" -> "mp3").
 func ValidateAudioCodec(a string) (validAudioCodec string, err error) {
 	if a == "" {
@@ -86,6 +91,12 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 		a = mapped
 	}
 
+	OS := runtime.GOOS
+	if OS != "windows" && a == sharedconsts.AccelTypeAMF {
+		fmt.Fprint(os.Stderr, "AMF only supported on Windows, omitting.")
+		a = sharedconsts.AccelTypeAuto
+	}
+
 	// Check against valid acceleration type map.
 	if _, ok := sharedconsts.ValidGPUAccelTypes[a]; ok {
 		return a, nil
@@ -93,4 +104,16 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 
 	// Return error on map check failure.
 	return "", fmt.Errorf("%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, a, sharedconsts.ValidGPUAccelTypes)
+}
+
+// VerifyOSAccelSupport verified OS support for this acceleration type.
+func VerifyOSAccelSupport(a string) bool {
+	// Get OS.
+	OS := runtime.GOOS
+
+	// AMD.
+	if a == sharedconsts.AccelTypeAMF {
+		return OS == "windows" // Only supported on Windows.
+	}
+	return true
 }
