@@ -33,8 +33,8 @@ const (
 const (
 	AccelTypeAuto         = "auto"
 	AccelTypeAMF          = "amf"
-	AccelTypeIntel        = "qsv"
-	AccelTypeNvidia       = "cuda"
+	AccelTypeCuda         = "cuda"
+	AccelTypeQSV          = "qsv"
 	AccelTypeVAAPI        = "vaapi"
 	AccelTypeVideoToolbox = "videotoolbox"
 )
@@ -72,8 +72,8 @@ var ValidAudioCodecs = map[string]struct{}{
 var ValidGPUAccelTypes = map[string]struct{}{
 	AccelTypeAuto:         {},
 	AccelTypeAMF:          {},
-	AccelTypeIntel:        {},
-	AccelTypeNvidia:       {},
+	AccelTypeCuda:         {},
+	AccelTypeQSV:          {},
 	AccelTypeVAAPI:        {},
 	AccelTypeVideoToolbox: {},
 }
@@ -255,14 +255,14 @@ var AccelAlias = map[string]string{
 	"vcn":    AccelTypeAMF,
 
 	// Intel
-	"intel":     AccelTypeIntel,
-	"qs":        AccelTypeIntel,
-	"quicksync": AccelTypeIntel,
+	"intel":     AccelTypeQSV,
+	"qs":        AccelTypeQSV,
+	"quicksync": AccelTypeQSV,
 
 	// Nvidia
-	"cuvid":  AccelTypeNvidia,
-	"nvdec":  AccelTypeNvidia,
-	"nvcuda": AccelTypeNvidia,
-	"nvidia": AccelTypeNvidia,
-	"nvenc":  AccelTypeNvidia,
+	"cuvid":  AccelTypeCuda,
+	"nvdec":  AccelTypeCuda,
+	"nvcuda": AccelTypeCuda,
+	"nvidia": AccelTypeCuda,
+	"nvenc":  AccelTypeCuda,
 }

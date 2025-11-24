@@ -101,12 +101,21 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 
 // OSSupportsAccelType verified OS support for this acceleration type.
 func OSSupportsAccelType(a string) bool {
-	// Get OS.
 	OS := runtime.GOOS
 
 	// AMD.
 	if a == sharedconsts.AccelTypeAMF {
 		return OS == "windows" // Only supported on Windows.
 	}
+	// VAAPI.
+	if a == sharedconsts.AccelTypeVAAPI {
+		return OS == "linux" // Only supported on Linux.
+	}
+	// Mac and not videotoolbox.
+	if OS == "darwin" {
+		return a == sharedconsts.AccelTypeVideoToolbox
+	}
+
+	// Return true by default.
 	return true
 }

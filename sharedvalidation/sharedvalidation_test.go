@@ -114,7 +114,7 @@ func TestValidateVideoCodecWithAccel(t *testing.T) {
 
 		// Fail states.
 		{"invalid", "", "", false},
-		{"", sharedconsts.AccelTypeNvidia, "", false},
+		{"", sharedconsts.AccelTypeCuda, "", false},
 	}
 
 	for _, tt := range tests {
@@ -191,13 +191,13 @@ func FuzzValidateAudioCodec(f *testing.F) {
 }
 
 func TestValidateGPUAccelType(t *testing.T) {
-	out, err := ValidateGPUAccelType(sharedconsts.AccelTypeNvidia)
-	if err != nil || out != sharedconsts.AccelTypeNvidia {
+	out, err := ValidateGPUAccelType(sharedconsts.AccelTypeCuda)
+	if err != nil || out != sharedconsts.AccelTypeCuda {
 		t.Errorf("expected nvidia (got error? %v)", err)
 	}
 
 	out, err = ValidateGPUAccelType("nvenc")
-	if err != nil || out != sharedconsts.AccelTypeNvidia {
+	if err != nil || out != sharedconsts.AccelTypeCuda {
 		t.Errorf("expected nvidia (got error? %v)", err)
 	}
 
