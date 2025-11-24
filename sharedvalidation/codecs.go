@@ -106,8 +106,8 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 	return "", fmt.Errorf("%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, a, sharedconsts.ValidGPUAccelTypes)
 }
 
-// VerifyOSAccelSupport verified OS support for this acceleration type.
-func VerifyOSAccelSupport(a string) bool {
+// OSSupportsAccelType verified OS support for this acceleration type.
+func OSSupportsAccelType(a string) bool {
 	// Get OS.
 	OS := runtime.GOOS
 
