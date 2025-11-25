@@ -32,8 +32,8 @@ func ValidateTranscodeQuality(q string) (string, error) {
 	return strconv.FormatInt(qNum, 10), nil
 }
 
-// CheckAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
-func CheckAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
+// ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
+func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
 	if g == sharedconsts.AccelTypeAuto {
 		return "", nil // No node path required.
 	}
