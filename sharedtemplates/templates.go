@@ -10,9 +10,8 @@ const (
 
 // Template tags for individual video elements.
 const (
-	VideoID    = "video_id"
-	VideoTitle = "video_title"
-	VideoURL   = "video_url"
+	MetVideoTitle = "video_title"
+	MetVideoURL   = "video_url"
 )
 
 // Template tags for date metadata.
@@ -35,26 +34,34 @@ const (
 
 // AllTemplatesMap contains the different template tags available across both Tubarr and Metarr.
 var AllTemplatesMap = map[string]struct{}{
+	ChannelID:     {},
+	ChannelName:   {},
+	ChannelURL:    {},
+	MetVideoTitle: {},
+	MetVideoURL:   {},
+	MetDay:        {},
+	MetMonth:      {},
+	MetYear:       {},
+	MetAuthor:     {},
+	MetDirector:   {},
+	MetDomain:     {},
+}
+
+// TubarrTemplateTags contains templating tags which are fillable by Tubarr channels.
+var TubarrTemplateTags = map[string]struct{}{
 	ChannelID:   {},
 	ChannelName: {},
 	ChannelURL:  {},
-	VideoID:     {},
-	VideoTitle:  {},
-	VideoURL:    {},
-	MetDay:      {},
-	MetMonth:    {},
-	MetYear:     {},
-	MetAuthor:   {},
-	MetDirector: {},
-	MetDomain:   {},
 }
 
 // MetarrTemplateTags contains templating tags which are fillable by Metarr.
 var MetarrTemplateTags = map[string]struct{}{
-	MetYear:     {},
-	MetMonth:    {},
-	MetDay:      {},
-	MetAuthor:   {},
-	MetDirector: {},
-	MetDomain:   {},
+	MetVideoTitle: {},
+	MetVideoURL:   {},
+	MetYear:       {},
+	MetMonth:      {},
+	MetDay:        {},
+	MetAuthor:     {},
+	MetDirector:   {},
+	MetDomain:     {},
 }

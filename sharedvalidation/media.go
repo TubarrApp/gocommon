@@ -32,6 +32,27 @@ func ValidateTranscodeQuality(q string) (string, error) {
 	return strconv.FormatInt(qNum, 10), nil
 }
 
+// ValidateTranscodePreset validates the transcode preset string.
+func ValidateTranscodePreset(q string) (string, error) {
+	if q == "" {
+		return "", nil
+	}
+
+	// Normalize input.
+	q = strings.ReplaceAll(q, " ", "")
+
+	// Validate integer.
+	qNum, err := strconv.ParseInt(q, 10, 64)
+	if err != nil {
+		return "", fmt.Errorf("transcode quality should be numerical (0-51), got %q", q)
+	}
+
+	// Clamp to valid range.
+	qNum = min(max(qNum, 0), 51)
+
+	return strconv.FormatInt(qNum, 10), nil
+}
+
 // ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
 func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
 	if g == sharedconsts.AccelTypeAuto {
