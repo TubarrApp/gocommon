@@ -65,3 +65,6 @@ var MetarrTemplateTags = map[string]struct{}{
 	MetDirector:   {},
 	MetDomain:     {},
 }
+
+// NoTemplateTags enforces a dis-allowance of template tags in a given filepath.
+var NoTemplateTags = map[string]struct{}{}
