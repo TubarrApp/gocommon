@@ -138,7 +138,7 @@ func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err 
 	// Ensure device node exists if required.
 	if nodePath == "" {
 		switch g {
-		case sharedconsts.AccelTypeQSV,
+		case sharedconsts.AccelTypeCuda,
 			sharedconsts.AccelTypeVAAPI:
 
 			return "", fmt.Errorf("acceleration type %q requires a device directory on Linux systems", g)
