@@ -124,7 +124,7 @@ func OSSupportsAccelType(a string) bool {
 // ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
 func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
 	if g == sharedconsts.AccelTypeAuto {
-		return "", nil // No node path required.
+		return nodePath, nil // No node path required, no need to stat.
 	}
 
 	// Check if node path is needed.
