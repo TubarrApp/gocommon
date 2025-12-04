@@ -138,7 +138,7 @@ func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err 
 		switch g {
 		case sharedconsts.AccelTypeVAAPI:
 			return "", fmt.Errorf("acceleration type %q requires a device directory on Linux systems", g)
-		default:
+		default: // Sent in empty.
 			return nodePath, nil
 		}
 
