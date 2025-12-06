@@ -123,16 +123,6 @@ func OSSupportsAccelType(a string) bool {
 
 // ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
 func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
-	if g == sharedconsts.AccelTypeAuto {
-		return nodePath, nil // No node path required, no need to stat.
-	}
-
-	// Check if node path is needed.
-	if runtime.GOOS != "linux" {
-		fmt.Fprintf(os.Stderr, "Non-linux systems do not need a device directory passed for HW acceleration.\n")
-		return "", nil
-	}
-
 	// Ensure device node exists if required.
 	if nodePath == "" {
 		switch g {
@@ -141,14 +131,12 @@ func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err 
 		default: // Sent in empty.
 			return nodePath, nil
 		}
-
 	}
 
 	// Check device node.
 	if _, err := os.Stat(nodePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("driver location %q does not appear to exist?", nodePath)
+		return "", fmt.Errorf("driver node path %q does not appear to exist?", nodePath)
 	}
 
 	return nodePath, nil
-
 }
