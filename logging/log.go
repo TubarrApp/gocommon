@@ -295,14 +295,14 @@ func (pl *ProgramLogger) GetRecentLogs() [][]byte {
 }
 
 // Log logs a message to the program-specific logger.
-func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool, args ...any) {
+func (pl *ProgramLogger) log(level logType, prefix, msg string, withCaller bool, args ...any) {
 	if len(args) > 0 {
 		msg = fmt.Sprintf(msg, args...)
 	}
 
 	var caller *callerInfo
 	if withCaller {
-		c := getCaller(3) // skip lines: getCaller -> Log -> D/E/W/I/P (etc.) -> [ DESIRED FUNCTION ]
+		c := getCaller(3) // skip lines: getCaller -> log -> D/E/W/I/P (etc.) -> [ DESIRED FUNCTION ]
 		caller = &c
 	}
 
@@ -328,14 +328,16 @@ func (pl *ProgramLogger) Log(level logType, prefix, msg string, withCaller bool,
 // getZerologEvent returns the appropriate zerolog event for the level.
 func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 	switch level {
-	case logError:
-		return pl.FileLogger.Error()
-	case logWarn:
-		return pl.FileLogger.Warn()
 	case logDebug:
 		return pl.FileLogger.Debug()
+	case logError:
+		return pl.FileLogger.Error()
 	case logInfo:
 		return pl.FileLogger.Info()
+	case logSuccess:
+		return pl.FileLogger.Log().Str("level", "success") // Zerolog doesn't have a built-in success level, make custom.
+	case logWarn:
+		return pl.FileLogger.Warn()
 	default:
 		return pl.FileLogger.Log()
 	}
@@ -348,30 +350,30 @@ func (pl *ProgramLogger) D(l int, msg string, args ...any) {
 	if Level < l {
 		return
 	}
-	pl.Log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
+	pl.log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
 }
 
 // E logs error messages for this program.
 func (pl *ProgramLogger) E(msg string, args ...any) {
-	pl.Log(logError, sharedconsts.LogTagError, msg, true, args...)
+	pl.log(logError, sharedconsts.LogTagError, msg, true, args...)
 }
 
 // I logs info messages for this program.
 func (pl *ProgramLogger) I(msg string, args ...any) {
-	pl.Log(logInfo, sharedconsts.LogTagInfo, msg, false, args...)
+	pl.log(logInfo, sharedconsts.LogTagInfo, msg, false, args...)
 }
 
 // P logs plain messages for this program.
 func (pl *ProgramLogger) P(msg string, args ...any) {
-	pl.Log(logPrint, "", msg, false, args...)
+	pl.log(logPrint, "", msg, false, args...)
 }
 
 // S logs success messages for this program.
 func (pl *ProgramLogger) S(msg string, args ...any) {
-	pl.Log(logSuccess, sharedconsts.LogTagSuccess, msg, false, args...)
+	pl.log(logSuccess, sharedconsts.LogTagSuccess, msg, false, args...)
 }
 
 // W logs warning messages for this program.
 func (pl *ProgramLogger) W(msg string, args ...any) {
-	pl.Log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
+	pl.log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
 }
