@@ -294,6 +294,68 @@ func (pl *ProgramLogger) GetRecentLogs() [][]byte {
 	return out
 }
 
+// GetLogsSincePosition returns only the logs added since a specific buffer position.
+func (pl *ProgramLogger) GetLogsSincePosition(lastPos int, wasWrapped bool) [][]byte {
+	pl.LogBufferLock.RLock()
+	defer pl.LogBufferLock.RUnlock()
+
+	currentPos := pl.LogBufferPos
+	currentWrapped := pl.LogBufferFull
+
+	// Case #1: No new logs (position unchanged).
+	if currentPos == lastPos && currentWrapped == wasWrapped {
+		return nil
+	}
+
+	// Case #2: Buffer was not wrapped before and still isn't.
+	if !wasWrapped && !currentWrapped {
+		if currentPos > lastPos {
+			return append([][]byte(nil), pl.LogBuffer[lastPos:currentPos]...)
+		}
+		return nil
+	}
+
+	// Case #3: Buffer was not wrapped before but is now.
+	if !wasWrapped && currentWrapped {
+		// Return from 'lastPos' to end of buffer, then 0 to 'currentPos'.
+		out := make([][]byte, 0, logBufferSize)
+		out = append(out, pl.LogBuffer[lastPos:]...)
+		out = append(out, pl.LogBuffer[:currentPos]...)
+		return out
+	}
+
+	// Case #4: Buffer was wrapped before and still is.
+	if wasWrapped && currentWrapped {
+		if currentPos > lastPos {
+			// No wrap-around occurred between checks
+			return append([][]byte(nil), pl.LogBuffer[lastPos:currentPos]...)
+		}
+		// Wrap-around occurred
+		out := make([][]byte, 0, logBufferSize-lastPos+currentPos)
+		out = append(out, pl.LogBuffer[lastPos:]...)
+		out = append(out, pl.LogBuffer[:currentPos]...)
+		return out
+	}
+
+	// Case #5: Buffer was wrapped but now isn't (shouldn't happen)
+	fmt.Fprintf(os.Stderr, "Dev Error: Buffer unwrapped.")
+	return pl.GetRecentLogs()
+}
+
+// GetBufferPosition returns the current write position in the log buffer.
+func (pl *ProgramLogger) GetBufferPosition() int {
+	pl.LogBufferLock.RLock()
+	defer pl.LogBufferLock.RUnlock()
+	return pl.LogBufferPos
+}
+
+// IsBufferFull returns whether the log buffer is full.
+func (pl *ProgramLogger) IsBufferFull() bool {
+	pl.LogBufferLock.RLock()
+	defer pl.LogBufferLock.RUnlock()
+	return pl.LogBufferFull
+}
+
 // Log logs a message to the program-specific logger.
 func (pl *ProgramLogger) log(level logType, prefix, msg string, withCaller bool, args ...any) {
 	if len(args) > 0 {
