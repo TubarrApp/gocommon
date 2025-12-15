@@ -178,53 +178,20 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 // GetRecentLogsForProgram returns logs from RAM for a specific program.
 // Usually used by server handlers to fill display views.
 func GetRecentLogsForProgram(program string) [][]byte {
-	pl, ok := GetProgramLogger(program)
+	// Load logs for program.
+	val, ok := LogAccessMap.Load(program)
 	if !ok {
 		return nil
 	}
-	return pl.GetRecentLogs()
-}
 
-// GetProgramLogger retrieves a program-specific logger from LogAccessMap.
-func GetProgramLogger(program string) (*ProgramLogger, bool) {
-	val, ok := LogAccessMap.Load(program)
-	if !ok {
-		return nil, false
-	}
+	// Ensure type correctness.
 	pl, ok := val.(*ProgramLogger)
-	return pl, ok
-}
-
-// loadLogsFromFile reads existing log entries from the log file into the buffer.
-func (pl *ProgramLogger) loadLogsFromFile(path string) {
-	file, err := os.Open(path)
-	if err != nil {
-		pl.W("Could not open file %q", path)
-		return
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-
-	for scanner.Scan() {
-		raw := scanner.Bytes()
-		line := make([]byte, len(raw)+1)
-		copy(line, raw)
-		line[len(raw)] = '\n'
-
-		pl.addToRAMLine(line)
+	if !ok {
+		return nil
 	}
 
-	if err := scanner.Err(); err != nil {
-		pl.W("Error scanning log file %q: %v", path, err)
-	}
-}
-
-// writeToConsole writes messages to console without using zerolog.
-func (pl *ProgramLogger) writeToConsole(msg string) {
-	timestamp := time.Now().Format(timeFormat)
-	fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg)
+	// Return recent logs.
+	return pl.GetRecentLogs()
 }
 
 // buildLogMessage constructs a log message with optional caller info.
@@ -354,6 +321,38 @@ func (pl *ProgramLogger) IsBufferFull() bool {
 	pl.LogBufferLock.RLock()
 	defer pl.LogBufferLock.RUnlock()
 	return pl.LogBufferFull
+}
+
+// loadLogsFromFile reads existing log entries from the log file into the buffer.
+func (pl *ProgramLogger) loadLogsFromFile(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		pl.W("Could not open file %q", path)
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	for scanner.Scan() {
+		raw := scanner.Bytes()
+		line := make([]byte, len(raw)+1)
+		copy(line, raw)
+		line[len(raw)] = '\n'
+
+		pl.addToRAMLine(line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		pl.W("Error scanning log file %q: %v", path, err)
+	}
+}
+
+// writeToConsole writes messages to console without using zerolog.
+func (pl *ProgramLogger) writeToConsole(msg string) {
+	timestamp := time.Now().Format(timeFormat)
+	fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg)
 }
 
 // Log logs a message to the program-specific logger.
