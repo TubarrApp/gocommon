@@ -3,8 +3,12 @@ package sharedconsts
 // Operations for various features.
 const (
 	// Contains or omits.
-	OpContains = "contains"
-	OpOmits    = "omits"
+	OpContains  = "contains"
+	OpOmits     = "omits"
+	OpEquals    = "equals"
+	OpNotEquals = "notequals"
+	OpMoreThan  = "morethan"
+	OpLessThan  = "lessthan"
 
 	// Musts and anys.
 	OpMust = "must"
