@@ -56,8 +56,8 @@ func TestParseMetaOpsSkipsInvalid(t *testing.T) {
 	if len(got) != 1 {
 		t.Errorf("parsed %d ops, want 1: %+v", len(got), got)
 	}
-	if len(warnings) != 3 {
-		t.Errorf("got %d warnings, want 3: %v", len(warnings), warnings)
+	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) != 3 {
+		t.Errorf("InvalidEntries = %q, want 3 entries", invalid)
 	}
 }
 
@@ -254,5 +254,72 @@ func TestOpTypeCaseInsensitive(t *testing.T) {
 	}
 	if fops[1].OpType != "date-tag" || fops[1].OpLoc != "suffix" {
 		t.Errorf("filename date-tag not normalized: %+v", fops[1])
+	}
+}
+
+// TestUnescapedPipeInValue covers values holding a bare '|', such as "Title | Channel".
+// The segment before it parses as a URI with a scheme, so requiring a host is what
+// stops it being mistaken for a channel URL prefix.
+func TestUnescapedPipeInValue(t *testing.T) {
+	got, warnings, err := sharedparsing.ParseMetaOps([]string{"title:set:Cats | Dogs"})
+	if err != nil {
+		t.Fatalf("ParseMetaOps: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+	if len(got) != 1 {
+		t.Fatalf("parsed %d ops, want 1", len(got))
+	}
+	if got[0].ChannelURL != "" {
+		t.Errorf("ChannelURL = %q, want empty", got[0].ChannelURL)
+	}
+	if got[0].OpValue != "Cats | Dogs" {
+		t.Errorf("OpValue = %q, want %q", got[0].OpValue, "Cats | Dogs")
+	}
+}
+
+// TestWarningKinds checks that malformed and duplicate entries are distinguishable, so
+// a caller can fail on the former while tolerating the latter.
+func TestWarningKinds(t *testing.T) {
+	_, warnings, err := sharedparsing.ParseMetaOps([]string{
+		"title:set:cats",
+		"title:set:cats",
+		"too:few",
+	})
+	if err != nil {
+		t.Fatalf("ParseMetaOps: %v", err)
+	}
+
+	var dupes, invalid int
+	for _, w := range warnings {
+		switch w.Kind {
+		case sharedparsing.WarnDuplicate:
+			dupes++
+		case sharedparsing.WarnInvalid:
+			invalid++
+		}
+	}
+	if dupes != 1 || invalid != 1 {
+		t.Errorf("got %d duplicate and %d invalid warnings, want 1 each: %v", dupes, invalid, warnings)
+	}
+
+	if entries := sharedparsing.InvalidEntries(warnings); len(entries) != 1 || entries[0] != "too:few" {
+		t.Errorf("InvalidEntries = %q, want [too:few]", entries)
+	}
+}
+
+// TestInvalidEntriesIgnoresDuplicates keeps duplicate-only input non-fatal for callers
+// that treat InvalidEntries as a failure condition.
+func TestInvalidEntriesIgnoresDuplicates(t *testing.T) {
+	_, warnings, err := sharedparsing.ParseMetaOps([]string{"title:set:cats", "title:set:cats"})
+	if err != nil {
+		t.Fatalf("ParseMetaOps: %v", err)
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected a duplicate warning")
+	}
+	if entries := sharedparsing.InvalidEntries(warnings); len(entries) != 0 {
+		t.Errorf("InvalidEntries = %q, want none", entries)
 	}
 }

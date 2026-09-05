@@ -9,6 +9,45 @@ import (
 	"github.com/TubarrApp/gocommon/sharedmodels"
 )
 
+// WarningKind classifies why parsing could not use an entry as written.
+type WarningKind int
+
+// WarningKind definitions.
+const (
+	// WarnInvalid means the entry was malformed or named an unknown operation type and
+	// was skipped entirely.
+	WarnInvalid WarningKind = iota
+	// WarnDuplicate means the entry repeated one already accepted.
+	WarnDuplicate
+	// WarnChannelURL means a leading segment looked like a channel URL but was unusable.
+	WarnChannelURL
+)
+
+// Warning describes an entry parsing could not use as written.
+type Warning struct {
+	Kind  WarningKind
+	Entry string
+	Msg   string
+}
+
+// String renders the warning for logging.
+func (w Warning) String() string {
+	return w.Msg
+}
+
+// InvalidEntries returns the entries that were malformed, for callers that treat a bad
+// operation as fatal rather than skipping it. Duplicates are not included, since
+// dropping them changes nothing about the result.
+func InvalidEntries(warnings []Warning) []string {
+	var invalid []string
+	for _, w := range warnings {
+		if w.Kind == WarnInvalid {
+			invalid = append(invalid, w.Entry)
+		}
+	}
+	return invalid
+}
+
 // ParseFilenameOps parses filename operation strings, e.g. "prefix:[COOL CATEGORY] "
 // or "date-tag:prefix:ymd".
 //
@@ -17,7 +56,7 @@ import (
 //
 // Malformed entries are skipped and described in warnings rather than failing the
 // batch; err is only returned when no entry was usable.
-func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, warnings []string, err error) {
+func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, warnings []Warning, err error) {
 	if len(filenameOps) == 0 {
 		return nil, nil, nil
 	}
@@ -31,12 +70,12 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 	for _, op := range filenameOps {
 		opURL, opPart, urlErr := SplitOpURL(op)
 		if urlErr != nil {
-			warnings = append(warnings, urlErr.Error())
+			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
 		}
 
 		split := EscapedSplit(opPart, fieldSeparator)
 		if len(split) < 2 || len(split) > 3 {
-			warnings = append(warnings, fmt.Sprintf("skipping invalid filename operation %q (expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd')", op))
+			warnings = append(warnings, invalidWarning(op, "expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd'"))
 			continue
 		}
 
@@ -64,13 +103,13 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 				key = newOp.OpType
 
 			default:
-				warnings = append(warnings, fmt.Sprintf("skipping invalid filename operation type %q", split[0]))
+				warnings = append(warnings, invalidWarning(op, fmt.Sprintf("unknown filename operation type %q", split[0])))
 				continue
 			}
 		}
 
 		if _, ok := seen[key]; ok {
-			warnings = append(warnings, fmt.Sprintf("skipping duplicate filename operation %q", opPart))
+			warnings = append(warnings, duplicateWarning(op))
 			continue
 		}
 		seen[key] = struct{}{}
@@ -94,7 +133,7 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 //
 // Malformed entries are skipped and described in warnings rather than failing the
 // batch; err is only returned when no entry was usable.
-func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []string, err error) {
+func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []Warning, err error) {
 	if len(metaOps) == 0 {
 		return nil, nil, nil
 	}
@@ -108,12 +147,12 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []s
 	for _, op := range metaOps {
 		opURL, opPart, urlErr := SplitOpURL(op)
 		if urlErr != nil {
-			warnings = append(warnings, urlErr.Error())
+			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
 		}
 
 		split := EscapedSplit(opPart, fieldSeparator)
 		if len(split) < 3 || len(split) > 4 {
-			warnings = append(warnings, fmt.Sprintf("skipping invalid meta operation %q (expected 'director:set:Spielberg' or 'title:date-tag:suffix:ymd')", op))
+			warnings = append(warnings, invalidWarning(op, "expected 'director:set:Spielberg' or 'title:date-tag:suffix:ymd'"))
 			continue
 		}
 
@@ -143,13 +182,13 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []s
 				key = strings.Join([]string{newOp.Field, newOp.OpType, newOp.OpFindString, newOp.OpValue}, ":")
 
 			default:
-				warnings = append(warnings, fmt.Sprintf("skipping invalid four-part meta operation type %q", newOp.OpType))
+				warnings = append(warnings, invalidWarning(op, fmt.Sprintf("unknown four-part meta operation type %q", newOp.OpType)))
 				continue
 			}
 		}
 
 		if _, ok := seen[key]; ok {
-			warnings = append(warnings, fmt.Sprintf("skipping duplicate meta operation %q", opPart))
+			warnings = append(warnings, duplicateWarning(op))
 			continue
 		}
 		seen[key] = struct{}{}
@@ -237,15 +276,33 @@ func opAppliesTo(opURL, chanURL string) bool {
 	return opURL == "" || chanURL == "" || opURL == chanURL
 }
 
+// invalidWarning reports an entry that was skipped as malformed.
+func invalidWarning(entry, reason string) Warning {
+	return Warning{
+		Kind:  WarnInvalid,
+		Entry: entry,
+		Msg:   fmt.Sprintf("skipping invalid operation %q: %s", entry, reason),
+	}
+}
+
+// duplicateWarning reports an entry that repeated one already accepted.
+func duplicateWarning(entry string) Warning {
+	return Warning{
+		Kind:  WarnDuplicate,
+		Entry: entry,
+		Msg:   fmt.Sprintf("skipping duplicate operation %q", entry),
+	}
+}
+
 // duplicateWarnings describes entries dropped by [Deduplicate].
-func duplicateWarnings(dupes []string) []string {
+func duplicateWarnings(dupes []string) []Warning {
 	if len(dupes) == 0 {
 		return nil
 	}
 
-	warnings := make([]string, 0, len(dupes))
+	warnings := make([]Warning, 0, len(dupes))
 	for _, d := range dupes {
-		warnings = append(warnings, fmt.Sprintf("removing duplicate entry %q", d))
+		warnings = append(warnings, duplicateWarning(d))
 	}
 	return warnings
 }

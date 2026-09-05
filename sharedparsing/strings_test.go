@@ -131,7 +131,11 @@ func TestSplitOpURL(t *testing.T) {
 	}{
 		{"no url", `title:set:cats`, "", `title:set:cats`, false},
 		{"with url", `https://example.com|title:set:cats`, "https://example.com", `title:set:cats`, false},
-		{"invalid url", `notaurl|title:set:cats`, "", `title:set:cats`, true},
+		// A leading segment that is not a URL is not a prefix, so the op is kept whole.
+		{"not a url keeps whole op", `notaurl|title:set:cats`, "", `notaurl|title:set:cats`, false},
+		{"botched url warns", `htp:/|title:set:cats`, "", `htp:/|title:set:cats`, false},
+		{"scheme-like value is not a url", `title:set:Cats | Dogs`, "", `title:set:Cats | Dogs`, false},
+		{"attempted url warns", `https://|title:set:cats`, "", `https://|title:set:cats`, true},
 		// Nothing is decoded here; every escape survives for the decoding split.
 		{"escaped pipe is not a prefix", `title:set:a\|b`, "", `title:set:a\|b`, false},
 		{"escaped pipe kept after url", `https://example.com|title:set:a\|b`, "https://example.com", `title:set:a\|b`, false},

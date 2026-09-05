@@ -125,13 +125,29 @@ func JoinEscaped(parts []string, desiredSeparator byte) string {
 	return strings.Join(escaped, string(desiredSeparator))
 }
 
+// isChannelURL reports whether s is usable as a channel URL prefix.
+//
+// Both a scheme and a host are required. Testing only that s parses is not enough,
+// since url.ParseRequestURI reads "title:set:cats" as the scheme "title" with the
+// opaque body "set:cats", which would make any value holding a '|' look prefixed.
+func isChannelURL(s string) bool {
+	u, err := url.ParseRequestURI(s)
+	if err != nil {
+		return false
+	}
+	return u.Scheme != "" && u.Host != ""
+}
+
 // SplitOpURL separates an optional leading "channelURL|" prefix from an operation.
 //
 // rest keeps its escapes for the caller's decoding split. A channel URL cannot legally
 // contain an unencoded '|' or '\', so it is returned as found.
 //
-// A non-nil err means op contained a '|' but the leading segment was not a valid URL;
-// rest is still usable, so callers should log and continue.
+// When the leading segment is not a channel URL there is no prefix, so op is returned
+// whole and the '|' is left to the operation. That keeps unescaped values such as
+// "title:set:Cats | Dogs" working. A non-nil err means the segment looked like an
+// attempted URL but was unusable; rest is still valid, so callers should log and
+// continue.
 func SplitOpURL(op string) (chanURL, rest string, err error) {
 	split := SplitUnescaped(op, urlSeparator)
 	if len(split) < 2 {
@@ -139,12 +155,13 @@ func SplitOpURL(op string) (chanURL, rest string, err error) {
 	}
 
 	u := split[0]
-	remainder := strings.Join(split[1:], string(urlSeparator))
-
-	if _, parseErr := url.ParseRequestURI(u); parseErr != nil {
-		return "", remainder, fmt.Errorf("operation %q has no valid channel URL in leading segment %q: %w", op, u, parseErr)
+	if !isChannelURL(u) {
+		if strings.Contains(u, "://") {
+			return "", op, fmt.Errorf("operation %q has an unusable channel URL in leading segment %q", op, u)
+		}
+		return "", op, nil
 	}
-	return u, remainder, nil
+	return u, strings.Join(split[1:], string(urlSeparator)), nil
 }
 
 // Deduplicate removes duplicates from input, preserving first-appearance order and
