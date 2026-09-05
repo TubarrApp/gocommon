@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedenums"
@@ -91,6 +92,82 @@ func validateDateTagOp(opType, opLoc, dateFormat string, i int) error {
 	}
 	if _, err := sharedenums.ParseDateFormat(dateFormat); err != nil {
 		return fmt.Errorf("%s at position %d: %w", opType, i, err)
+	}
+	return nil
+}
+
+// validFilterTypes are the comparisons accepted by a filter.
+var validFilterTypes = map[string]struct{}{
+	sharedconsts.OpContains:  {},
+	sharedconsts.OpOmits:     {},
+	sharedconsts.OpEquals:    {},
+	sharedconsts.OpNotEquals: {},
+	sharedconsts.OpMoreThan:  {},
+	sharedconsts.OpLessThan:  {},
+}
+
+// ValidFilterTypes lists the accepted filter types.
+var ValidFilterTypes = sortedKeys(validFilterTypes)
+
+// ValidateFilterOps validates filter models.
+func ValidateFilterOps(filters []sharedmodels.Filters) error {
+	for i, filter := range filters {
+		if _, ok := validFilterTypes[filter.FilterType]; !ok {
+			return fmt.Errorf("filter at position %d has invalid type %q (valid: %v)", i, filter.FilterType, ValidFilterTypes)
+		}
+
+		// A numeric comparison needs something numeric to compare against.
+		switch filter.FilterType {
+		case sharedconsts.OpMoreThan, sharedconsts.OpLessThan:
+			if _, err := strconv.ParseFloat(filter.Value, 64); err != nil {
+				return fmt.Errorf("filter at position %d has invalid value %q for type %q (must be a number)", i, filter.Value, filter.FilterType)
+			}
+		}
+
+		if filter.MustAny != sharedconsts.OpMust && filter.MustAny != sharedconsts.OpAny {
+			return fmt.Errorf("filter at position %d has invalid condition %q (must be %q or %q)", i, filter.MustAny, sharedconsts.OpMust, sharedconsts.OpAny)
+		}
+		if filter.Field == "" {
+			return fmt.Errorf("filter at position %d has empty field", i)
+		}
+	}
+	return nil
+}
+
+// ValidateFilteredMetaOps validates meta operations gated behind filters.
+func ValidateFilteredMetaOps(filteredMetaOps []sharedmodels.FilteredMetaOps) error {
+	for i, fmo := range filteredMetaOps {
+		if err := ValidateFilterOps(fmo.Filters); err != nil {
+			return fmt.Errorf("filtered meta operation at position %d has invalid filters: %w", i, err)
+		}
+		if err := ValidateMetaOps(fmo.MetaOps); err != nil {
+			return fmt.Errorf("filtered meta operation at position %d has invalid meta operations: %w", i, err)
+		}
+		if len(fmo.Filters) == 0 {
+			return fmt.Errorf("filtered meta operation at position %d has no filters", i)
+		}
+		if len(fmo.MetaOps) == 0 {
+			return fmt.Errorf("filtered meta operation at position %d has no meta operations", i)
+		}
+	}
+	return nil
+}
+
+// ValidateFilteredFilenameOps validates filename operations gated behind filters.
+func ValidateFilteredFilenameOps(filteredFilenameOps []sharedmodels.FilteredFilenameOps) error {
+	for i, ffo := range filteredFilenameOps {
+		if err := ValidateFilterOps(ffo.Filters); err != nil {
+			return fmt.Errorf("filtered filename operation at position %d has invalid filters: %w", i, err)
+		}
+		if err := ValidateFilenameOps(ffo.FilenameOps); err != nil {
+			return fmt.Errorf("filtered filename operation at position %d has invalid filename operations: %w", i, err)
+		}
+		if len(ffo.Filters) == 0 {
+			return fmt.Errorf("filtered filename operation at position %d has no filters", i)
+		}
+		if len(ffo.FilenameOps) == 0 {
+			return fmt.Errorf("filtered filename operation at position %d has no filename operations", i)
+		}
 	}
 	return nil
 }
