@@ -28,6 +28,10 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 		if strings.ContainsAny(field+opType, ":|") {
 			t.Skip()
 		}
+		// Only lowercase operation types are canonical, since the parser normalizes them.
+		if opType != strings.ToLower(opType) {
+			t.Skip()
+		}
 
 		want := sharedmodels.MetaOps{Field: field, OpType: opType, OpValue: opValue}
 

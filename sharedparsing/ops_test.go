@@ -216,3 +216,43 @@ func TestFormatOpsFiltersByChannel(t *testing.T) {
 		t.Errorf("empty chanURL should keep every op, got %q", all)
 	}
 }
+
+// TestOpTypeCaseInsensitive covers the fixed vocabularies being matched regardless of
+// case, which Metarr has always allowed and Tubarr previously rejected.
+func TestOpTypeCaseInsensitive(t *testing.T) {
+	got, warnings, err := sharedparsing.ParseMetaOps([]string{
+		"title:SET:Cats",
+		"title:DATE-TAG:PREFIX:ymd",
+		"other:Replace:Old:New",
+	})
+	if err != nil {
+		t.Fatalf("ParseMetaOps: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("unexpected warnings: %v", warnings)
+	}
+	if len(got) != 3 {
+		t.Fatalf("parsed %d ops, want 3: %+v", len(got), got)
+	}
+
+	if got[0].OpType != "set" || got[0].OpValue != "Cats" {
+		t.Errorf("value case must be preserved, got %+v", got[0])
+	}
+	if got[1].OpType != "date-tag" || got[1].OpLoc != "prefix" {
+		t.Errorf("date-tag not normalized: %+v", got[1])
+	}
+	if got[2].OpType != "replace" || got[2].OpFindString != "Old" || got[2].OpValue != "New" {
+		t.Errorf("replace not normalized or values altered: %+v", got[2])
+	}
+
+	fops, _, err := sharedparsing.ParseFilenameOps([]string{"PREFIX:[CATS] ", "Date-Tag:SUFFIX:ymd"})
+	if err != nil {
+		t.Fatalf("ParseFilenameOps: %v", err)
+	}
+	if fops[0].OpType != "prefix" || fops[0].OpValue != "[CATS] " {
+		t.Errorf("filename prefix not normalized or value altered: %+v", fops[0])
+	}
+	if fops[1].OpType != "date-tag" || fops[1].OpLoc != "suffix" {
+		t.Errorf("filename date-tag not normalized: %+v", fops[1])
+	}
+}

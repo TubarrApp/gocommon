@@ -12,6 +12,9 @@ import (
 // ParseFilenameOps parses filename operation strings, e.g. "prefix:[COOL CATEGORY] "
 // or "date-tag:prefix:ymd".
 //
+// Operation types and date tag locations are fixed vocabularies, so they are matched
+// case-insensitively and stored lowercased. Values are left as written.
+//
 // Malformed entries are skipped and described in warnings rather than failing the
 // batch; err is only returned when no entry was usable.
 func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, warnings []string, err error) {
@@ -42,21 +45,21 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 
 		switch len(split) {
 		case 2: // e.g. 'prefix:[DOG VIDEOS]'
-			newOp.OpType = split[0]
+			newOp.OpType = strings.ToLower(split[0])
 			newOp.OpValue = split[1]
 			key = strings.Join([]string{newOp.OpType, newOp.OpValue}, ":")
 
 		case 3: // e.g. 'replace-suffix:_1:' or 'date-tag:prefix:ymd'
-			newOp.OpType = split[0]
+			newOp.OpType = strings.ToLower(split[0])
 
-			switch split[0] {
+			switch newOp.OpType {
 			case sharedconsts.OpReplaceSuffix, sharedconsts.OpReplacePrefix, sharedconsts.OpReplace:
 				newOp.OpFindString = split[1]
 				newOp.OpValue = split[2]
 				key = strings.Join([]string{newOp.OpType, newOp.OpFindString, newOp.OpValue}, ":")
 
 			case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-				newOp.OpLoc = split[1]
+				newOp.OpLoc = strings.ToLower(split[1])
 				newOp.DateFormat = split[2]
 				key = newOp.OpType
 
@@ -84,6 +87,10 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 
 // ParseMetaOps parses meta operation strings, e.g. "director:set:Spielberg" or
 // "title:date-tag:suffix:ymd".
+//
+// Operation types and date tag locations are fixed vocabularies, so they are matched
+// case-insensitively and stored lowercased. Field names and values are left as written,
+// since metadata keys are case-sensitive.
 //
 // Malformed entries are skipped and described in warnings rather than failing the
 // batch; err is only returned when no entry was usable.
@@ -116,17 +123,17 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []s
 		switch len(split) {
 		case 3: // e.g. 'director:set:Spielberg'
 			newOp.Field = split[0]
-			newOp.OpType = split[1]
+			newOp.OpType = strings.ToLower(split[1])
 			newOp.OpValue = split[2]
 			key = strings.Join([]string{newOp.Field, newOp.OpType, newOp.OpValue}, ":")
 
 		case 4: // e.g. 'title:date-tag:suffix:ymd' or 'title:replace:old:new'
 			newOp.Field = split[0]
-			newOp.OpType = split[1]
+			newOp.OpType = strings.ToLower(split[1])
 
 			switch newOp.OpType {
 			case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-				newOp.OpLoc = split[2]
+				newOp.OpLoc = strings.ToLower(split[2])
 				newOp.DateFormat = split[3]
 				key = strings.Join([]string{newOp.Field, newOp.OpType}, ":")
 
