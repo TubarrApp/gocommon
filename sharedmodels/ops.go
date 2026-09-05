@@ -25,3 +25,26 @@ type MetaOps struct {
 	OpLoc        string `json:"meta_op_loc"`
 	DateFormat   string `json:"meta_op_date_format"`
 }
+
+// Filters select videos, or the operations applied to them, by metadata field.
+type Filters struct {
+	ChannelURL string `json:"filter_url_specific"`
+	Field      string `json:"filter_field"`
+	FilterType string `json:"filter_type"`
+	Value      string `json:"filter_value"`
+	MustAny    string `json:"filter_must_any"`
+}
+
+// FilteredMetaOps applies meta operations only when its filters match.
+type FilteredMetaOps struct {
+	Filters        []Filters
+	MetaOps        []MetaOps
+	FiltersMatched bool
+}
+
+// FilteredFilenameOps applies filename operations only when its filters match.
+type FilteredFilenameOps struct {
+	Filters        []Filters
+	FilenameOps    []FilenameOps
+	FiltersMatched bool
+}
