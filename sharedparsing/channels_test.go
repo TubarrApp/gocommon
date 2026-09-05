@@ -6,6 +6,7 @@ import (
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
+// TestChannelURLsEqual covers the ChannelURLsEqual function, which is used to determine if two channel URLs are equivalent for the purposes of scoping operations.
 func TestChannelURLsEqual(t *testing.T) {
 	tests := []struct {
 		name string
