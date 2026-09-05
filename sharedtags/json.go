@@ -45,9 +45,11 @@ const (
 
 // JSON web constants.
 const (
+	JChannelURL     = "channel_url"
 	JDirectVideoURL = "direct_video_url"
 	JDomain         = "domain"
 	JReferer        = "referer"
+	JUploaderURL    = "uploader_url"
 	JURL            = "url"
 	JWebpageDomain  = "webpage_url_domain"
 	JWebpageURL     = "webpage_url"
