@@ -16,7 +16,7 @@ const (
 
 	// Copy/paste.
 	OpCopyTo    = "copy-to"
-	OpPasteFrom = "pate-from"
+	OpPasteFrom = "paste-from"
 
 	// Date tag operations.
 	OpDateTag       = "date-tag"
