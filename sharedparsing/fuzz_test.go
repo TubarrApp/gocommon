@@ -19,7 +19,7 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 	f.Add("", "set", "")
 	f.Add("title", "set", `back\slash\`)
 	f.Add("title", "set", "HELLO: THIS IS MY TEXT")
-	f.Add("title", "trim-before", "| ")
+	f.Add("title", "keep-after", "| ")
 	f.Add("title", "set", "https://a.com|b")
 
 	f.Fuzz(func(t *testing.T, field, opType, opValue string) {

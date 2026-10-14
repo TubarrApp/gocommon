@@ -131,7 +131,7 @@ func TestMetaOpRoundTrip(t *testing.T) {
 		`title:regex-replace:[[^Kino Casino [^|]*\| ]]:`,
 		`title:regex-replace:[[(\d+):(\d+)]]:$2\:$1`,
 		`title:regex-replace:[[[[:digit:]]]]:#`,
-		"title:trim-before:| ",
+		"title:keep-after:| ",
 	}
 
 	for _, op := range ops {
@@ -164,7 +164,7 @@ func TestFilenameOpRoundTrip(t *testing.T) {
 		`prefix:[CATS\: THE SEQUEL] `,
 		"prefix:[CATS: THE SEQUEL] ",
 		`regex-replace:[[^Kino Casino [^|]*\| ]]:`,
-		"trim-after: |",
+		"keep-before: |",
 	}
 
 	for _, op := range ops {
@@ -345,7 +345,7 @@ func TestLastPartNeedsNoEscaping(t *testing.T) {
 		{"title:set:{{CAT VIDEOS}} This: Is Cool", "", "{{CAT VIDEOS}} This: Is Cool"},
 		{`title:set:cats\: the sequel`, "", "cats: the sequel"},
 		{"title:replace:old:new: text", "old", "new: text"},
-		{"title:trim-before:| ", "", "| "},
+		{"title:keep-after:| ", "", "| "},
 		{"https://example.com|title:append: : x", "", " : x"},
 	}
 
@@ -413,7 +413,7 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 		wantFind  string
 		wantValue string
 	}{
-		{"title:contains:Kino|title:trim-before:| ", "", "trim-before", "", "| "},
+		{"title:contains:Kino|title:keep-after:| ", "", "keep-after", "", "| "},
 		{"title:contains:Kino|title:set:Cats | Dogs | Birds", "", "set", "", "Cats | Dogs | Birds"},
 		{"https://example.com|title:contains:Kino|title:regex-replace:[[^a|b ]]:x|y", "https://example.com", "regex-replace", "^a|b ", "x|y"},
 		{`title:contains:a\|b|title:append:!`, "", "append", "", "!"},
@@ -439,11 +439,11 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 		t.Errorf("escaped '|' in the filter value = %+v", got[0].Filters[0])
 	}
 
-	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|trim-before:| "})
+	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|keep-after:| "})
 	if err != nil {
 		t.Fatalf("ParseFilteredFilenameOps: %v", err)
 	}
-	if op := fgot[0].FilenameOps[0]; op.OpType != "trim-before" || op.OpValue != "| " {
+	if op := fgot[0].FilenameOps[0]; op.OpType != "keep-after" || op.OpValue != "| " {
 		t.Errorf("filename op = %+v", op)
 	}
 }

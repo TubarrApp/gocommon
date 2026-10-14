@@ -26,8 +26,8 @@ var validFilenameOpTypes = map[string]struct{}{
 	sharedconsts.OpReplaceSuffix: {},
 	sharedconsts.OpReplace:       {},
 	sharedconsts.OpRegexReplace:  {},
-	sharedconsts.OpTrimBefore:    {},
-	sharedconsts.OpTrimAfter:     {},
+	sharedconsts.OpKeepAfter:     {},
+	sharedconsts.OpKeepBefore:    {},
 	sharedconsts.OpDateTag:       {},
 	sharedconsts.OpDeleteDateTag: {},
 	sharedconsts.OpSet:           {},
@@ -43,8 +43,8 @@ var validMetaOpTypes = map[string]struct{}{
 	sharedconsts.OpReplaceSuffix: {},
 	sharedconsts.OpReplace:       {},
 	sharedconsts.OpRegexReplace:  {},
-	sharedconsts.OpTrimBefore:    {},
-	sharedconsts.OpTrimAfter:     {},
+	sharedconsts.OpKeepAfter:     {},
+	sharedconsts.OpKeepBefore:    {},
 	sharedconsts.OpSet:           {},
 	sharedconsts.OpDateTag:       {},
 	sharedconsts.OpDeleteDateTag: {},
@@ -91,7 +91,7 @@ func ValidateMetaOps(metaOps []sharedmodels.MetaOps) error {
 	return nil
 }
 
-// validateTextOp checks the pattern of a regex-replace and the delimiter of a trim,
+// validateTextOp checks the pattern of a regex-replace and the delimiter of a keep-before or keep-after,
 // and is a no-op for every other operation type.
 func validateTextOp(opType, find, value string, i int) error {
 	switch opType {
@@ -105,9 +105,9 @@ func validateTextOp(opType, find, value string, i int) error {
 		if _, err := regexp.Compile(find); err != nil {
 			return fmt.Errorf("%s at position %d: invalid pattern: %w", opType, i, err)
 		}
-	case sharedconsts.OpTrimBefore, sharedconsts.OpTrimAfter:
+	case sharedconsts.OpKeepAfter, sharedconsts.OpKeepBefore:
 		if value == "" {
-			return fmt.Errorf("%s at position %d has no text to trim at", opType, i)
+			return fmt.Errorf("%s at position %d has no delimiter", opType, i)
 		}
 	}
 	return nil

@@ -33,9 +33,9 @@ const (
 	OpReplacePrefix = "replace-prefix"
 	OpRegexReplace  = "regex-replace"
 
-	// Trim around a delimiter.
-	OpTrimBefore = "trim-before"
-	OpTrimAfter  = "trim-after"
+	// Keep the text on one side of a delimiter.
+	OpKeepAfter  = "keep-after"
+	OpKeepBefore = "keep-before"
 
 	// Append and suffix.
 	OpAppend = "append"
