@@ -22,6 +22,12 @@ func TestValidateMetaOps(t *testing.T) {
 		{"date-tag rejects all", sharedmodels.MetaOps{Field: "title", OpType: "date-tag", OpLoc: "all", DateFormat: "ymd"}, true},
 		{"date-tag bad format", sharedmodels.MetaOps{Field: "title", OpType: "date-tag", OpLoc: "prefix", DateFormat: "nope"}, true},
 		{"delete-date-tag allows all", sharedmodels.MetaOps{Field: "title", OpType: "delete-date-tag", OpLoc: "all", DateFormat: "ymd"}, false},
+		{"regex-replace ok", sharedmodels.MetaOps{Field: "title", OpType: "regex-replace", OpFindString: `^\d+ \| `}, false},
+		{"regex-replace bad pattern", sharedmodels.MetaOps{Field: "title", OpType: "regex-replace", OpFindString: "("}, true},
+		{"regex-replace empty pattern", sharedmodels.MetaOps{Field: "title", OpType: "regex-replace"}, true},
+		{"regex-replace unrepresentable pattern", sharedmodels.MetaOps{Field: "title", OpType: "regex-replace", OpFindString: "[[:digit:]]:"}, true},
+		{"trim-before ok", sharedmodels.MetaOps{Field: "title", OpType: "trim-before", OpValue: "| "}, false},
+		{"trim-after empty", sharedmodels.MetaOps{Field: "title", OpType: "trim-after"}, true},
 	}
 
 	for _, tt := range tests {
@@ -51,6 +57,10 @@ func TestValidateFilenameOps(t *testing.T) {
 		{"date-tag ok", sharedmodels.FilenameOps{OpType: "date-tag", OpLoc: "suffix", DateFormat: "dm"}, false},
 		{"date-tag rejects all", sharedmodels.FilenameOps{OpType: "date-tag", OpLoc: "all", DateFormat: "ymd"}, true},
 		{"delete-date-tag allows all", sharedmodels.FilenameOps{OpType: "delete-date-tag", OpLoc: "all", DateFormat: "ymd"}, false},
+		{"regex-replace ok", sharedmodels.FilenameOps{OpType: "regex-replace", OpFindString: "^a", OpValue: "b"}, false},
+		{"regex-replace bad pattern", sharedmodels.FilenameOps{OpType: "regex-replace", OpFindString: "[a"}, true},
+		{"trim-after ok", sharedmodels.FilenameOps{OpType: "trim-after", OpValue: " |"}, false},
+		{"trim-before empty", sharedmodels.FilenameOps{OpType: "trim-before"}, true},
 	}
 
 	for _, tt := range tests {

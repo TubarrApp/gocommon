@@ -31,6 +31,11 @@ const (
 	OpReplace       = "replace"
 	OpReplaceSuffix = "replace-suffix"
 	OpReplacePrefix = "replace-prefix"
+	OpRegexReplace  = "regex-replace"
+
+	// Trim around a delimiter.
+	OpTrimBefore = "trim-before"
+	OpTrimAfter  = "trim-after"
 
 	// Append and suffix.
 	OpAppend = "append"

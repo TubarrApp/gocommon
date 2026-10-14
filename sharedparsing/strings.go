@@ -5,19 +5,106 @@
 // located without decoding ([SplitUnescaped]), and the final split on ':' decodes
 // ([EscapedSplit]). Decoding only once is what allows the escape character itself to be
 // escaped, so any value is representable.
+//
+// An operation's last part is everything after the previous ':', so it needs no
+// escaping of ':'. A regex-replace pattern is wrapped in "[[ ]]" and taken verbatim.
 package sharedparsing
 
 import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 const (
 	escapeByte     = '\\'
 	fieldSeparator = ':'
 	urlSeparator   = '|'
+
+	rawOpen  = "[["
+	rawClose = "]]"
 )
+
+// rawSpanEnd returns the index just past the "]]" closing a raw span opening at the
+// start of s, or -1. The span closes at the first "]]" followed by ':' or the end of s,
+// so patterns may hold "]]" elsewhere, as in "[[:digit:]]".
+func rawSpanEnd(s string) int {
+	if !strings.HasPrefix(s, rawOpen) {
+		return -1
+	}
+	for i := len(rawOpen); i+len(rawClose) <= len(s); i++ {
+		if s[i:i+len(rawClose)] != rawClose {
+			continue
+		}
+		if end := i + len(rawClose); end == len(s) || s[end] == fieldSeparator {
+			return end
+		}
+	}
+	return -1
+}
+
+// opensRawSpan reports whether seg, an operation scanned so far, ends at the pattern
+// position of a regex-replace, where a raw span may begin.
+func opensRawSpan(seg string) bool {
+	const marker = sharedconsts.OpRegexReplace + string(fieldSeparator)
+	if len(seg) < len(marker) || !strings.EqualFold(seg[len(seg)-len(marker):], marker) {
+		return false
+	}
+	return len(seg) == len(marker) || seg[len(seg)-len(marker)-1] == fieldSeparator
+}
+
+// indexUnescaped returns the index of the first unescaped sep in s, or -1.
+func indexUnescaped(s string, sep byte) int {
+	escaped := false
+	for i := range len(s) {
+		switch {
+		case escaped:
+			escaped = false
+		case s[i] == escapeByte:
+			escaped = true
+		case s[i] == sep:
+			return i
+		}
+	}
+	return -1
+}
+
+// nextField decodes s up to its first unescaped ':' and returns the undecoded
+// remainder after it. ok is false when s holds no separator.
+func nextField(s string) (field, rest string, ok bool) {
+	i := indexUnescaped(s, fieldSeparator)
+	if i < 0 {
+		return "", "", false
+	}
+	return unescape(s[:i]), s[i+1:], true
+}
+
+// unescape decodes every escape sequence in s, treating ':' as literal.
+func unescape(s string) string {
+	if !strings.ContainsRune(s, escapeByte) {
+		return s
+	}
+	return strings.Join(EscapedSplit(s, fieldSeparator), string(fieldSeparator))
+}
+
+// escapeLast renders the last part of an operation, which needs no ':' escaped.
+func escapeLast(s string) string {
+	if !strings.ContainsAny(s, `\|`) {
+		return s
+	}
+
+	var buf strings.Builder
+	buf.Grow(len(s) + 8)
+	for i := range len(s) {
+		if s[i] == escapeByte || s[i] == urlSeparator {
+			buf.WriteByte(escapeByte)
+		}
+		buf.WriteByte(s[i])
+	}
+	return buf.String()
+}
 
 // isMetaByte reports whether c carries meaning in the grammar and so must be escaped
 // to appear literally in a value.
@@ -29,13 +116,14 @@ func isMetaByte(c byte) bool {
 // escape sequence intact for a later [EscapedSplit].
 //
 // Use this for intermediate splits, such as stripping a channel URL or dividing filter
-// rules from operations, so the escapes survive to the single decoding pass.
+// rules from operations, so the escapes survive to the single decoding pass. A
+// regex-replace pattern's "[[ ]]" span is copied whole, so it may hold the separator.
 func SplitUnescaped(s string, desiredSeparator byte) []string {
 	var parts []string
 	var buf strings.Builder
 	escaped := false
 
-	for i := range len(s) {
+	for i := 0; i < len(s); i++ {
 		c := s[i]
 		switch {
 		case escaped:
@@ -44,6 +132,10 @@ func SplitUnescaped(s string, desiredSeparator byte) []string {
 		case c == escapeByte:
 			buf.WriteByte(c)
 			escaped = true
+		case c == rawOpen[0] && opensRawSpan(buf.String()):
+			n := max(rawSpanEnd(s[i:]), 1) // Not a closed span, so copy just this byte.
+			buf.WriteString(s[i : i+n])
+			i += n - 1
 		case c == desiredSeparator:
 			parts = append(parts, buf.String())
 			buf.Reset()

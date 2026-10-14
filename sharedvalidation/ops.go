@@ -3,8 +3,10 @@ package sharedvalidation
 import (
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedenums"
@@ -23,6 +25,9 @@ var validFilenameOpTypes = map[string]struct{}{
 	sharedconsts.OpReplacePrefix: {},
 	sharedconsts.OpReplaceSuffix: {},
 	sharedconsts.OpReplace:       {},
+	sharedconsts.OpRegexReplace:  {},
+	sharedconsts.OpTrimBefore:    {},
+	sharedconsts.OpTrimAfter:     {},
 	sharedconsts.OpDateTag:       {},
 	sharedconsts.OpDeleteDateTag: {},
 	sharedconsts.OpSet:           {},
@@ -37,6 +42,9 @@ var validMetaOpTypes = map[string]struct{}{
 	sharedconsts.OpReplacePrefix: {},
 	sharedconsts.OpReplaceSuffix: {},
 	sharedconsts.OpReplace:       {},
+	sharedconsts.OpRegexReplace:  {},
+	sharedconsts.OpTrimBefore:    {},
+	sharedconsts.OpTrimAfter:     {},
 	sharedconsts.OpSet:           {},
 	sharedconsts.OpDateTag:       {},
 	sharedconsts.OpDeleteDateTag: {},
@@ -57,6 +65,9 @@ func ValidateFilenameOps(filenameOps []sharedmodels.FilenameOps) error {
 		if err := validateDateTagOp(op.OpType, op.OpLoc, op.DateFormat, i); err != nil {
 			return err
 		}
+		if err := validateTextOp(op.OpType, op.OpFindString, op.OpValue, i); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -70,8 +81,33 @@ func ValidateMetaOps(metaOps []sharedmodels.MetaOps) error {
 		if err := validateDateTagOp(op.OpType, op.OpLoc, op.DateFormat, i); err != nil {
 			return err
 		}
+		if err := validateTextOp(op.OpType, op.OpFindString, op.OpValue, i); err != nil {
+			return err
+		}
 		if op.Field == "" {
 			return fmt.Errorf("meta operation at position %d has empty field", i)
+		}
+	}
+	return nil
+}
+
+// validateTextOp checks the pattern of a regex-replace and the delimiter of a trim,
+// and is a no-op for every other operation type.
+func validateTextOp(opType, find, value string, i int) error {
+	switch opType {
+	case sharedconsts.OpRegexReplace:
+		if find == "" {
+			return fmt.Errorf("%s at position %d has an empty pattern", opType, i)
+		}
+		if strings.Contains(find, "]]:") {
+			return fmt.Errorf("%s at position %d: pattern cannot contain \"]]:\" (try [0-9] in place of [[:digit:]])", opType, i)
+		}
+		if _, err := regexp.Compile(find); err != nil {
+			return fmt.Errorf("%s at position %d: invalid pattern: %w", opType, i, err)
+		}
+	case sharedconsts.OpTrimBefore, sharedconsts.OpTrimAfter:
+		if value == "" {
+			return fmt.Errorf("%s at position %d has no text to trim at", opType, i)
 		}
 	}
 	return nil

@@ -45,8 +45,8 @@ func TestParseMetaOpsSkipsInvalid(t *testing.T) {
 	in := []string{
 		"director:set:Spielberg",
 		"too:few",
-		"a:b:c:d:e",
-		"title:not-an-op:x:y",
+		"title:date-tag:prefix",
+		"title:regex-replace:^unwrapped:x",
 	}
 
 	got, warnings, err := sharedparsing.ParseMetaOps(in)
@@ -126,6 +126,12 @@ func TestMetaOpRoundTrip(t *testing.T) {
 		`title:replace:C\:\\Dogs:x`,
 		`description:append: \| piped \| value `,
 		"title:set:md",
+		"title:set:HELLO: THIS IS MY TEXT",
+		"title:replace:old:new: text",
+		`title:regex-replace:[[^Kino Casino [^|]*\| ]]:`,
+		`title:regex-replace:[[(\d+):(\d+)]]:$2\:$1`,
+		`title:regex-replace:[[[[:digit:]]]]:#`,
+		"title:trim-before:| ",
 	}
 
 	for _, op := range ops {
@@ -156,6 +162,9 @@ func TestFilenameOpRoundTrip(t *testing.T) {
 		"replace-suffix:_1:",
 		"replace:old:new",
 		`prefix:[CATS\: THE SEQUEL] `,
+		"prefix:[CATS: THE SEQUEL] ",
+		`regex-replace:[[^Kino Casino [^|]*\| ]]:`,
+		"trim-after: |",
 	}
 
 	for _, op := range ops {
@@ -321,5 +330,100 @@ func TestInvalidEntriesIgnoresDuplicates(t *testing.T) {
 	}
 	if entries := sharedparsing.InvalidEntries(warnings); len(entries) != 0 {
 		t.Errorf("InvalidEntries = %q, want none", entries)
+	}
+}
+
+// TestLastPartNeedsNoEscaping covers the last part of an operation being the whole
+// remainder, so ':' and template braces in it are literal.
+func TestLastPartNeedsNoEscaping(t *testing.T) {
+	tests := []struct {
+		op        string
+		wantFind  string
+		wantValue string
+	}{
+		{"title:set:HELLO: THIS IS MY TEXT", "", "HELLO: THIS IS MY TEXT"},
+		{"title:set:{{CAT VIDEOS}} This: Is Cool", "", "{{CAT VIDEOS}} This: Is Cool"},
+		{`title:set:cats\: the sequel`, "", "cats: the sequel"},
+		{"title:replace:old:new: text", "old", "new: text"},
+		{"title:trim-before:| ", "", "| "},
+		{"https://example.com|title:append: : x", "", " : x"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.op, func(t *testing.T) {
+			got, warnings, err := sharedparsing.ParseMetaOps([]string{tt.op})
+			if err != nil || len(warnings) != 0 {
+				t.Fatalf("ParseMetaOps(%q): err %v, warnings %v", tt.op, err, warnings)
+			}
+			if got[0].OpFindString != tt.wantFind || got[0].OpValue != tt.wantValue {
+				t.Errorf("got find %q value %q, want %q %q", got[0].OpFindString, got[0].OpValue, tt.wantFind, tt.wantValue)
+			}
+		})
+	}
+}
+
+// TestRegexReplacePattern covers the "[[ ]]" pattern being taken verbatim, with no
+// escaping and with ':' and '|' inside it.
+func TestRegexReplacePattern(t *testing.T) {
+	tests := []struct {
+		op          string
+		wantPattern string
+		wantValue   string
+	}{
+		{`title:regex-replace:[[^Kino Casino [^|]*\| ]]:`, `^Kino Casino [^|]*\| `, ""},
+		{`title:regex-replace:[[^Kino Casino [^|]*\| ]]`, `^Kino Casino [^|]*\| `, ""},
+		{`title:regex-replace:[[(\d+):(\d+)]]:$2:$1`, `(\d+):(\d+)`, "$2:$1"},
+		{`title:regex-replace:[[[[:digit:]]+]]:#`, `[[:digit:]]+`, "#"},
+		{`title:regex-replace:[[\d{4}}]]:x`, `\d{4}}`, "x"},
+		{`title:REGEX-REPLACE:[[a|b]]:{{uploader}}`, "a|b", "{{uploader}}"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.op, func(t *testing.T) {
+			got, warnings, err := sharedparsing.ParseMetaOps([]string{tt.op})
+			if err != nil || len(warnings) != 0 {
+				t.Fatalf("ParseMetaOps(%q): err %v, warnings %v", tt.op, err, warnings)
+			}
+			if got[0].OpType != "regex-replace" || got[0].OpFindString != tt.wantPattern || got[0].OpValue != tt.wantValue {
+				t.Errorf("got %+v, want pattern %q value %q", got[0], tt.wantPattern, tt.wantValue)
+			}
+		})
+	}
+
+	fops, _, err := sharedparsing.ParseFilenameOps([]string{"regex-replace:[[^a|b: ]]:c"})
+	if err != nil {
+		t.Fatalf("ParseFilenameOps: %v", err)
+	}
+	if fops[0].OpFindString != "^a|b: " || fops[0].OpValue != "c" {
+		t.Errorf("filename regex-replace = %+v", fops[0])
+	}
+
+	if _, warnings, _ := sharedparsing.ParseMetaOps([]string{"title:regex-replace:^unwrapped:x"}); len(sharedparsing.InvalidEntries(warnings)) != 1 {
+		t.Errorf("an unwrapped pattern should be rejected, warnings %v", warnings)
+	}
+}
+
+// TestRegexReplaceInFilteredOps covers a '|' inside a pattern not dividing a filtered
+// entry, which splits on '|' before the operation is parsed.
+func TestRegexReplaceInFilteredOps(t *testing.T) {
+	got, _, err := sharedparsing.ParseFilteredMetaOps([]string{
+		"https://example.com|title:contains:Kino|title:regex-replace:[[^a|b ]]:x|title:append:!",
+	})
+	if err != nil {
+		t.Fatalf("ParseFilteredMetaOps: %v", err)
+	}
+	if len(got) != 1 || len(got[0].MetaOps) != 2 {
+		t.Fatalf("got %+v, want one entry with two operations", got)
+	}
+	if op := got[0].MetaOps[0]; op.OpFindString != "^a|b " || op.OpValue != "x" || op.ChannelURL != "https://example.com" {
+		t.Errorf("regex op = %+v", op)
+	}
+
+	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|regex-replace:[[a|b]]:"})
+	if err != nil {
+		t.Fatalf("ParseFilteredFilenameOps: %v", err)
+	}
+	if op := fgot[0].FilenameOps[0]; op.OpFindString != "a|b" || op.OpValue != "" {
+		t.Errorf("filename regex op = %+v", op)
 	}
 }

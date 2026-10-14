@@ -73,39 +73,23 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
 		}
 
-		split := EscapedSplit(opPart, fieldSeparator)
-		if len(split) < 2 || len(split) > 3 {
+		opType, rest, ok := nextField(opPart)
+		if !ok {
 			warnings = append(warnings, invalidWarning(op, "expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd'"))
 			continue
 		}
 
-		var newOp sharedmodels.FilenameOps
-		var key string
+		newOp := sharedmodels.FilenameOps{OpType: strings.ToLower(opType)}
+		args, argErr := parseOpArgs(newOp.OpType, rest)
+		if argErr != nil {
+			warnings = append(warnings, invalidWarning(op, argErr.Error()))
+			continue
+		}
+		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
 
-		switch len(split) {
-		case 2: // e.g. 'prefix:[DOG VIDEOS]'
-			newOp.OpType = strings.ToLower(split[0])
-			newOp.OpValue = split[1]
-			key = strings.Join([]string{newOp.OpType, newOp.OpValue}, ":")
-
-		case 3: // e.g. 'replace-suffix:_1:' or 'date-tag:prefix:ymd'
-			newOp.OpType = strings.ToLower(split[0])
-
-			switch newOp.OpType {
-			case sharedconsts.OpReplaceSuffix, sharedconsts.OpReplacePrefix, sharedconsts.OpReplace:
-				newOp.OpFindString = split[1]
-				newOp.OpValue = split[2]
-				key = strings.Join([]string{newOp.OpType, newOp.OpFindString, newOp.OpValue}, ":")
-
-			case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-				newOp.OpLoc = strings.ToLower(split[1])
-				newOp.DateFormat = split[2]
-				key = newOp.OpType
-
-			default:
-				warnings = append(warnings, invalidWarning(op, fmt.Sprintf("unknown filename operation type %q", split[0])))
-				continue
-			}
+		key := FormatFilenameOp(newOp, false)
+		if isDateTagOp(newOp.OpType) {
+			key = newOp.OpType
 		}
 
 		if _, ok := seen[key]; ok {
@@ -150,41 +134,27 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
 		}
 
-		split := EscapedSplit(opPart, fieldSeparator)
-		if len(split) < 3 || len(split) > 4 {
+		field, rest, ok := nextField(opPart)
+		var opType string
+		if ok {
+			opType, rest, ok = nextField(rest)
+		}
+		if !ok {
 			warnings = append(warnings, invalidWarning(op, "expected 'director:set:Spielberg' or 'title:date-tag:suffix:ymd'"))
 			continue
 		}
 
-		var newOp sharedmodels.MetaOps
-		var key string
+		newOp := sharedmodels.MetaOps{Field: field, OpType: strings.ToLower(opType)}
+		args, argErr := parseOpArgs(newOp.OpType, rest)
+		if argErr != nil {
+			warnings = append(warnings, invalidWarning(op, argErr.Error()))
+			continue
+		}
+		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
 
-		switch len(split) {
-		case 3: // e.g. 'director:set:Spielberg'
-			newOp.Field = split[0]
-			newOp.OpType = strings.ToLower(split[1])
-			newOp.OpValue = split[2]
-			key = strings.Join([]string{newOp.Field, newOp.OpType, newOp.OpValue}, ":")
-
-		case 4: // e.g. 'title:date-tag:suffix:ymd' or 'title:replace:old:new'
-			newOp.Field = split[0]
-			newOp.OpType = strings.ToLower(split[1])
-
-			switch newOp.OpType {
-			case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-				newOp.OpLoc = strings.ToLower(split[2])
-				newOp.DateFormat = split[3]
-				key = strings.Join([]string{newOp.Field, newOp.OpType}, ":")
-
-			case sharedconsts.OpReplace, sharedconsts.OpReplaceSuffix, sharedconsts.OpReplacePrefix:
-				newOp.OpFindString = split[2]
-				newOp.OpValue = split[3]
-				key = strings.Join([]string{newOp.Field, newOp.OpType, newOp.OpFindString, newOp.OpValue}, ":")
-
-			default:
-				warnings = append(warnings, invalidWarning(op, fmt.Sprintf("unknown four-part meta operation type %q", newOp.OpType)))
-				continue
-			}
+		key := FormatMetaOp(newOp, false)
+		if isDateTagOp(newOp.OpType) {
+			key = newOp.Field + string(fieldSeparator) + newOp.OpType
 		}
 
 		if _, ok := seen[key]; ok {
@@ -206,31 +176,16 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 // FormatFilenameOp renders a filename operation back to its string form, the inverse
 // of [ParseFilenameOps]. includeURL prepends the channel URL when one is set.
 func FormatFilenameOp(f sharedmodels.FilenameOps, includeURL bool) string {
-	var fields []string
-	switch f.OpType {
-	case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-		fields = []string{f.OpType, f.OpLoc, f.DateFormat}
-	case sharedconsts.OpReplace, sharedconsts.OpReplaceSuffix, sharedconsts.OpReplacePrefix:
-		fields = []string{f.OpType, f.OpFindString, f.OpValue}
-	default:
-		fields = []string{f.OpType, f.OpValue}
-	}
-	return formatOpFields(fields, f.ChannelURL, includeURL)
+	args := opArgs{find: f.OpFindString, value: f.OpValue, loc: f.OpLoc, dateFormat: f.DateFormat}
+	return withURL(Escape(f.OpType)+string(fieldSeparator)+formatOpArgs(f.OpType, args), f.ChannelURL, includeURL)
 }
 
 // FormatMetaOp renders a meta operation back to its string form, the inverse of
 // [ParseMetaOps]. includeURL prepends the channel URL when one is set.
 func FormatMetaOp(m sharedmodels.MetaOps, includeURL bool) string {
-	var fields []string
-	switch m.OpType {
-	case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-		fields = []string{m.Field, m.OpType, m.OpLoc, m.DateFormat}
-	case sharedconsts.OpReplace, sharedconsts.OpReplaceSuffix, sharedconsts.OpReplacePrefix:
-		fields = []string{m.Field, m.OpType, m.OpFindString, m.OpValue}
-	default:
-		fields = []string{m.Field, m.OpType, m.OpValue}
-	}
-	return formatOpFields(fields, m.ChannelURL, includeURL)
+	args := opArgs{find: m.OpFindString, value: m.OpValue, loc: m.OpLoc, dateFormat: m.DateFormat}
+	lead := JoinEscaped([]string{m.Field, m.OpType}, fieldSeparator)
+	return withURL(lead+string(fieldSeparator)+formatOpArgs(m.OpType, args), m.ChannelURL, includeURL)
 }
 
 // FormatFilenameOps renders each operation, skipping any that carry a channel URL
@@ -259,12 +214,77 @@ func FormatMetaOps(ops []sharedmodels.MetaOps, chanURL string, includeURL bool) 
 	return out
 }
 
-// formatOpFields escapes each field and joins them, optionally behind a "channelURL|"
-// prefix. A channel URL cannot legally hold an unencoded metacharacter, so it is
-// written as given.
-func formatOpFields(fields []string, chanURL string, includeURL bool) string {
-	op := JoinEscaped(fields, fieldSeparator)
+// opArgs are the parts of an operation after its field and type.
+type opArgs struct {
+	find, value, loc, dateFormat string
+}
 
+// isDateTagOp reports whether opType takes a location and date format.
+func isDateTagOp(opType string) bool {
+	return opType == sharedconsts.OpDateTag || opType == sharedconsts.OpDeleteDateTag
+}
+
+// isFindReplaceOp reports whether opType takes find text and a replacement.
+func isFindReplaceOp(opType string) bool {
+	switch opType {
+	case sharedconsts.OpReplace, sharedconsts.OpReplacePrefix, sharedconsts.OpReplaceSuffix:
+		return true
+	}
+	return false
+}
+
+// parseOpArgs reads the parts of an operation after its type. The last part is the
+// whole remainder, so it may hold ':' unescaped.
+func parseOpArgs(opType, rest string) (a opArgs, err error) {
+	switch {
+	case isDateTagOp(opType):
+		loc, format, ok := nextField(rest)
+		if !ok {
+			return a, fmt.Errorf("%s expects a location and date format, e.g. '%s:prefix:ymd'", opType, opType)
+		}
+		a.loc, a.dateFormat = strings.ToLower(loc), unescape(format)
+
+	case opType == sharedconsts.OpRegexReplace:
+		end := rawSpanEnd(rest)
+		if end < 0 {
+			return a, fmt.Errorf("%s expects a pattern wrapped in %s %s, e.g. '%s:%s^foo %s:bar'", opType, rawOpen, rawClose, opType, rawOpen, rawClose)
+		}
+		a.find = rest[len(rawOpen) : end-len(rawClose)]
+		if end < len(rest) {
+			a.value = unescape(rest[end+1:])
+		}
+
+	case isFindReplaceOp(opType):
+		find, value, ok := nextField(rest)
+		if !ok {
+			return a, fmt.Errorf("%s expects find text and a replacement, e.g. '%s:old:new'", opType, opType)
+		}
+		a.find, a.value = find, unescape(value)
+
+	default:
+		a.value = unescape(rest)
+	}
+	return a, nil
+}
+
+// formatOpArgs renders the parts of an operation after its type, the inverse of
+// [parseOpArgs].
+func formatOpArgs(opType string, a opArgs) string {
+	switch {
+	case isDateTagOp(opType):
+		return Escape(a.loc) + string(fieldSeparator) + escapeLast(a.dateFormat)
+	case opType == sharedconsts.OpRegexReplace:
+		return rawOpen + a.find + rawClose + string(fieldSeparator) + escapeLast(a.value)
+	case isFindReplaceOp(opType):
+		return Escape(a.find) + string(fieldSeparator) + escapeLast(a.value)
+	default:
+		return escapeLast(a.value)
+	}
+}
+
+// withURL optionally puts op behind a "channelURL|" prefix. A channel URL cannot
+// legally hold an unencoded metacharacter, so it is written as given.
+func withURL(op, chanURL string, includeURL bool) string {
 	if !includeURL || chanURL == "" {
 		return op
 	}
