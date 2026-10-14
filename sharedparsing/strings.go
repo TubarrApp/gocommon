@@ -14,8 +14,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 const (
@@ -43,16 +41,6 @@ func rawSpanEnd(s string) int {
 		}
 	}
 	return -1
-}
-
-// opensRawSpan reports whether seg, an operation scanned so far, ends at the pattern
-// position of a regex-replace, where a raw span may begin.
-func opensRawSpan(seg string) bool {
-	const marker = sharedconsts.OpRegexReplace + string(fieldSeparator)
-	if len(seg) < len(marker) || !strings.EqualFold(seg[len(seg)-len(marker):], marker) {
-		return false
-	}
-	return len(seg) == len(marker) || seg[len(seg)-len(marker)-1] == fieldSeparator
 }
 
 // indexUnescaped returns the index of the first unescaped sep in s, or -1.
@@ -89,21 +77,10 @@ func unescape(s string) string {
 	return strings.Join(EscapedSplit(s, fieldSeparator), string(fieldSeparator))
 }
 
-// escapeLast renders the last part of an operation, which needs no ':' escaped.
+// escapeLast renders the last part of an operation, which needs only '\' escaped since
+// it is never split.
 func escapeLast(s string) string {
-	if !strings.ContainsAny(s, `\|`) {
-		return s
-	}
-
-	var buf strings.Builder
-	buf.Grow(len(s) + 8)
-	for i := range len(s) {
-		if s[i] == escapeByte || s[i] == urlSeparator {
-			buf.WriteByte(escapeByte)
-		}
-		buf.WriteByte(s[i])
-	}
-	return buf.String()
+	return strings.ReplaceAll(s, `\`, `\\`)
 }
 
 // isMetaByte reports whether c carries meaning in the grammar and so must be escaped
@@ -116,14 +93,13 @@ func isMetaByte(c byte) bool {
 // escape sequence intact for a later [EscapedSplit].
 //
 // Use this for intermediate splits, such as stripping a channel URL or dividing filter
-// rules from operations, so the escapes survive to the single decoding pass. A
-// regex-replace pattern's "[[ ]]" span is copied whole, so it may hold the separator.
+// rules from operations, so the escapes survive to the single decoding pass.
 func SplitUnescaped(s string, desiredSeparator byte) []string {
 	var parts []string
 	var buf strings.Builder
 	escaped := false
 
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		c := s[i]
 		switch {
 		case escaped:
@@ -132,10 +108,6 @@ func SplitUnescaped(s string, desiredSeparator byte) []string {
 		case c == escapeByte:
 			buf.WriteByte(c)
 			escaped = true
-		case c == rawOpen[0] && opensRawSpan(buf.String()):
-			n := max(rawSpanEnd(s[i:]), 1) // Not a closed span, so copy just this byte.
-			buf.WriteString(s[i : i+n])
-			i += n - 1
 		case c == desiredSeparator:
 			parts = append(parts, buf.String())
 			buf.Reset()

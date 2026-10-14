@@ -90,8 +90,18 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 	return filters, nil
 }
 
-// ParseFilteredMetaOps parses filter-gated meta operations, e.g.
-// "title:contains:cat|director:set:Mr. Cat".
+// splitFiltered divides a filtered entry at its first unescaped '|' into one filter and
+// one operation. The operation is the whole remainder, so it may hold '|' unescaped.
+func splitFiltered(rest string) (filter, op string, ok bool) {
+	i := indexUnescaped(rest, urlSeparator)
+	if i < 0 {
+		return "", "", false
+	}
+	return rest[:i], rest[i+1:], true
+}
+
+// ParseFilteredMetaOps parses filter-gated meta operations, one filter and one operation
+// per entry, e.g. "title:contains:cat|director:set:Mr. Cat".
 //
 // A leading channel URL scopes the whole entry.
 func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaOps, warnings []Warning, err error) {
@@ -108,17 +118,17 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: entry, Msg: urlErr.Error()})
 		}
 
-		split := SplitUnescaped(rest, urlSeparator)
-		if len(split) < 2 {
-			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rules|Meta Operations'", entry)
+		filter, op, ok := splitFiltered(rest)
+		if !ok {
+			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rule|Meta Operation'", entry)
 		}
 
-		filters, err := ParseFilterOps(split[:1], false)
+		filters, err := ParseFilterOps([]string{filter}, false)
 		if err != nil {
 			return nil, warnings, err
 		}
 
-		metaOps, opWarnings, err := ParseMetaOps(split[1:])
+		metaOps, opWarnings, err := ParseMetaOps([]string{op})
 		warnings = append(warnings, opWarnings...)
 		if err != nil {
 			return nil, warnings, err
@@ -133,8 +143,8 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 	return valid, warnings, nil
 }
 
-// ParseFilteredFilenameOps parses filter-gated filename operations, e.g.
-// "title:contains:cat|prefix:[CATS] ".
+// ParseFilteredFilenameOps parses filter-gated filename operations, one filter and one
+// operation per entry, e.g. "title:contains:cat|prefix:[CATS] ".
 func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredFilenameOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -149,17 +159,17 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: entry, Msg: urlErr.Error()})
 		}
 
-		split := SplitUnescaped(rest, urlSeparator)
-		if len(split) < 2 {
-			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rules|Filename Operations'", entry)
+		filter, op, ok := splitFiltered(rest)
+		if !ok {
+			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rule|Filename Operation'", entry)
 		}
 
-		filters, err := ParseFilterOps(split[:1], false)
+		filters, err := ParseFilterOps([]string{filter}, false)
 		if err != nil {
 			return nil, warnings, err
 		}
 
-		filenameOps, opWarnings, err := ParseFilenameOps(split[1:])
+		filenameOps, opWarnings, err := ParseFilenameOps([]string{op})
 		warnings = append(warnings, opWarnings...)
 		if err != nil {
 			return nil, warnings, err

@@ -20,6 +20,7 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 	f.Add("title", "set", `back\slash\`)
 	f.Add("title", "set", "HELLO: THIS IS MY TEXT")
 	f.Add("title", "trim-before", "| ")
+	f.Add("title", "set", "https://a.com|b")
 
 	f.Fuzz(func(t *testing.T, field, opType, opValue string) {
 		// Restrict to the three-part form so the shape is well defined.
@@ -30,8 +31,8 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 		if strings.ContainsAny(field+opType, ":|") {
 			t.Skip()
 		}
-		// Only lowercase operation types are canonical, since the parser normalizes them.
-		if opType != strings.ToLower(opType) {
+		// Real operation types are lowercase letters and hyphens; others fail validation.
+		if strings.Trim(opType, "abcdefghijklmnopqrstuvwxyz-") != "" {
 			t.Skip()
 		}
 
@@ -83,10 +84,11 @@ func FuzzRegexReplaceRoundTrip(f *testing.F) {
 			t.Errorf("round trip changed the operation:\n formatted %q\n want %+v\n got  %+v", formatted, want, got[0])
 		}
 
-		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:x|" + formatted})
+		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"https://example.com|title:contains:x|" + formatted})
 		if err != nil {
 			t.Fatalf("filtered re-parse of %q failed: %v", formatted, err)
 		}
+		want.ChannelURL = "https://example.com"
 		if len(filtered) != 1 || len(filtered[0].MetaOps) != 1 || filtered[0].MetaOps[0] != want {
 			t.Errorf("filtered round trip changed the operation:\n formatted %q\n got %+v", formatted, filtered)
 		}

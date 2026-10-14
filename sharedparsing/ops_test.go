@@ -403,27 +403,47 @@ func TestRegexReplacePattern(t *testing.T) {
 	}
 }
 
-// TestRegexReplaceInFilteredOps covers a '|' inside a pattern not dividing a filtered
-// entry, which splits on '|' before the operation is parsed.
-func TestRegexReplaceInFilteredOps(t *testing.T) {
-	got, _, err := sharedparsing.ParseFilteredMetaOps([]string{
-		"https://example.com|title:contains:Kino|title:regex-replace:[[^a|b ]]:x|title:append:!",
-	})
-	if err != nil {
-		t.Fatalf("ParseFilteredMetaOps: %v", err)
-	}
-	if len(got) != 1 || len(got[0].MetaOps) != 2 {
-		t.Fatalf("got %+v, want one entry with two operations", got)
-	}
-	if op := got[0].MetaOps[0]; op.OpFindString != "^a|b " || op.OpValue != "x" || op.ChannelURL != "https://example.com" {
-		t.Errorf("regex op = %+v", op)
+// TestFilteredOpTakesRemainder covers a filtered entry being one filter and one
+// operation, so the operation may hold '|' with no escaping.
+func TestFilteredOpTakesRemainder(t *testing.T) {
+	tests := []struct {
+		entry     string
+		wantURL   string
+		wantType  string
+		wantFind  string
+		wantValue string
+	}{
+		{"title:contains:Kino|title:trim-before:| ", "", "trim-before", "", "| "},
+		{"title:contains:Kino|title:set:Cats | Dogs | Birds", "", "set", "", "Cats | Dogs | Birds"},
+		{"https://example.com|title:contains:Kino|title:regex-replace:[[^a|b ]]:x|y", "https://example.com", "regex-replace", "^a|b ", "x|y"},
+		{`title:contains:a\|b|title:append:!`, "", "append", "", "!"},
 	}
 
-	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|regex-replace:[[a|b]]:"})
+	for _, tt := range tests {
+		t.Run(tt.entry, func(t *testing.T) {
+			got, warnings, err := sharedparsing.ParseFilteredMetaOps([]string{tt.entry})
+			if err != nil || len(warnings) != 0 {
+				t.Fatalf("ParseFilteredMetaOps: err %v, warnings %v", err, warnings)
+			}
+			if len(got) != 1 || len(got[0].Filters) != 1 || len(got[0].MetaOps) != 1 {
+				t.Fatalf("got %+v, want one filter and one operation", got)
+			}
+			op := got[0].MetaOps[0]
+			if op.ChannelURL != tt.wantURL || op.OpType != tt.wantType || op.OpFindString != tt.wantFind || op.OpValue != tt.wantValue {
+				t.Errorf("op = %+v", op)
+			}
+		})
+	}
+
+	if got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|b|title:append:!`}); got[0].Filters[0].Value != "a|b" {
+		t.Errorf("escaped '|' in the filter value = %+v", got[0].Filters[0])
+	}
+
+	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|trim-before:| "})
 	if err != nil {
 		t.Fatalf("ParseFilteredFilenameOps: %v", err)
 	}
-	if op := fgot[0].FilenameOps[0]; op.OpFindString != "a|b" || op.OpValue != "" {
-		t.Errorf("filename regex op = %+v", op)
+	if op := fgot[0].FilenameOps[0]; op.OpType != "trim-before" || op.OpValue != "| " {
+		t.Errorf("filename op = %+v", op)
 	}
 }
