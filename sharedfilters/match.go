@@ -85,7 +85,7 @@ func matchNumeric(filterType, value, want string) (matched, skipped bool, err er
 	got, gotErr := strconv.ParseFloat(value, 64)
 	target, targetErr := strconv.ParseFloat(want, 64)
 	if gotErr != nil || targetErr != nil {
-		return false, true, nil
+		return false, true, nil //nolint:nilerr // A value that isn't a number skips the filter rather than failing it.
 	}
 
 	switch filterType {

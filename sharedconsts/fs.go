@@ -8,6 +8,7 @@ const (
 	RenameUnderscores = "underscores"
 )
 
+// ValidRenameFlags are the accepted rename styles.
 var ValidRenameFlags = map[string]struct{}{
 	RenameFixesOnly:   {},
 	RenameSkip:        {},
@@ -15,6 +16,7 @@ var ValidRenameFlags = map[string]struct{}{
 	RenameUnderscores: {},
 }
 
+// RenameAlias maps alternative spellings to a rename style.
 var RenameAlias = map[string]string{
 	// Skip.
 	"none":     RenameSkip,

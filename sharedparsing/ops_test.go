@@ -203,6 +203,9 @@ func TestMetaOpRoundTripWithURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse of %q failed: %v", formatted, err)
 	}
+	if len(got) != 1 {
+		t.Fatalf("re-parse of %q gave %d operations, want 1", formatted, len(got))
+	}
 	if got[0] != op {
 		t.Errorf("round trip changed the operation:\n formatted %q\n want %+v\n got  %+v", formatted, op, got[0])
 	}
@@ -257,6 +260,9 @@ func TestOpTypeCaseInsensitive(t *testing.T) {
 	fops, _, err := sharedparsing.ParseFilenameOps([]string{"PREFIX:[CATS] ", "Date-Tag:SUFFIX:ymd"})
 	if err != nil {
 		t.Fatalf("ParseFilenameOps: %v", err)
+	}
+	if len(fops) != 2 {
+		t.Fatalf("ParseFilenameOps gave %d operations, want 2", len(fops))
 	}
 	if fops[0].OpType != "prefix" || fops[0].OpValue != "[CATS] " {
 		t.Errorf("filename prefix not normalized or value altered: %+v", fops[0])
@@ -435,13 +441,20 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 		})
 	}
 
-	if got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|b|title:append:!`}); got[0].Filters[0].Value != "a|b" {
+	got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|b|title:append:!`})
+	if len(got) != 1 || len(got[0].Filters) != 1 {
+		t.Fatalf("ParseFilteredMetaOps = %+v, want one entry with one filter", got)
+	}
+	if got[0].Filters[0].Value != "a|b" {
 		t.Errorf("escaped '|' in the filter value = %+v", got[0].Filters[0])
 	}
 
 	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|keep-after:| "})
 	if err != nil {
 		t.Fatalf("ParseFilteredFilenameOps: %v", err)
+	}
+	if len(fgot) != 1 || len(fgot[0].FilenameOps) != 1 {
+		t.Fatalf("ParseFilteredFilenameOps = %+v, want one entry with one operation", fgot)
 	}
 	if op := fgot[0].FilenameOps[0]; op.OpType != "keep-after" || op.OpValue != "| " {
 		t.Errorf("filename op = %+v", op)

@@ -251,7 +251,7 @@ func TestValidateDirectory(t *testing.T) {
 	now := time.Now()
 	tmp := filepath.Join(os.TempDir(), "sv_test_dir"+now.String())
 	t.Cleanup(func() {
-		os.RemoveAll(tmp)
+		_ = os.RemoveAll(tmp)
 	})
 
 	// Valid template directory.
@@ -297,7 +297,7 @@ func TestValidateFile(t *testing.T) {
 	now := time.Now()
 	tmp := filepath.Join(os.TempDir(), "sv_test_file.txt"+now.String())
 	t.Cleanup(func() {
-		os.RemoveAll(tmp)
+		_ = os.RemoveAll(tmp)
 	})
 
 	// Valid template directory.

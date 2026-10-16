@@ -83,8 +83,8 @@ const (
 // Logging package level variables.
 var ansiStripper = sharedregex.AnsiEscapeCompile()
 
-// LoggingConfig holds configuration for the logger.
-type LoggingConfig struct {
+// Config holds configuration for the logger.
+type Config struct {
 	LogFilePath string    // Full path to the log file.
 	MaxSizeMB   int       // Max size of log file in MB before rotation.
 	MaxBackups  int       // Number of old log files to keep.
@@ -98,7 +98,7 @@ func init() {
 }
 
 // SetupLogging sets up logging for the application.
-func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
+func SetupLogging(cfg Config) (*ProgramLogger, error) {
 	if cfg.Program == "" {
 		return nil, fmt.Errorf("program name is required")
 	}
@@ -235,7 +235,7 @@ func (pl *ProgramLogger) loadLogsFromFile(path string) {
 		pl.W("Could not open file %q", path)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }() // Read-only, so a close error loses nothing.
 
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
@@ -257,7 +257,7 @@ func (pl *ProgramLogger) loadLogsFromFile(path string) {
 // writeToConsole writes messages to console without using zerolog.
 func (pl *ProgramLogger) writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
-	fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg)
+	_, _ = fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg) // Nowhere to report a failed console write.
 }
 
 // Log logs a message to the program-specific logger.

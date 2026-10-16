@@ -63,9 +63,8 @@ func ValidateMaxCPU(maxCPU float64, allowZero bool) float64 {
 	if maxCPU == 0.0 {
 		if allowZero {
 			return 0.0
-		} else {
-			return 101.0
 		}
+		return 101.0
 	}
 
 	// Handle 100.0 case (set to 101 to bypass CPU limitation).
