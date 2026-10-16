@@ -13,6 +13,9 @@ import (
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
 func ValidateDirectory(dir string, createIfNotFound bool, templateMap map[string]struct{}) (hasTemplating bool, fileInfo os.FileInfo, err error) {
+	if strings.TrimSpace(dir) == "" {
+		return false, nil, errors.New("directory is empty")
+	}
 	dir = filepath.Clean(dir)
 
 	// Check template tags.
@@ -54,6 +57,9 @@ func ValidateDirectory(dir string, createIfNotFound bool, templateMap map[string
 
 // ValidateFile validates that the file exists, else creates it if desired.
 func ValidateFile(path string, createIfNotFound bool, templateMap map[string]struct{}) (hasTemplating bool, fileInfo os.FileInfo, err error) {
+	if strings.TrimSpace(path) == "" {
+		return false, nil, errors.New("file path is empty")
+	}
 	path = filepath.Clean(path)
 
 	// Check template tags.
@@ -132,10 +138,9 @@ func checkTemplateTags(s string, templateMap map[string]struct{}) (hasTemplating
 			for k := range templateMap {
 				tags = append(tags, k)
 			}
-			return true, fmt.Errorf("directory contains unsupported template tags. Supported tags: %v", tags)
-		} else {
-			return true, nil
+			return true, fmt.Errorf("path %q contains unsupported template tags. Supported tags: %v", s, tags)
 		}
+		return true, nil
 	}
 	return false, nil
 }
@@ -161,8 +166,8 @@ func checkAllTemplateTags(s string, templateMap map[string]struct{}) bool {
 			return false
 		}
 
-		// Extract tag, compare against map.
-		tag := s[start+2 : endAbs]
+		// Extract tag, compare against map (normalized as the template parsers do).
+		tag := strings.ToLower(strings.TrimSpace(s[start+2 : endAbs]))
 		if _, ok := templateMap[tag]; !ok {
 			return false
 		}

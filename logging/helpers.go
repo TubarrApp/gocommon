@@ -44,7 +44,10 @@ func (mw *memoryWriter) Write(p []byte) (int, error) {
 	}
 
 	// Write to log file.
-	return mw.writer.Write(out)
+	if _, err := mw.writer.Write(out); err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 // addToRAMLine adds the current line to the log buffer.
@@ -53,11 +56,8 @@ func (pl *ProgramLogger) addToRAMLine(p []byte) {
 	clean := ansiStripper.ReplaceAll(p, nil)
 
 	// Update ring buffer.
-	pl.LogBufferLock.Lock()
-	pl.LogBuffer[pl.LogBufferPos] = append([]byte(nil), clean...)
-	pl.LogBufferPos = (pl.LogBufferPos + 1) % len(pl.LogBuffer) // e.g. 10 % 100 = 10, 100 % 100 = reset pos to 0.
-	if pl.LogBufferPos == 0 {
-		pl.LogBufferFull = true
-	}
-	pl.LogBufferLock.Unlock()
+	pl.mu.Lock()
+	pl.logBuffer[pl.total%uint64(len(pl.logBuffer))] = append([]byte(nil), clean...)
+	pl.total++
+	pl.mu.Unlock()
 }

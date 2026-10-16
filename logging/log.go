@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -17,11 +18,22 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-// Global logging variables.
-var (
-	Level    = -1
-	Loggable = false
-)
+// level is the debug level, -1 when unset.
+var level atomic.Int32
+
+func init() {
+	level.Store(-1)
+}
+
+// Level returns the debug level.
+func Level() int {
+	return int(level.Load())
+}
+
+// SetLevel sets the debug level.
+func SetLevel(l int) {
+	level.Store(int32(l))
+}
 
 // Log array.
 var (
@@ -33,13 +45,13 @@ const logBufferSize = 2500
 
 // ProgramLogger holds logging state for a specific program instance.
 type ProgramLogger struct {
-	FileLogger    zerolog.Logger
-	LogBuffer     [][]byte
-	LogBufferLock sync.RWMutex
-	LogBufferPos  int
-	LogBufferFull bool
-	Program       string
-	Console       io.Writer
+	FileLogger zerolog.Logger
+	Program    string
+	Console    io.Writer
+
+	mu        sync.RWMutex
+	logBuffer [][]byte // Ring of the most recent lines.
+	total     uint64   // Lines ever written.
 }
 
 // Log entry constants.
@@ -70,39 +82,6 @@ const (
 
 // Logging package level variables.
 var ansiStripper = sharedregex.AnsiEscapeCompile()
-
-// LogBuilder wraps strings.Builder for logging with automatic pooling.
-type logBuilder struct {
-	*strings.Builder
-}
-
-var logBuilderPool = sync.Pool{
-	New: func() any {
-		return &logBuilder{
-			Builder: &strings.Builder{},
-		}
-	},
-}
-
-// getLogBuilder retrieves a builder from the pool.
-func getLogBuilder() *logBuilder {
-	lb := logBuilderPool.Get().(*logBuilder)
-	lb.Reset()
-	return lb
-}
-
-// Release returns the builder to the pool.
-func (lb *logBuilder) Release() {
-	if lb == nil || lb.Builder == nil {
-		return
-	}
-
-	const maxPooledSize = 4096
-	if lb.Cap() <= maxPooledSize {
-		lb.Reset()
-		logBuilderPool.Put(lb)
-	}
-}
 
 // LoggingConfig holds configuration for the logger.
 type LoggingConfig struct {
@@ -143,11 +122,9 @@ func SetupLogging(cfg LoggingConfig) (*ProgramLogger, error) {
 		LocalTime:  true,
 	}
 
-	Loggable = true
-
 	// Program logger model
 	pl := &ProgramLogger{
-		LogBuffer: make([][]byte, logBufferSize),
+		logBuffer: make([][]byte, logBufferSize),
 		Program:   cfg.Program,
 		Console:   cfg.Console,
 	}
@@ -196,19 +173,14 @@ func GetRecentLogsForProgram(program string) [][]byte {
 
 // buildLogMessage constructs a log message with optional caller info.
 func buildLogMessage(prefix, msg string, caller *callerInfo) string {
-	b := getLogBuilder()
-	defer b.Release()
+	var b strings.Builder
 
 	if caller != nil {
-		estimatedSize := len(prefix) + len(msg) +
+		b.Grow(len(prefix) + len(msg) +
 			len(tagFunc) + len(caller.funcName) +
 			len(tagFile) + len(caller.file) +
 			len(tagLine) + len(caller.lineStr) +
-			len(tagEnd) + 10
-
-		if b.Cap() < estimatedSize {
-			b.Grow(estimatedSize - b.Len())
-		}
+			len(tagEnd) + 1)
 
 		b.WriteString(prefix)
 		b.WriteString(msg)
@@ -225,12 +197,7 @@ func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 		b.WriteString(caller.lineStr)
 		b.WriteString(tagEnd)
 	} else {
-		estimatedSize := len(prefix) + len(msg) + 1
-
-		if b.Cap() < estimatedSize {
-			b.Grow(estimatedSize - b.Len())
-		}
-
+		b.Grow(len(prefix) + len(msg) + 1)
 		b.WriteString(prefix)
 		b.WriteString(msg)
 		b.WriteByte('\n')
@@ -239,88 +206,26 @@ func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 	return b.String()
 }
 
-// GetRecentLogs returns logs from RAM for this program logger.
+// GetRecentLogs returns logs from RAM for this program logger, oldest first.
 func (pl *ProgramLogger) GetRecentLogs() [][]byte {
-	pl.LogBufferLock.RLock()
-	defer pl.LogBufferLock.RUnlock()
-
-	// BUFFER FULL:
-	if !pl.LogBufferFull {
-		return append([][]byte(nil), pl.LogBuffer[:pl.LogBufferPos]...)
-	}
-
-	// BUFFER NOT FULL:
-	out := make([][]byte, 0, logBufferSize)
-
-	// From current write position to end.
-	out = append(out, pl.LogBuffer[pl.LogBufferPos:]...)
-
-	// From start to current write position.
-	out = append(out, pl.LogBuffer[:pl.LogBufferPos]...)
-
-	return out
+	lines, _ := pl.LogsSince(0)
+	return lines
 }
 
-// GetLogsSincePosition returns only the logs added since a specific buffer position.
-func (pl *ProgramLogger) GetLogsSincePosition(lastPos int, wasWrapped bool) [][]byte {
-	pl.LogBufferLock.RLock()
-	defer pl.LogBufferLock.RUnlock()
+// LogsSince returns the lines written after the first seen lines, oldest first, and the count to pass next time.
+//
+// Lines which have already left the buffer are skipped.
+func (pl *ProgramLogger) LogsSince(seen uint64) (lines [][]byte, next uint64) {
+	pl.mu.RLock()
+	defer pl.mu.RUnlock()
 
-	currentPos := pl.LogBufferPos
-	currentWrapped := pl.LogBufferFull
-
-	// Case #1: No new logs (position unchanged).
-	if currentPos == lastPos && currentWrapped == wasWrapped {
-		return nil
+	size := uint64(len(pl.logBuffer))
+	seen = min(max(seen, pl.total-min(pl.total, size)), pl.total)
+	lines = make([][]byte, 0, pl.total-seen)
+	for i := seen; i < pl.total; i++ {
+		lines = append(lines, pl.logBuffer[i%size])
 	}
-
-	// Case #2: Buffer was not wrapped before and still isn't.
-	if !wasWrapped && !currentWrapped {
-		if currentPos > lastPos {
-			return append([][]byte(nil), pl.LogBuffer[lastPos:currentPos]...)
-		}
-		return nil
-	}
-
-	// Case #3: Buffer was not wrapped before but is now.
-	if !wasWrapped && currentWrapped {
-		// Return from 'lastPos' to end of buffer, then 0 to 'currentPos'.
-		out := make([][]byte, 0, logBufferSize)
-		out = append(out, pl.LogBuffer[lastPos:]...)
-		out = append(out, pl.LogBuffer[:currentPos]...)
-		return out
-	}
-
-	// Case #4: Buffer was wrapped before and still is.
-	if wasWrapped && currentWrapped {
-		if currentPos > lastPos {
-			// No wrap-around occurred between checks
-			return append([][]byte(nil), pl.LogBuffer[lastPos:currentPos]...)
-		}
-		// Wrap-around occurred
-		out := make([][]byte, 0, logBufferSize-lastPos+currentPos)
-		out = append(out, pl.LogBuffer[lastPos:]...)
-		out = append(out, pl.LogBuffer[:currentPos]...)
-		return out
-	}
-
-	// Case #5: Buffer was wrapped but now isn't (shouldn't happen)
-	fmt.Fprintf(os.Stderr, "Dev Error: Buffer unwrapped.")
-	return pl.GetRecentLogs()
-}
-
-// GetBufferPosition returns the current write position in the log buffer.
-func (pl *ProgramLogger) GetBufferPosition() int {
-	pl.LogBufferLock.RLock()
-	defer pl.LogBufferLock.RUnlock()
-	return pl.LogBufferPos
-}
-
-// IsBufferFull returns whether the log buffer is full.
-func (pl *ProgramLogger) IsBufferFull() bool {
-	pl.LogBufferLock.RLock()
-	defer pl.LogBufferLock.RUnlock()
-	return pl.LogBufferFull
+	return lines, pl.total
 }
 
 // loadLogsFromFile reads existing log entries from the log file into the buffer.
@@ -408,7 +313,7 @@ func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 
 // D logs debug messages for this program.
 func (pl *ProgramLogger) D(l int, msg string, args ...any) {
-	if Level < l {
+	if Level() < l {
 		return
 	}
 	pl.log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)

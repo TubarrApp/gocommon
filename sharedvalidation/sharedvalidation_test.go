@@ -260,10 +260,21 @@ func TestValidateDirectory(t *testing.T) {
 		t.Errorf("expected template detection and pass")
 	}
 
+	// Tags with spaces and capitals, as the template parsers accept them.
+	spacedTemplateTmp := filepath.Join(os.TempDir(), "{{ Channel_Name }}")
+	if hasTemplating, _, err := ValidateDirectory(spacedTemplateTmp, false, sharedtemplates.AllTemplatesMap); !hasTemplating || err != nil {
+		t.Errorf("expected spaced, capitalised tag to pass, got %v", err)
+	}
+
 	// Invalid template directory.
 	invalidTemplateTmp := filepath.Join(os.TempDir(), "{{channel_name}}", "{{BOGUS}}")
 	if hasTemplating, _, err := ValidateDirectory(invalidTemplateTmp, false, sharedtemplates.AllTemplatesMap); !hasTemplating || err == nil {
 		t.Errorf("expected template detection and fail")
+	}
+
+	// Empty directory.
+	if _, _, err := ValidateDirectory("", false, sharedtemplates.AllTemplatesMap); err == nil {
+		t.Errorf("expected error for empty directory")
 	}
 
 	// Invalid directory.
