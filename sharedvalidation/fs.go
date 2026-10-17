@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedtemplates"
 )
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
@@ -134,11 +135,7 @@ func checkTemplateTags(s string, templateMap map[string]struct{}) (hasTemplating
 		// Check all template tags for validity.
 		allValid := checkAllTemplateTags(s, templateMap)
 		if !allValid {
-			tags := make([]string, 0, len(templateMap))
-			for k := range templateMap {
-				tags = append(tags, k)
-			}
-			return true, fmt.Errorf("path %q contains unsupported template tags. Supported tags: %v", s, tags)
+			return true, fmt.Errorf("path %q contains unsupported template tags. Supported tags: %v", s, sharedtemplates.DescribeTags(templateMap))
 		}
 		return true, nil
 	}
@@ -167,8 +164,7 @@ func checkAllTemplateTags(s string, templateMap map[string]struct{}) bool {
 		}
 
 		// Extract tag, compare against map (normalized as the template parsers do).
-		tag := strings.ToLower(strings.TrimSpace(s[start+2 : endAbs]))
-		if _, ok := templateMap[tag]; !ok {
+		if !sharedtemplates.ValidTag(s[start+2:endAbs], templateMap) {
 			return false
 		}
 
