@@ -2,45 +2,50 @@ package sharedtags
 
 // JSON credits constants.
 const (
-	JOverrideCredits = "all-credits"
-	JActor           = "actor"
-	JAuthor          = "author"
-	JArtist          = "artist"
-	JChannel         = "channel"
-	JComposer        = "composer"
-	JCreator         = "creator"
-	JDirector        = "director"
-	JPerformer       = "performer"
-	JProducer        = "producer"
-	JPublisher       = "publisher"
-	JStudio          = "studio"
-	JUploader        = "uploader"
-	JWriter          = "writer"
+	JActor     = "actor"
+	JAuthor    = "author"
+	JArtist    = "artist"
+	JChannel   = "channel"
+	JComposer  = "composer"
+	JCreator   = "creator"
+	JDirector  = "director"
+	JPerformer = "performer"
+	JProducer  = "producer"
+	JPublisher = "publisher"
+	JStudio    = "studio"
+	JUploader  = "uploader"
+	JWriter    = "writer"
 )
 
 // JSON title and description constants.
 const (
+	// Titles.
+	JFulltitle = "fulltitle"
+	JTitle     = "title"
+
+	// Subtitle (keep separate).
+	JSubtitle = "subtitle"
+
+	// Descriptions.
 	JComment            = "comment"
 	JDescription        = "description"
-	JFulltitle          = "fulltitle"
 	JLongDesc           = "longdescription"
 	JLongUnderscoreDesc = "long_description"
-	JSubtitle           = "subtitle"
 	JSummary            = "summary"
 	JSynopsis           = "synopsis"
-	JTitle              = "title"
 )
 
 // JSON date/time constants.
 const (
-	JCreationTime        = "creation_time"
-	JDate                = "date"
-	JFormattedDate       = "formatted_date"
-	JOriginallyAvailable = "originally_available_at"
-	JReleaseDate         = "release_date"
-	JUploadDate          = "upload_date"
-	JYear                = "year"
+	JCreationTime        = "creation_time"           // Ends "Txx:xx:xxZ"
+	JDate                = "date"                    // YYYY-MM-DD
+	JOriginallyAvailable = "originally_available_at" // YYYY-MM-DD
+	JReleaseDate         = "release_date"            // YYYY-MM-DD
+	JUploadDate          = "upload_date"             // YYYY-MM-DD
+	JYear                = "year"                    // YYYY
 	JReleaseYear         = "release_year"
+
+	JFormattedDate = "formatted_date" // YYYY-MM-DD
 )
 
 // JSON web constants.

@@ -44,3 +44,11 @@ const (
 	// Set.
 	OpSet = "set"
 )
+
+// Meta type operations.
+const (
+	MetaOpOverrideCredits = "all-credits"
+	MetaOpOverrideDates   = "all-dates"
+	MetaOpAllDescriptions = "all-descriptions"
+	MetaOpAllTitles       = "all-titles"
+)
