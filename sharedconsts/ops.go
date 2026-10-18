@@ -45,10 +45,19 @@ const (
 	OpSet = "set"
 )
 
+// MetaOpAllFieldsOfType defines changes which replace all tags of
+// the given type (e.g. credits, or date).
+var MetaOpAllFieldsOfType = map[string]struct{}{
+	MetaOpAllCredits:      {},
+	MetaOpAllDates:        {},
+	MetaOpAllDescriptions: {},
+	MetaOpAllTitles:       {},
+}
+
 // Meta type operations.
 const (
-	MetaOpOverrideCredits = "all-credits"
-	MetaOpOverrideDates   = "all-dates"
+	MetaOpAllCredits      = "all-credits"
+	MetaOpAllDates        = "all-dates"
 	MetaOpAllDescriptions = "all-descriptions"
 	MetaOpAllTitles       = "all-titles"
 )
