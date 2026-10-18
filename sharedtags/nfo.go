@@ -30,6 +30,8 @@ const (
 	// Date and Release Metadata.
 	NAired        = "aired"
 	NPremiereDate = "premiered"
+	NReleaseDate  = "releasedate"
+	NReleased     = "released"
 	NYear         = "year"
 
 	// Episodic Metadata.

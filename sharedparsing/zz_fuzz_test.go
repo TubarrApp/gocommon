@@ -6,6 +6,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // FuzzMetaOpRoundTrip asserts that formatting an operation and parsing it back is
@@ -16,7 +17,7 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 	f.Add("title", "set", "a|b:c")
 	f.Add("description", "append", ` | piped : value `)
 	f.Add("title", "set", `C:\Dogs`)
-	f.Add("", "set", "")
+	f.Add("title", "set", "")
 	f.Add("title", "set", `back\slash\`)
 	f.Add("title", "set", "HELLO: THIS IS MY TEXT")
 	f.Add("title", "keep-after", "| ")
@@ -31,12 +32,11 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 		if strings.ContainsAny(field+opType, ":|") {
 			t.Skip()
 		}
-		// Real operation types are lowercase letters and hyphens; others fail validation.
-		if strings.Trim(opType, "abcdefghijklmnopqrstuvwxyz-") != "" {
+		// Parsing validates, so only valid operations can round trip.
+		want := sharedmodels.MetaOps{Field: field, OpType: opType, OpValue: opValue}
+		if sharedvalidation.ValidateMetaOps([]sharedmodels.MetaOps{want}) != nil {
 			t.Skip()
 		}
-
-		want := sharedmodels.MetaOps{Field: field, OpType: opType, OpValue: opValue}
 
 		formatted := sharedparsing.FormatMetaOp(want, false)
 		got, _, err := sharedparsing.ParseMetaOps([]string{formatted})
@@ -68,12 +68,12 @@ func FuzzRegexReplaceRoundTrip(f *testing.F) {
 	f.Add(`\d{4}}`, "{{uploader}}")
 
 	f.Fuzz(func(t *testing.T, pattern, replacement string) {
-		// "]]:" would close the span early; validation rejects such patterns.
-		if pattern == "" || strings.Contains(pattern, "]]:") {
+		// Parsing validates, so only valid patterns can round trip. This also skips "]]:",
+		// which would close the span early.
+		want := sharedmodels.MetaOps{Field: "title", OpType: "regex-replace", OpFindString: pattern, OpValue: replacement}
+		if sharedvalidation.ValidateMetaOps([]sharedmodels.MetaOps{want}) != nil {
 			t.Skip()
 		}
-
-		want := sharedmodels.MetaOps{Field: "title", OpType: "regex-replace", OpFindString: pattern, OpValue: replacement}
 		formatted := sharedparsing.FormatMetaOp(want, false)
 
 		got, _, err := sharedparsing.ParseMetaOps([]string{formatted})

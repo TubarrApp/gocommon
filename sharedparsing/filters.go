@@ -6,6 +6,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // filterFormatWithMustAny describes the download filter form, where several filters
@@ -131,7 +132,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 		metaOps, opWarnings, err := ParseMetaOps([]string{op})
 		warnings = append(warnings, opWarnings...)
 		if err != nil {
-			return nil, warnings, err
+			return nil, warnings, fmt.Errorf("filtered meta operation %q: %w", entry, err)
 		}
 		if len(filters) == 0 || len(metaOps) == 0 {
 			continue
@@ -139,6 +140,9 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 
 		scopeToChannel(chanURL, filters, metaOps)
 		valid = append(valid, sharedmodels.FilteredMetaOps{Filters: filters, MetaOps: metaOps})
+	}
+	if err := sharedvalidation.ValidateFilteredMetaOps(valid); err != nil {
+		return nil, warnings, err
 	}
 	return valid, warnings, nil
 }
@@ -172,7 +176,7 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 		filenameOps, opWarnings, err := ParseFilenameOps([]string{op})
 		warnings = append(warnings, opWarnings...)
 		if err != nil {
-			return nil, warnings, err
+			return nil, warnings, fmt.Errorf("filtered filename operation %q: %w", entry, err)
 		}
 		if len(filters) == 0 || len(filenameOps) == 0 {
 			continue
@@ -189,6 +193,9 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 			}
 		}
 		valid = append(valid, sharedmodels.FilteredFilenameOps{Filters: filters, FilenameOps: filenameOps})
+	}
+	if err := sharedvalidation.ValidateFilteredFilenameOps(valid); err != nil {
+		return nil, warnings, err
 	}
 	return valid, warnings, nil
 }

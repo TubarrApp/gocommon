@@ -7,10 +7,12 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // sortedKeys returns the keys of m in a stable order, for use in error messages.
@@ -87,6 +89,57 @@ func ValidateMetaOps(metaOps []sharedmodels.MetaOps) error {
 		if op.Field == "" {
 			return fmt.Errorf("meta operation at position %d has empty field", i)
 		}
+		if err := validateGroupOp(op, i); err != nil {
+			return err
+		}
+		if err := validateDateSet(op.OpType, op.Field, op.OpValue, i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateGroupOp checks an operation involving an "all-x" group. A group cannot be copied or
+// pasted from since its fields may differ, and all-dates only accepts set and paste-from.
+func validateGroupOp(op sharedmodels.MetaOps, i int) error {
+	_, fieldIsGroup := sharedconsts.MetaOpAllFieldsOfType[op.Field]
+	_, valueIsGroup := sharedconsts.MetaOpAllFieldsOfType[op.OpValue]
+
+	switch {
+	case fieldIsGroup && op.OpType == sharedconsts.OpCopyTo:
+		return fmt.Errorf("%s at position %d cannot copy from %q as its fields may differ, copy from a single field instead", op.OpType, i, op.Field)
+	case valueIsGroup && op.OpType == sharedconsts.OpPasteFrom:
+		return fmt.Errorf("%s at position %d cannot paste from %q as its fields may differ, paste from a single field instead", op.OpType, i, op.OpValue)
+	case op.Field == sharedconsts.MetaOpAllDates && op.OpType != sharedconsts.OpSet && op.OpType != sharedconsts.OpPasteFrom:
+		return fmt.Errorf("field %q at position %d only supports %q and %q, got %q", op.Field, i, sharedconsts.OpSet, sharedconsts.OpPasteFrom, op.OpType)
+	}
+	return nil
+}
+
+// dateFieldLayouts maps known date fields to the layout a set value on them must match.
+var dateFieldLayouts = map[string]string{
+	sharedconsts.MetaOpAllDates:     time.DateOnly,
+	sharedtags.JDate:                time.DateOnly,
+	sharedtags.JOriginallyAvailable: time.DateOnly,
+	sharedtags.JReleaseDate:         time.DateOnly,
+	sharedtags.JUploadDate:          time.DateOnly,
+	sharedtags.NAired:               time.DateOnly,
+	sharedtags.NPremiereDate:        time.DateOnly,
+	sharedtags.NReleaseDate:         time.DateOnly,
+	sharedtags.NReleased:            time.DateOnly,
+	sharedtags.JYear:                "2006",
+	sharedtags.JReleaseYear:         "2006",
+	sharedtags.JCreationTime:        time.RFC3339,
+}
+
+// validateDateSet checks the value of a set on a known date field, and is a no-op otherwise.
+func validateDateSet(opType, field, value string, i int) error {
+	layout, isDate := dateFieldLayouts[field]
+	if opType != sharedconsts.OpSet || !isDate {
+		return nil
+	}
+	if _, err := time.Parse(layout, value); err != nil {
+		return fmt.Errorf("set on %q at position %d: %q is not a valid date, must be formatted like %q", field, i, value, layout)
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // WarningKind classifies why parsing could not use an entry as written.
@@ -14,11 +15,8 @@ type WarningKind int
 
 // WarningKind definitions.
 const (
-	// WarnInvalid means the entry was malformed or named an unknown operation type and
-	// was skipped entirely.
-	WarnInvalid WarningKind = iota
 	// WarnDuplicate means the entry repeated one already accepted.
-	WarnDuplicate
+	WarnDuplicate WarningKind = iota
 	// WarnChannelURL means a leading segment looked like a channel URL but was unusable.
 	WarnChannelURL
 )
@@ -35,27 +33,14 @@ func (w Warning) String() string {
 	return w.Msg
 }
 
-// InvalidEntries returns the entries that were malformed, for callers that treat a bad
-// operation as fatal rather than skipping it. Duplicates are not included, since
-// dropping them changes nothing about the result.
-func InvalidEntries(warnings []Warning) []string {
-	var invalid []string
-	for _, w := range warnings {
-		if w.Kind == WarnInvalid {
-			invalid = append(invalid, w.Entry)
-		}
-	}
-	return invalid
-}
-
-// ParseFilenameOps parses filename operation strings, e.g. "prefix:[COOL CATEGORY] "
-// or "date-tag:prefix:ymd".
+// ParseFilenameOps parses and validates filename operation strings, e.g.
+// "prefix:[COOL CATEGORY] " or "date-tag:prefix:ymd".
 //
 // Operation types and date tag locations are fixed vocabularies, so they are matched
 // case-insensitively and stored lowercased. Values are left as written.
 //
-// Malformed entries are skipped and described in warnings rather than failing the
-// batch; err is only returned when no entry was usable.
+// Any malformed or invalid entry fails the batch, with err listing every malformed one.
+// Duplicates and unusable channel URLs are only described in warnings.
 func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, warnings []Warning, err error) {
 	if len(filenameOps) == 0 {
 		return nil, nil, nil
@@ -66,6 +51,7 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 
 	valid := make([]sharedmodels.FilenameOps, 0, len(filenameOps))
 	seen := make(map[string]struct{}, len(filenameOps))
+	var invalid []string
 
 	for _, op := range filenameOps {
 		opURL, opPart, urlErr := SplitOpURL(op)
@@ -75,14 +61,14 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 
 		opType, rest, ok := nextField(opPart)
 		if !ok {
-			warnings = append(warnings, invalidWarning(op, "expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd'"))
+			invalid = append(invalid, invalidEntry(op, "expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd'"))
 			continue
 		}
 
 		newOp := sharedmodels.FilenameOps{OpType: strings.ToLower(opType)}
 		args, argErr := parseOpArgs(newOp.OpType, rest)
 		if argErr != nil {
-			warnings = append(warnings, invalidWarning(op, argErr.Error()))
+			invalid = append(invalid, invalidEntry(op, argErr.Error()))
 			continue
 		}
 		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
@@ -102,21 +88,27 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 		valid = append(valid, newOp)
 	}
 
+	if len(invalid) > 0 {
+		return nil, warnings, invalidError(invalid)
+	}
 	if len(valid) == 0 {
 		return nil, warnings, errors.New("no valid filename operations")
+	}
+	if err := sharedvalidation.ValidateFilenameOps(valid); err != nil {
+		return nil, warnings, err
 	}
 	return valid, warnings, nil
 }
 
-// ParseMetaOps parses meta operation strings, e.g. "director:set:Spielberg" or
-// "title:date-tag:suffix:ymd".
+// ParseMetaOps parses and validates meta operation strings, e.g. "director:set:Spielberg"
+// or "title:date-tag:suffix:ymd".
 //
 // Operation types and date tag locations are fixed vocabularies, so they are matched
 // case-insensitively and stored lowercased. Field names and values are left as written,
 // since metadata keys are case-sensitive.
 //
-// Malformed entries are skipped and described in warnings rather than failing the
-// batch; err is only returned when no entry was usable.
+// Any malformed or invalid entry fails the batch, with err listing every malformed one.
+// Duplicates and unusable channel URLs are only described in warnings.
 func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []Warning, err error) {
 	if len(metaOps) == 0 {
 		return nil, nil, nil
@@ -127,6 +119,7 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 
 	valid := make([]sharedmodels.MetaOps, 0, len(metaOps))
 	seen := make(map[string]struct{}, len(metaOps))
+	var invalid []string
 
 	for _, op := range metaOps {
 		opURL, opPart, urlErr := SplitOpURL(op)
@@ -140,14 +133,14 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 			opType, rest, ok = nextField(rest)
 		}
 		if !ok {
-			warnings = append(warnings, invalidWarning(op, "expected 'director:set:Spielberg' or 'title:date-tag:suffix:ymd'"))
+			invalid = append(invalid, invalidEntry(op, "expected 'director:set:Spielberg' or 'title:date-tag:suffix:ymd'"))
 			continue
 		}
 
 		newOp := sharedmodels.MetaOps{Field: field, OpType: strings.ToLower(opType)}
 		args, argErr := parseOpArgs(newOp.OpType, rest)
 		if argErr != nil {
-			warnings = append(warnings, invalidWarning(op, argErr.Error()))
+			invalid = append(invalid, invalidEntry(op, argErr.Error()))
 			continue
 		}
 		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
@@ -167,8 +160,14 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 		valid = append(valid, newOp)
 	}
 
+	if len(invalid) > 0 {
+		return nil, warnings, invalidError(invalid)
+	}
 	if len(valid) == 0 {
 		return nil, warnings, errors.New("no valid meta operations")
+	}
+	if err := sharedvalidation.ValidateMetaOps(valid); err != nil {
+		return nil, warnings, err
 	}
 	return valid, warnings, nil
 }
@@ -296,13 +295,14 @@ func opAppliesTo(opURL, chanURL string) bool {
 	return opURL == "" || chanURL == "" || opURL == chanURL
 }
 
-// invalidWarning reports an entry that was skipped as malformed.
-func invalidWarning(entry, reason string) Warning {
-	return Warning{
-		Kind:  WarnInvalid,
-		Entry: entry,
-		Msg:   fmt.Sprintf("skipping invalid operation %q: %s", entry, reason),
-	}
+// invalidEntry describes a malformed entry.
+func invalidEntry(entry, reason string) string {
+	return fmt.Sprintf("%q: %s", entry, reason)
+}
+
+// invalidError reports every malformed entry at once, so all can be fixed in one pass.
+func invalidError(invalid []string) error {
+	return fmt.Errorf("invalid operations: %s", strings.Join(invalid, "; "))
 }
 
 // duplicateWarning reports an entry that repeated one already accepted.

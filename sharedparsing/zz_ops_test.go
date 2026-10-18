@@ -2,6 +2,7 @@ package sharedparsing_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/TubarrApp/gocommon/sharedmodels"
@@ -41,7 +42,8 @@ func TestParseMetaOps(t *testing.T) {
 	}
 }
 
-func TestParseMetaOpsSkipsInvalid(t *testing.T) {
+// TestParseMetaOpsRejectsInvalid tests that any malformed entry fails the batch, naming every one.
+func TestParseMetaOpsRejectsInvalid(t *testing.T) {
 	in := []string{
 		"director:set:Spielberg",
 		"too:few",
@@ -49,15 +51,32 @@ func TestParseMetaOpsSkipsInvalid(t *testing.T) {
 		"title:regex-replace:^unwrapped:x",
 	}
 
-	got, warnings, err := sharedparsing.ParseMetaOps(in)
-	if err != nil {
-		t.Fatalf("ParseMetaOps returned error: %v", err)
+	got, _, err := sharedparsing.ParseMetaOps(in)
+	if err == nil {
+		t.Fatalf("expected an error, got %+v", got)
 	}
-	if len(got) != 1 {
-		t.Errorf("parsed %d ops, want 1: %+v", len(got), got)
+	for _, entry := range in[1:] {
+		if !strings.Contains(err.Error(), entry) {
+			t.Errorf("error %q does not name %q", err, entry)
+		}
 	}
-	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) != 3 {
-		t.Errorf("InvalidEntries = %q, want 3 entries", invalid)
+}
+
+// TestParseMetaOpsValidates tests that well-formed but invalid operations fail parsing.
+func TestParseMetaOpsValidates(t *testing.T) {
+	for _, op := range []string{"title:explode:x", "all-titles:copy-to:writer", "all-dates:set:2024/05/10", "title:regex-replace:[[(]]:x"} {
+		if _, _, err := sharedparsing.ParseMetaOps([]string{op}); err == nil {
+			t.Errorf("ParseMetaOps(%q) should fail validation", op)
+		}
+	}
+	if _, _, err := sharedparsing.ParseMetaOps([]string{"all-titles:paste-from:release_date"}); err != nil {
+		t.Errorf("all-titles:paste-from should be valid: %v", err)
+	}
+	if _, _, err := sharedparsing.ParseFilenameOps([]string{"explode:x"}); err == nil {
+		t.Error("ParseFilenameOps should fail validation on an unknown type")
+	}
+	if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{"title:explodes:cat|title:set:x"}); err == nil {
+		t.Error("ParseFilteredMetaOps should fail validation on an unknown filter type")
 	}
 }
 
@@ -294,48 +313,17 @@ func TestUnescapedPipeInValue(t *testing.T) {
 	}
 }
 
-// TestWarningKinds checks that malformed and duplicate entries are distinguishable, so
-// a caller can fail on the former while tolerating the latter.
-func TestWarningKinds(t *testing.T) {
-	_, warnings, err := sharedparsing.ParseMetaOps([]string{
-		"title:set:cats",
-		"title:set:cats",
-		"too:few",
-	})
+// TestDuplicatesOnlyWarn keeps duplicate input non-fatal, described only in warnings.
+func TestDuplicatesOnlyWarn(t *testing.T) {
+	got, warnings, err := sharedparsing.ParseMetaOps([]string{"title:set:cats", "title:set:cats"})
 	if err != nil {
 		t.Fatalf("ParseMetaOps: %v", err)
 	}
-
-	var dupes, invalid int
-	for _, w := range warnings {
-		switch w.Kind {
-		case sharedparsing.WarnDuplicate:
-			dupes++
-		case sharedparsing.WarnInvalid:
-			invalid++
-		}
+	if len(got) != 1 {
+		t.Errorf("parsed %d ops, want 1", len(got))
 	}
-	if dupes != 1 || invalid != 1 {
-		t.Errorf("got %d duplicate and %d invalid warnings, want 1 each: %v", dupes, invalid, warnings)
-	}
-
-	if entries := sharedparsing.InvalidEntries(warnings); len(entries) != 1 || entries[0] != "too:few" {
-		t.Errorf("InvalidEntries = %q, want [too:few]", entries)
-	}
-}
-
-// TestInvalidEntriesIgnoresDuplicates keeps duplicate-only input non-fatal for callers
-// that treat InvalidEntries as a failure condition.
-func TestInvalidEntriesIgnoresDuplicates(t *testing.T) {
-	_, warnings, err := sharedparsing.ParseMetaOps([]string{"title:set:cats", "title:set:cats"})
-	if err != nil {
-		t.Fatalf("ParseMetaOps: %v", err)
-	}
-	if len(warnings) == 0 {
-		t.Fatal("expected a duplicate warning")
-	}
-	if entries := sharedparsing.InvalidEntries(warnings); len(entries) != 0 {
-		t.Errorf("InvalidEntries = %q, want none", entries)
+	if len(warnings) != 1 || warnings[0].Kind != sharedparsing.WarnDuplicate {
+		t.Errorf("warnings = %v, want one duplicate", warnings)
 	}
 }
 
@@ -404,8 +392,8 @@ func TestRegexReplacePattern(t *testing.T) {
 		t.Errorf("filename regex-replace = %+v", fops[0])
 	}
 
-	if _, warnings, _ := sharedparsing.ParseMetaOps([]string{"title:regex-replace:^unwrapped:x"}); len(sharedparsing.InvalidEntries(warnings)) != 1 {
-		t.Errorf("an unwrapped pattern should be rejected, warnings %v", warnings)
+	if _, _, err := sharedparsing.ParseMetaOps([]string{"title:regex-replace:^unwrapped:x"}); err == nil {
+		t.Error("an unwrapped pattern should be rejected")
 	}
 }
 
