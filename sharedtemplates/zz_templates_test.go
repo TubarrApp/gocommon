@@ -34,6 +34,8 @@ func TestSanitizePathComponent(t *testing.T) {
 		{"parent", "..", "--", 255},
 		{"traversal", "../../etc", "..-..-etc", 255},
 		{"nul", "a\x00b", "ab", 255},
+		{"line breaks", "line one\nline two\r\n", "line one line two", 255},
+		{"other controls", "a\tb\x7fc\u0085d", "a b c d", 255},
 		{"trimmed", "  title  ", "title", 255},
 		{"cut", "abcdef", "abc", 3},
 		{"cut keeps runes whole", "aé", "a", 2},

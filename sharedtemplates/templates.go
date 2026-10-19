@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -25,9 +26,16 @@ func StripURLScheme(u string) string {
 	return rest
 }
 
-// SanitizePathComponent makes s safe as a single file or directory name, cut to at most maxBytes.
+// SanitizePathComponent makes s safe as a single file or directory name, cut to at most maxBytes. Control characters
+// become spaces, as a name holding a line break splits paths read a line at a time.
 func SanitizePathComponent(s string, maxBytes int) string {
-	s = strings.TrimSpace(pathSeparatorReplacer.Replace(s))
+	s = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, pathSeparatorReplacer.Replace(s))
+	s = strings.TrimSpace(s)
 	if s == "." || s == ".." {
 		s = strings.ReplaceAll(s, ".", "-")
 	}
