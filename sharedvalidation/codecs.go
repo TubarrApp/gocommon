@@ -33,7 +33,7 @@ func ValidateVideoCodec(c string) (string, error) {
 		return c, nil
 	}
 
-	return "", fmt.Errorf("video codec %q is not valid. Supported: %v", c, sharedconsts.ValidVideoCodecs)
+	return "", fmt.Errorf("video codec %q is not valid. Supported: %v", c, sortedKeys(sharedconsts.ValidVideoCodecs))
 }
 
 // ValidateVideoCodecWithAccel validates a video codec string with GPU acceleration context.
@@ -78,7 +78,7 @@ func ValidateAudioCodec(a string) (validAudioCodec string, err error) {
 		return a, nil
 	}
 
-	return "", fmt.Errorf("audio codec %q is not valid. Supported: %v", a, sharedconsts.ValidAudioCodecs)
+	return "", fmt.Errorf("audio codec %q is not valid. Supported: %v", a, sortedKeys(sharedconsts.ValidAudioCodecs))
 }
 
 // ValidateGPUAccelType validates a GPU acceleration type string.
@@ -97,7 +97,7 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 	}
 
 	// Return error on map check failure.
-	return "", fmt.Errorf("%s GPU acceleration type %q is not valid. Supported: %v", sharedconsts.LogTagError, a, sharedconsts.ValidGPUAccelTypes)
+	return "", fmt.Errorf("GPU acceleration type %q is not valid. Supported: %v", a, sortedKeys(sharedconsts.ValidGPUAccelTypes))
 }
 
 // OSSupportsAccelType verified OS support for this acceleration type.

@@ -14,7 +14,10 @@ func TestStripURLScheme(t *testing.T) {
 		"http://example.com":            "example.com",
 		"HTTPS://Example.com/a":         "Example.com/a",
 		"youtube.com/@cats":             "youtube.com/@cats",
+		"svn+ssh://host/repo":           "host/repo",
+		"a.b-c2://host":                 "host",
 		"a b://c":                       "a b://c", // Not a scheme.
+		"a_b://c":                       "a_b://c",
 		"://c":                          "://c",
 	} {
 		if got := StripURLScheme(in); got != want {
