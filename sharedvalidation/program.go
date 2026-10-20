@@ -85,9 +85,13 @@ func ValidateFFmpegOutputExt(o string) (string, error) {
 	}
 
 	// Check valid video extension.
-	if _, ok := sharedconsts.AllVidExtensions[o]; ok {
-		return o, nil
+	if _, ok := sharedconsts.AllVidExtensions[o]; !ok {
+		return "", fmt.Errorf("output filetype %q is not supported", o)
 	}
 
-	return "", fmt.Errorf("output filetype %q is not supported", o)
+	// Some containers ffmpeg can read, but not write.
+	if v, ok := sharedconsts.ContainerCompatibleVideoCodecs[o]; ok && len(v) == 0 && len(sharedconsts.ContainerCompatibleAudioCodecs[o]) == 0 {
+		return "", fmt.Errorf("output filetype %q is not supported, as ffmpeg can't write it", o)
+	}
+	return o, nil
 }
