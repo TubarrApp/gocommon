@@ -79,9 +79,15 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 		if !hasValue && filterType != sharedconsts.OpContains && filterType != sharedconsts.OpOmits {
 			return nil, fmt.Errorf("%s", formatErrorMsg)
 		}
+
+		// Guard against common user mistake: Many filter ops don't use ':must' or ':any'
 		if i := lastIndexUnescaped(rawValue, fieldSeparator); !requireMustAny && i >= 0 {
-			if cond := strings.ToLower(strings.TrimSpace(rawValue[i+1:])); cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
-				return nil, fmt.Errorf("filter %q ends in %q, which isn't used here (escape the ':' to keep it in the value)", op, cond)
+			// Grab final portion after last separator (e.g. ':must')
+			cond := strings.ToLower(strings.TrimSpace(rawValue[i+1:]))
+			if cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
+				// Prints a line like: 'filter 'https://site.com/@a|title:contains:Re: Zero:any' ends in 'any', which isn't used here. Use 'https://site.com/@a|title:contains:Re: Zero', or 'https://site.com/@a|title:contains:Re: Zero\:any' to match 'Re: Zero:any' literally'
+				withoutCond := op[:len(op)-len(rawValue)+i]
+				return nil, fmt.Errorf("filter '%s' ends in '%s', which isn't used here. Use '%s', or '%s' to match '%s' literally", op, cond, withoutCond, withoutCond+`\`+op[len(withoutCond):], unescape(rawValue))
 			}
 		}
 
