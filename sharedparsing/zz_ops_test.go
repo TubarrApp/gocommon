@@ -398,7 +398,7 @@ func TestRegexReplacePattern(t *testing.T) {
 }
 
 // TestFilteredOpTakesRemainder covers a filtered entry being one filter and one
-// operation, so the operation may hold '|' with no escaping.
+// operation, divided at the first '||', so a lone '|' needs no escaping on either side.
 func TestFilteredOpTakesRemainder(t *testing.T) {
 	tests := []struct {
 		entry     string
@@ -407,10 +407,10 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 		wantFind  string
 		wantValue string
 	}{
-		{"title:contains:Kino|title:keep-after:| ", "", "keep-after", "", "| "},
-		{"title:contains:Kino|title:set:Cats | Dogs | Birds", "", "set", "", "Cats | Dogs | Birds"},
-		{"https://example.com|title:contains:Kino|title:regex-replace:[[^a|b ]]:x|y", "https://example.com", "regex-replace", "^a|b ", "x|y"},
-		{`title:contains:a\|b|title:append:!`, "", "append", "", "!"},
+		{"title:contains:Kino||title:keep-after:| ", "", "keep-after", "", "| "},
+		{"title:contains:Kino||title:set:Cats | Dogs | Birds", "", "set", "", "Cats | Dogs | Birds"},
+		{"https://example.com|title:contains:Kino||title:regex-replace:[[^a|b ]]:x|y", "https://example.com", "regex-replace", "^a|b ", "x|y"},
+		{"title:contains:a | b: c||title:append:!", "", "append", "", "!"},
 	}
 
 	for _, tt := range tests {
@@ -429,15 +429,20 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 		})
 	}
 
-	got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|b|title:append:!`})
+	// The filter value is the rest of the filter, so ':' and a lone '|' are taken as written.
+	got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:Ep 5 | Show: Finale||title:append:!"})
 	if len(got) != 1 || len(got[0].Filters) != 1 {
 		t.Fatalf("ParseFilteredMetaOps = %+v, want one entry with one filter", got)
 	}
-	if got[0].Filters[0].Value != "a|b" {
-		t.Errorf("escaped '|' in the filter value = %+v", got[0].Filters[0])
+	if got[0].Filters[0].Value != "ep 5 | show: finale" {
+		t.Errorf("filter value = %+v", got[0].Filters[0])
+	}
+	// A '|' at the end of the value is escaped, so it isn't read as part of the divider.
+	if got, _, _ = sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|||title:append:!`}); len(got) != 1 || got[0].Filters[0].Value != "a|" {
+		t.Errorf("escaped trailing '|' = %+v", got)
 	}
 
-	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino|keep-after:| "})
+	fgot, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:Kino||keep-after:| "})
 	if err != nil {
 		t.Fatalf("ParseFilteredFilenameOps: %v", err)
 	}

@@ -60,7 +60,7 @@ func isMultiPartOpType(opType string) bool {
 }
 
 // FuzzRegexReplaceRoundTrip asserts that a regex-replace pattern survives formatting and
-// re-parsing verbatim, including inside a filtered entry that is split on '|' first.
+// re-parsing verbatim, including inside a filtered entry that is split on '||' first.
 func FuzzRegexReplaceRoundTrip(f *testing.F) {
 	f.Add(`^Kino Casino [^|]*\| `, "")
 	f.Add(`(\d+):(\d+)`, "$2:$1")
@@ -84,7 +84,7 @@ func FuzzRegexReplaceRoundTrip(f *testing.F) {
 			t.Errorf("round trip changed the operation:\n formatted %q\n want %+v\n got  %+v", formatted, want, got[0])
 		}
 
-		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"https://example.com|title:contains:x|" + formatted})
+		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"https://example.com|title:contains:x||" + formatted})
 		if err != nil {
 			t.Fatalf("filtered re-parse of %q failed: %v", formatted, err)
 		}

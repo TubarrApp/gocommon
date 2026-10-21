@@ -59,6 +59,23 @@ func indexUnescaped(s string, sep byte) int {
 	return -1
 }
 
+// lastIndexUnescaped returns the index of the last unescaped sep in s, or -1.
+func lastIndexUnescaped(s string, sep byte) int {
+	last := -1
+	escaped := false
+	for i := range len(s) {
+		switch {
+		case escaped:
+			escaped = false
+		case s[i] == escapeByte:
+			escaped = true
+		case s[i] == sep:
+			last = i
+		}
+	}
+	return last
+}
+
 // nextField decodes s up to its first unescaped ':' and returns the undecoded
 // remainder after it. ok is false when s holds no separator.
 func nextField(s string) (field, rest string, ok bool) {

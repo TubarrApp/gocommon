@@ -9,12 +9,15 @@ import (
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
+// FilterSeparator divides a filtered entry's filter from its operation.
+const FilterSeparator = "||"
+
 // filterFormatWithMustAny describes the download filter form, where several filters
 // combine and each states whether it must match or may match.
 const filterFormatWithMustAny = "please enter filters in the format 'field:filter_type:value:must_or_any'.\n\n" +
 	"'title:omits:frogs:must' ignores all videos with frogs in the metatitle.\n" +
 	"'title:contains:cat:any','title:contains:dog:any' only includes videos with EITHER cat and dog in the title (use 'must' to require both).\n" +
-	"'date:omits:must' omits videos only when the metafile contains a date field." +
+	"'date:omits:must' omits videos only when the metafile contains a date field.\n" +
 	"'duration:morethan:3600:must' only includes videos with a duration field more than 3600 (one hour in seconds).\n"
 
 // filterFormatPlain describes the filtered-operation form, where each entry holds a
@@ -36,47 +39,44 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 	}
 	ops, _ = Deduplicate(ops)
 
-	// The shortest form omits the value and the longest includes it; a must/any
-	// condition adds one part to each.
-	minParts, maxParts := 2, 3
 	formatErrorMsg := filterFormatPlain
 	if requireMustAny {
-		minParts, maxParts = 3, 4
 		formatErrorMsg = filterFormatWithMustAny
 	}
 
 	filters := make([]sharedmodels.Filters, 0, len(ops))
 	for _, op := range ops {
 		chanURL, rest, _ := SplitOpURL(op)
-		split := EscapedSplit(rest, fieldSeparator)
-
-		if len(split) < minParts || len(split) > maxParts {
-			return nil, fmt.Errorf("%s", formatErrorMsg)
-		}
-
-		// Declared per entry so no part carries over from the last filter.
-		field := strings.ToLower(strings.TrimSpace(split[0]))
-		filterType := strings.ToLower(strings.TrimSpace(split[1]))
-		mustAny := sharedconsts.OpMust
-		var value string
 
 		// Must/any is always the last part when required.
+		mustAny := sharedconsts.OpMust
 		if requireMustAny {
-			mustAny = strings.ToLower(strings.TrimSpace(split[len(split)-1]))
+			i := lastIndexUnescaped(rest, fieldSeparator)
+			if i < 0 {
+				return nil, fmt.Errorf("%s", formatErrorMsg)
+			}
+			mustAny = strings.ToLower(strings.TrimSpace(unescape(rest[i+1:])))
 			if mustAny != sharedconsts.OpMust && mustAny != sharedconsts.OpAny {
 				return nil, fmt.Errorf("%s:\nInvalid must/any value %q", formatErrorMsg, mustAny)
 			}
+			rest = rest[:i]
 		}
 
-		// A value is only present in the longest form, and is always the third part.
-		if len(split) == maxParts {
-			value = strings.ToLower(split[2])
+		field, afterField, ok := nextField(rest)
+		if !ok {
+			return nil, fmt.Errorf("%s", formatErrorMsg)
 		}
+		field = strings.ToLower(strings.TrimSpace(field))
 
 		// The valueless form only acts on a field's presence, which only contains and
 		// omits can make use of.
-		if len(split) == minParts &&
-			filterType != sharedconsts.OpContains && filterType != sharedconsts.OpOmits {
+		filterType, rawValue, hasValue := nextField(afterField)
+		if !hasValue {
+			filterType = unescape(afterField)
+		}
+		filterType = strings.ToLower(strings.TrimSpace(filterType))
+		value := strings.ToLower(unescape(rawValue))
+		if !hasValue && filterType != sharedconsts.OpContains && filterType != sharedconsts.OpOmits {
 			return nil, fmt.Errorf("%s", formatErrorMsg)
 		}
 
@@ -91,18 +91,48 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 	return filters, nil
 }
 
-// splitFiltered divides a filtered entry at its first unescaped '|' into one filter and
-// one operation. The operation is the whole remainder, so it may hold '|' unescaped.
-func splitFiltered(rest string) (filter, op string, ok bool) {
-	i := indexUnescaped(rest, urlSeparator)
-	if i < 0 {
-		return "", "", false
+// FormatFilter renders a filter as [ParseFilterOps] reads it.
+func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
+	s := Escape(f.Field) + string(fieldSeparator) + f.FilterType
+	if f.Value != "" {
+		s += string(fieldSeparator) + escapeFilterValue(f.Value)
 	}
-	return rest[:i], rest[i+1:], true
+	if withMustAny {
+		s += string(fieldSeparator) + f.MustAny
+	}
+	return withURL(s, f.ChannelURL, true)
+}
+
+// escapeFilterValue escapes '\', and any '|' that could run into a [FilterSeparator].
+func escapeFilterValue(v string) string {
+	var buf strings.Builder
+	for i := range len(v) {
+		if v[i] == escapeByte || (v[i] == urlSeparator && (i == len(v)-1 || v[i+1] == urlSeparator)) {
+			buf.WriteByte(escapeByte)
+		}
+		buf.WriteByte(v[i])
+	}
+	return buf.String()
+}
+
+// splitFiltered divides a filtered entry at its first unescaped [FilterSeparator].
+func splitFiltered(rest string) (filter, op string, ok bool) {
+	escaped := false
+	for i := range len(rest) {
+		switch {
+		case escaped:
+			escaped = false
+		case rest[i] == escapeByte:
+			escaped = true
+		case strings.HasPrefix(rest[i:], FilterSeparator):
+			return rest[:i], rest[i+len(FilterSeparator):], true
+		}
+	}
+	return "", "", false
 }
 
 // ParseFilteredMetaOps parses filter-gated meta operations, one filter and one operation
-// per entry, e.g. "title:contains:cat|director:set:Mr. Cat".
+// per entry, e.g. "title:contains:cat||director:set:Mr. Cat".
 //
 // A leading channel URL scopes the whole entry.
 func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaOps, warnings []Warning, err error) {
@@ -121,7 +151,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 
 		filter, op, ok := splitFiltered(rest)
 		if !ok {
-			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rule|Meta Operation'", entry)
+			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rule||Meta Operation'", entry)
 		}
 
 		filters, err := ParseFilterOps([]string{filter}, false)
@@ -148,7 +178,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 }
 
 // ParseFilteredFilenameOps parses filter-gated filename operations, one filter and one
-// operation per entry, e.g. "title:contains:cat|prefix:[CATS] ".
+// operation per entry, e.g. "title:contains:cat||prefix:[CATS] ".
 func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredFilenameOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -165,7 +195,7 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 
 		filter, op, ok := splitFiltered(rest)
 		if !ok {
-			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rule|Filename Operation'", entry)
+			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rule||Filename Operation'", entry)
 		}
 
 		filters, err := ParseFilterOps([]string{filter}, false)
