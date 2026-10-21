@@ -76,12 +76,24 @@ func TestParseFilterOpsValueIsRemainder(t *testing.T) {
 	if _, err := sharedparsing.ParseFilterOps([]string{"title:contains:cat"}, true); err == nil {
 		t.Error("a download filter with no must/any should be rejected")
 	}
+	for _, bad := range []string{"title:contains:cat:must", "title:omits:Re: Zero:ANY"} {
+		if _, err := sharedparsing.ParseFilterOps([]string{bad}, false); err == nil {
+			t.Errorf("%q has a must/any where none is used, so should be rejected", bad)
+		}
+	}
+	for _, in := range []string{`title:contains:cat\:must`, "title:contains:any"} {
+		if _, err := sharedparsing.ParseFilterOps([]string{in}, false); err != nil {
+			t.Errorf("%q: %v", in, err)
+		}
+	}
 }
 
 // FuzzFilterRoundTrip tests a formatted filter parses back the same, alone and as a filtered entry's filter.
 func FuzzFilterRoundTrip(f *testing.F) {
 	f.Add("title", "contains", "Ep 5 | Show: Finale", false)
 	f.Add("title", "omits", "a||b", true)
+	f.Add("title", "contains", "ends in: must", false)
+	f.Add("title", "contains", `a\:any`, false)
 	f.Add("description", "contains", `ends in a pipe|`, false)
 	f.Add("title", "contains", `back\slash\\ and \| escapes`, true)
 	f.Add("date", "omits", "", true)

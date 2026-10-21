@@ -79,6 +79,11 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 		if !hasValue && filterType != sharedconsts.OpContains && filterType != sharedconsts.OpOmits {
 			return nil, fmt.Errorf("%s", formatErrorMsg)
 		}
+		if i := lastIndexUnescaped(rawValue, fieldSeparator); !requireMustAny && i >= 0 {
+			if cond := strings.ToLower(strings.TrimSpace(rawValue[i+1:])); cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
+				return nil, fmt.Errorf("filter %q ends in %q, which isn't used here (escape the ':' to keep it in the value)", op, cond)
+			}
+		}
 
 		filters = append(filters, sharedmodels.Filters{
 			Field:      field,
@@ -95,7 +100,13 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
 	s := Escape(f.Field) + string(fieldSeparator) + f.FilterType
 	if f.Value != "" {
-		s += string(fieldSeparator) + escapeFilterValue(f.Value)
+		v := escapeFilterValue(f.Value)
+		if i := strings.LastIndexByte(v, fieldSeparator); !withMustAny && i >= 0 {
+			if cond := strings.ToLower(strings.TrimSpace(v[i+1:])); cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
+				v = v[:i] + string(escapeByte) + v[i:]
+			}
+		}
+		s += string(fieldSeparator) + v
 	}
 	if withMustAny {
 		s += string(fieldSeparator) + f.MustAny
