@@ -55,6 +55,10 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 
 	for _, op := range filenameOps {
 		opURL, opPart, urlErr := SplitOpURL(op)
+		if errors.Is(urlErr, ErrDoubledURLSeparator) {
+			invalid = append(invalid, invalidEntry(op, urlErr.Error()))
+			continue
+		}
 		if urlErr != nil {
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
 		}
@@ -123,6 +127,10 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 
 	for _, op := range metaOps {
 		opURL, opPart, urlErr := SplitOpURL(op)
+		if errors.Is(urlErr, ErrDoubledURLSeparator) {
+			invalid = append(invalid, invalidEntry(op, urlErr.Error()))
+			continue
+		}
 		if urlErr != nil {
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
 		}

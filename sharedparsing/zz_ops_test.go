@@ -1,6 +1,7 @@
 package sharedparsing_test
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -59,6 +60,26 @@ func TestParseMetaOpsRejectsInvalid(t *testing.T) {
 		if !strings.Contains(err.Error(), entry) {
 			t.Errorf("error %q does not name %q", err, entry)
 		}
+	}
+}
+
+// TestDoubledURLSeparatorRejected tests that every parser fails an entry with "||" straight after its channel URL.
+func TestDoubledURLSeparatorRejected(t *testing.T) {
+	const u = "https://example.com||"
+	if _, _, err := sharedparsing.ParseMetaOps([]string{u + "title:set:cats"}); err == nil || !strings.Contains(err.Error(), sharedparsing.ErrDoubledURLSeparator.Error()) {
+		t.Errorf("ParseMetaOps err = %v", err)
+	}
+	if _, _, err := sharedparsing.ParseFilenameOps([]string{u + "prefix:[A] "}); err == nil || !strings.Contains(err.Error(), sharedparsing.ErrDoubledURLSeparator.Error()) {
+		t.Errorf("ParseFilenameOps err = %v", err)
+	}
+	if _, err := sharedparsing.ParseFilterOps([]string{u + "title:contains:cat:must"}, true); !errors.Is(err, sharedparsing.ErrDoubledURLSeparator) {
+		t.Errorf("ParseFilterOps err = %v", err)
+	}
+	if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{u + "title:contains:cat||title:set:cats"}); !errors.Is(err, sharedparsing.ErrDoubledURLSeparator) {
+		t.Errorf("ParseFilteredMetaOps err = %v", err)
+	}
+	if _, _, err := sharedparsing.ParseFilteredFilenameOps([]string{u + "title:contains:cat||prefix:[A] "}); !errors.Is(err, sharedparsing.ErrDoubledURLSeparator) {
+		t.Errorf("ParseFilteredFilenameOps err = %v", err)
 	}
 }
 

@@ -11,6 +11,7 @@
 package sharedparsing
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -206,6 +207,9 @@ func JoinEscaped(parts []string, desiredSeparator byte) string {
 	return strings.Join(escaped, string(desiredSeparator))
 }
 
+// ErrDoubledURLSeparator is returned by [SplitOpURL] for an entry starting "channelURL||".
+var ErrDoubledURLSeparator = errors.New("use a single '|' after a channel URL, '||' only divides a filter from its operation")
+
 // isChannelURL reports whether s is usable as a channel URL prefix.
 //
 // Both a scheme and a host are required. Testing only that s parses is not enough,
@@ -228,7 +232,7 @@ func isChannelURL(s string) bool {
 // whole and the '|' is left to the operation. That keeps unescaped values such as
 // "title:set:Cats | Dogs" working. A non-nil err means the segment looked like an
 // attempted URL but was unusable; rest is still valid, so callers should log and
-// continue.
+// continue. [ErrDoubledURLSeparator] is the exception, as the entry can't be used.
 func SplitOpURL(op string) (chanURL, rest string, err error) {
 	split := SplitUnescaped(op, urlSeparator)
 	if len(split) < 2 {
@@ -241,6 +245,9 @@ func SplitOpURL(op string) (chanURL, rest string, err error) {
 			return "", op, fmt.Errorf("operation %q has an unusable channel URL in leading segment %q", op, u)
 		}
 		return "", op, nil
+	}
+	if len(split) > 2 && split[1] == "" {
+		return "", op, ErrDoubledURLSeparator
 	}
 	return u, strings.Join(split[1:], string(urlSeparator)), nil
 }

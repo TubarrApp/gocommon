@@ -140,6 +140,8 @@ func TestSplitOpURL(t *testing.T) {
 		{"escaped pipe is not a prefix", `title:set:a\|b`, "", `title:set:a\|b`, false},
 		{"escaped pipe kept after url", `https://example.com|title:set:a\|b`, "https://example.com", `title:set:a\|b`, false},
 		{"colon escape kept for decoding pass", `https://example.com|title:set:a\:b`, "https://example.com", `title:set:a\:b`, false},
+		{"doubled separator after url", `https://example.com||title:set:cats`, "", `https://example.com||title:set:cats`, true},
+		{"escaped pipe after url is not doubled", `https://example.com|\|title:set:cats`, "https://example.com", `\|title:set:cats`, false},
 	}
 
 	for _, tt := range tests {

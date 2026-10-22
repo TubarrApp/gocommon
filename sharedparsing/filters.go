@@ -1,6 +1,7 @@
 package sharedparsing
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -46,7 +47,10 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 
 	filters := make([]sharedmodels.Filters, 0, len(ops))
 	for _, op := range ops {
-		chanURL, rest, _ := SplitOpURL(op)
+		chanURL, rest, urlErr := SplitOpURL(op)
+		if errors.Is(urlErr, ErrDoubledURLSeparator) {
+			return nil, fmt.Errorf("filter %q: %w", op, urlErr)
+		}
 
 		// Must/any is always the last part when required.
 		mustAny := sharedconsts.OpMust
@@ -162,6 +166,9 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 	valid := make([]sharedmodels.FilteredMetaOps, 0, len(entries))
 	for _, entry := range entries {
 		chanURL, rest, urlErr := SplitOpURL(entry)
+		if errors.Is(urlErr, ErrDoubledURLSeparator) {
+			return nil, warnings, fmt.Errorf("filtered meta operation %q: %w", entry, urlErr)
+		}
 		if urlErr != nil {
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: entry, Msg: urlErr.Error()})
 		}
@@ -206,6 +213,9 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 	valid := make([]sharedmodels.FilteredFilenameOps, 0, len(entries))
 	for _, entry := range entries {
 		chanURL, rest, urlErr := SplitOpURL(entry)
+		if errors.Is(urlErr, ErrDoubledURLSeparator) {
+			return nil, warnings, fmt.Errorf("filtered filename operation %q: %w", entry, urlErr)
+		}
 		if urlErr != nil {
 			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: entry, Msg: urlErr.Error()})
 		}
