@@ -139,7 +139,7 @@ func validateDateSet(opType, field, value string, i int) error {
 		return nil
 	}
 	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("set on %q at position %d: %q is not a valid date, must be formatted like %q", field, i, value, layout)
+		return fmt.Errorf("set on %q at position %d: %q is not a valid date, must be formatted like %q (YYYY-MM-DD).", field, i, value, layout)
 	}
 	return nil
 }

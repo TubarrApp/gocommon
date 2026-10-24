@@ -34,6 +34,7 @@ const (
 
 // ISOBMFF container metatag keys.
 const (
+	ISOAlbumArtist  = "album_artist"
 	ISOArtist       = "artist"
 	ISOComment      = "comment"
 	ISOComposer     = "composer"

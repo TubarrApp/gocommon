@@ -2,19 +2,20 @@ package sharedtags
 
 // JSON credits constants.
 const (
-	JActor     = "actor"
-	JAuthor    = "author"
-	JArtist    = "artist"
-	JChannel   = "channel"
-	JComposer  = "composer"
-	JCreator   = "creator"
-	JDirector  = "director"
-	JPerformer = "performer"
-	JProducer  = "producer"
-	JPublisher = "publisher"
-	JStudio    = "studio"
-	JUploader  = "uploader"
-	JWriter    = "writer"
+	JActor       = "actor"
+	JAuthor      = "author"
+	JArtist      = "artist"
+	JAlbumArtist = "album_artist"
+	JChannel     = "channel"
+	JComposer    = "composer"
+	JCreator     = "creator"
+	JDirector    = "director"
+	JPerformer   = "performer"
+	JProducer    = "producer"
+	JPublisher   = "publisher"
+	JStudio      = "studio"
+	JUploader    = "uploader"
+	JWriter      = "writer"
 )
 
 // JSON title and description constants.
