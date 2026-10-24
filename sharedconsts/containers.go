@@ -2,7 +2,7 @@ package sharedconsts
 
 // The codecs ffmpeg can write into each video container, found by encoding a test clip into every container with the
 // encoder Metarr uses for each codec (ffmpeg 2026-10; DTS and TrueHD with -strict experimental, as Metarr runs them).
-// ffmpeg can't write .ogm or .rmvb files at all.
+// .ogm and .rmvb files are written by the .ogv and .rm muxers, so they share those lists.
 
 // ContainerCompatibleVideoCodecs lists the video codecs each container can hold.
 var ContainerCompatibleVideoCodecs = map[string][]string{
@@ -12,7 +12,7 @@ var ContainerCompatibleVideoCodecs = map[string][]string{
 	ExtAVI:  {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
 	ExtF4V:  {VCodecH264},
 	ExtFLV:  {VCodecAV1, VCodecH264, VCodecHEVC, VCodecVP9},
-	ExtOGM:  {},
+	ExtOGM:  {VCodecVP8},
 	ExtOGV:  {VCodecVP8},
 	ExtM4V:  {VCodecH264},
 	ExtMKV:  {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
@@ -22,7 +22,7 @@ var ContainerCompatibleVideoCodecs = map[string][]string{
 	ExtMPG:  {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
 	ExtMTS:  {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
 	ExtRM:   {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
-	ExtRMVB: {},
+	ExtRMVB: {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
 	ExtTS:   {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
 	ExtVOB:  {VCodecAV1, VCodecH264, VCodecHEVC, VCodecMPEG2, VCodecVP8, VCodecVP9},
 	ExtWEBM: {VCodecAV1, VCodecVP8, VCodecVP9},
@@ -37,7 +37,7 @@ var ContainerCompatibleAudioCodecs = map[string][]string{
 	ExtAVI:  {ACodecAAC, ACodecAC3, ACodecDTS, ACodecEAC3, ACodecFLAC, ACodecMP2, ACodecMP3, ACodecPCM, ACodecVorbis, ACodecWAV},
 	ExtF4V:  {ACodecAAC, ACodecMP3},
 	ExtFLV:  {ACodecAAC, ACodecAC3, ACodecEAC3, ACodecFLAC, ACodecMP3, ACodecOpus},
-	ExtOGM:  {},
+	ExtOGM:  {ACodecFLAC, ACodecOpus, ACodecVorbis},
 	ExtOGV:  {ACodecFLAC, ACodecOpus, ACodecVorbis},
 	ExtM4V:  {ACodecAAC, ACodecAC3, ACodecALAC},
 	ExtMKV:  {ACodecAAC, ACodecAC3, ACodecALAC, ACodecDTS, ACodecEAC3, ACodecFLAC, ACodecMP2, ACodecMP3, ACodecOpus, ACodecPCM, ACodecTrueHD, ACodecVorbis, ACodecWAV},
@@ -47,7 +47,7 @@ var ContainerCompatibleAudioCodecs = map[string][]string{
 	ExtMPG:  {ACodecAC3, ACodecDTS, ACodecMP2, ACodecMP3},
 	ExtMTS:  {ACodecAAC, ACodecAC3, ACodecALAC, ACodecDTS, ACodecEAC3, ACodecFLAC, ACodecMP2, ACodecMP3, ACodecOpus, ACodecPCM, ACodecTrueHD, ACodecVorbis, ACodecWAV},
 	ExtRM:   {ACodecAAC, ACodecAC3},
-	ExtRMVB: {},
+	ExtRMVB: {ACodecAAC, ACodecAC3},
 	ExtTS:   {ACodecAAC, ACodecAC3, ACodecALAC, ACodecDTS, ACodecEAC3, ACodecFLAC, ACodecMP2, ACodecMP3, ACodecOpus, ACodecPCM, ACodecTrueHD, ACodecVorbis, ACodecWAV},
 	ExtVOB:  {ACodecAC3, ACodecDTS, ACodecMP2, ACodecMP3},
 	ExtWEBM: {ACodecOpus, ACodecVorbis},

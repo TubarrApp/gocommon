@@ -49,6 +49,36 @@ const (
 	JFormattedDate = "formatted_date" // YYYY-MM-DD
 )
 
+// JSON show constants.
+const (
+	JEpisodeID     = "episode_id"
+	JEpisodeNumber = "episode_number"
+	JEpisodeSort   = "episode_sort"
+	JNetwork       = "network"
+	JSeason        = "season"
+	JSeasonNumber  = "season_number"
+	JSeasonTitle   = "season_title"
+	JSeries        = "series"
+	JShow          = "show"
+)
+
+// JSON other constants.
+const (
+	JAlbum       = "album"
+	JCategories  = "categories"
+	JCopyright   = "copyright"
+	JDiscNumber  = "disc_number"
+	JGenre       = "genre"
+	JGenres      = "genres"
+	JHDVideo     = "hd_video"
+	JHeight      = "height"
+	JKeywords    = "keywords"
+	JLanguage    = "language"
+	JLicense     = "license"
+	JTags        = "tags"
+	JTrackNumber = "track_number"
+)
+
 // JSON web constants.
 const (
 	JChannelURL     = "channel_url"

@@ -71,4 +71,7 @@ const (
 	NLicence = "license"
 	NRights  = "rights"
 	NURL     = "url"
+	NSet     = "set"
+	NTag     = "tag"
+	NHDVideo = "hdvideo"
 )

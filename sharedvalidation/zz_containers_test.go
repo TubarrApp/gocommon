@@ -50,20 +50,20 @@ func TestFittingCodecs(t *testing.T) {
 	if got := FittingVideoCodec(".mp4", all); got != sharedconsts.VCodecH264 {
 		t.Errorf("FittingVideoCodec(.mp4) = %q, want h264", got)
 	}
-	if got := FittingVideoCodec(".ogm", all); got != "" {
-		t.Errorf("FittingVideoCodec(.ogm) = %q, want none", got)
+	if got := FittingVideoCodec(".ogm", all); got != sharedconsts.VCodecVP8 {
+		t.Errorf("FittingVideoCodec(.ogm) = %q, want vp8", got)
 	}
 }
 
-// TestValidateFFmpegOutputExtUnwritable tests that containers ffmpeg can't write are refused as output.
-func TestValidateFFmpegOutputExtUnwritable(t *testing.T) {
-	for _, ext := range []string{"ogm", "rmvb"} {
-		if _, err := ValidateFFmpegOutputExt(ext); err == nil {
-			t.Errorf("ValidateFFmpegOutputExt(%q) accepted it", ext)
+// TestValidateFFmpegOutputExt tests that known containers are accepted as output, and unknown ones refused.
+func TestValidateFFmpegOutputExt(t *testing.T) {
+	for _, ext := range []string{"webm", "ogm", "rmvb"} {
+		if _, err := ValidateFFmpegOutputExt(ext); err != nil {
+			t.Errorf("ValidateFFmpegOutputExt(%q): %v", ext, err)
 		}
 	}
-	if _, err := ValidateFFmpegOutputExt("webm"); err != nil {
-		t.Errorf("ValidateFFmpegOutputExt(webm): %v", err)
+	if _, err := ValidateFFmpegOutputExt("xyz"); err == nil {
+		t.Error("ValidateFFmpegOutputExt(xyz) accepted it")
 	}
 }
 
