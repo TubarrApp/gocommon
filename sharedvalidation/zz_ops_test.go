@@ -29,14 +29,14 @@ func TestValidateMetaOps(t *testing.T) {
 		{"keep-after ok", sharedmodels.MetaOps{Field: "title", OpType: "keep-after", OpValue: "| "}, false},
 		{"keep-before empty", sharedmodels.MetaOps{Field: "title", OpType: "keep-before"}, true},
 		{"all-titles set", sharedmodels.MetaOps{Field: "all-titles", OpType: "set", OpValue: "cats"}, false},
-		{"all-titles append", sharedmodels.MetaOps{Field: "all-titles", OpType: "append", OpValue: "cats"}, false},
+		{"all-titles suffix", sharedmodels.MetaOps{Field: "all-titles", OpType: "suffix", OpValue: "cats"}, false},
 		{"all-titles paste-from", sharedmodels.MetaOps{Field: "all-titles", OpType: "paste-from", OpValue: "release_date"}, false},
 		{"copy-to into all-titles", sharedmodels.MetaOps{Field: "release_date", OpType: "copy-to", OpValue: "all-titles"}, false},
 		{"all-titles copy-to rejected", sharedmodels.MetaOps{Field: "all-titles", OpType: "copy-to", OpValue: "writer"}, true},
 		{"paste-from all-titles rejected", sharedmodels.MetaOps{Field: "writer", OpType: "paste-from", OpValue: "all-titles"}, true},
 		{"all-dates paste-from", sharedmodels.MetaOps{Field: "all-dates", OpType: "paste-from", OpValue: "upload_date"}, false},
 		{"copy-to into all-dates", sharedmodels.MetaOps{Field: "upload_date", OpType: "copy-to", OpValue: "all-dates"}, false},
-		{"all-dates append rejected", sharedmodels.MetaOps{Field: "all-dates", OpType: "append", OpValue: "x"}, true},
+		{"all-dates suffix rejected", sharedmodels.MetaOps{Field: "all-dates", OpType: "suffix", OpValue: "x"}, true},
 		{"all-dates date-tag rejected", sharedmodels.MetaOps{Field: "all-dates", OpType: "date-tag", OpLoc: "prefix", DateFormat: "ymd"}, true},
 		{"all-dates ok", sharedmodels.MetaOps{Field: "all-dates", OpType: "set", OpValue: "2024-05-10"}, false},
 		{"all-dates unhyphenated", sharedmodels.MetaOps{Field: "all-dates", OpType: "set", OpValue: "20240510"}, true},
@@ -49,7 +49,7 @@ func TestValidateMetaOps(t *testing.T) {
 		{"year full date", sharedmodels.MetaOps{Field: "year", OpType: "set", OpValue: "2024-05-10"}, true},
 		{"creation_time ok", sharedmodels.MetaOps{Field: "creation_time", OpType: "set", OpValue: "2024-05-10T12:30:00Z"}, false},
 		{"creation_time date only", sharedmodels.MetaOps{Field: "creation_time", OpType: "set", OpValue: "2024-05-10"}, true},
-		{"date field append unchecked", sharedmodels.MetaOps{Field: "date", OpType: "append", OpValue: " x"}, false},
+		{"date field suffix unchecked", sharedmodels.MetaOps{Field: "date", OpType: "suffix", OpValue: " x"}, false},
 	}
 
 	for _, tt := range tests {
@@ -73,7 +73,8 @@ func TestValidateFilenameOps(t *testing.T) {
 		wantErr bool
 	}{
 		{"prefix", sharedmodels.FilenameOps{OpType: "prefix", OpValue: "[CATS] "}, false},
-		{"no field required", sharedmodels.FilenameOps{OpType: "append", OpValue: "(new)"}, false},
+		{"no field required", sharedmodels.FilenameOps{OpType: "suffix", OpValue: "(new)"}, false},
+		{"append removed", sharedmodels.FilenameOps{OpType: "append", OpValue: "(new)"}, true},
 		{"unknown type", sharedmodels.FilenameOps{OpType: "explode"}, true},
 		{"copy-to is meta only", sharedmodels.FilenameOps{OpType: "copy-to", OpValue: "x"}, true},
 		{"date-tag ok", sharedmodels.FilenameOps{OpType: "date-tag", OpLoc: "suffix", DateFormat: "dm"}, false},

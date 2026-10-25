@@ -22,8 +22,8 @@ func sortedKeys(m map[string]struct{}) []string {
 
 // validFilenameOpTypes are the operation types accepted for filename operations.
 var validFilenameOpTypes = map[string]struct{}{
-	sharedconsts.OpAppend:        {},
 	sharedconsts.OpPrefix:        {},
+	sharedconsts.OpSuffix:        {},
 	sharedconsts.OpReplacePrefix: {},
 	sharedconsts.OpReplaceSuffix: {},
 	sharedconsts.OpReplace:       {},
@@ -37,10 +37,10 @@ var validFilenameOpTypes = map[string]struct{}{
 
 // validMetaOpTypes are the operation types accepted for meta operations.
 var validMetaOpTypes = map[string]struct{}{
-	sharedconsts.OpAppend:        {},
 	sharedconsts.OpCopyTo:        {},
 	sharedconsts.OpPasteFrom:     {},
 	sharedconsts.OpPrefix:        {},
+	sharedconsts.OpSuffix:        {},
 	sharedconsts.OpReplacePrefix: {},
 	sharedconsts.OpReplaceSuffix: {},
 	sharedconsts.OpReplace:       {},
@@ -116,6 +116,8 @@ func validateGroupOp(op sharedmodels.MetaOps, i int) error {
 	return nil
 }
 
+const yearOnly = "2006"
+
 // dateFieldLayouts maps known date fields to the layout a set value on them must match.
 var dateFieldLayouts = map[string]string{
 	sharedconsts.MetaOpAllDates:     time.DateOnly,
@@ -127,8 +129,8 @@ var dateFieldLayouts = map[string]string{
 	sharedtags.NPremiereDate:        time.DateOnly,
 	sharedtags.NReleaseDate:         time.DateOnly,
 	sharedtags.NReleased:            time.DateOnly,
-	sharedtags.JYear:                "2006",
-	sharedtags.JReleaseYear:         "2006",
+	sharedtags.JYear:                yearOnly,
+	sharedtags.JReleaseYear:         yearOnly,
 	sharedtags.JCreationTime:        time.RFC3339,
 }
 

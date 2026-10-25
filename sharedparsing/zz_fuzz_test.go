@@ -15,13 +15,12 @@ import (
 func FuzzMetaOpRoundTrip(f *testing.F) {
 	f.Add("title", "set", "cats")
 	f.Add("title", "set", "a|b:c")
-	f.Add("description", "append", ` | piped : value `)
+	f.Add("description", "suffix", ` | piped : value `)
 	f.Add("title", "set", `C:\Dogs`)
 	f.Add("title", "set", "")
 	f.Add("title", "set", `back\slash\`)
 	f.Add("title", "set", "HELLO: THIS IS MY TEXT")
 	f.Add("title", "keep-after", "| ")
-	f.Add("title", "set", "https://a.com|b")
 
 	f.Fuzz(func(t *testing.T, field, opType, opValue string) {
 		// Restrict to the three-part form so the shape is well defined.
@@ -38,7 +37,7 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 			t.Skip()
 		}
 
-		formatted := sharedparsing.FormatMetaOp(want, false)
+		formatted := sharedparsing.FormatMetaOp(want)
 		got, _, err := sharedparsing.ParseMetaOps([]string{formatted})
 		if err != nil {
 			t.Fatalf("re-parse of %q (from %+v) failed: %v", formatted, want, err)
@@ -74,7 +73,7 @@ func FuzzRegexReplaceRoundTrip(f *testing.F) {
 		if sharedvalidation.ValidateMetaOps([]sharedmodels.MetaOps{want}) != nil {
 			t.Skip()
 		}
-		formatted := sharedparsing.FormatMetaOp(want, false)
+		formatted := sharedparsing.FormatMetaOp(want)
 
 		got, _, err := sharedparsing.ParseMetaOps([]string{formatted})
 		if err != nil {
@@ -84,11 +83,10 @@ func FuzzRegexReplaceRoundTrip(f *testing.F) {
 			t.Errorf("round trip changed the operation:\n formatted %q\n want %+v\n got  %+v", formatted, want, got[0])
 		}
 
-		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"https://example.com|title:contains:x||" + formatted})
+		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:x||" + formatted})
 		if err != nil {
 			t.Fatalf("filtered re-parse of %q failed: %v", formatted, err)
 		}
-		want.ChannelURL = "https://example.com"
 		if len(filtered) != 1 || len(filtered[0].MetaOps) != 1 || filtered[0].MetaOps[0] != want {
 			t.Errorf("filtered round trip changed the operation:\n formatted %q\n got %+v", formatted, filtered)
 		}

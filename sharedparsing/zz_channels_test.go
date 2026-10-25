@@ -6,8 +6,8 @@ import (
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
-// TestChannelURLsEqual covers the ChannelURLsEqual function, which is used to determine if two channel URLs are equivalent for the purposes of scoping operations.
-func TestChannelURLsEqual(t *testing.T) {
+// TestNormalizeChannelURL covers which differently typed channel URLs normalize to the same channel.
+func TestNormalizeChannelURL(t *testing.T) {
 	tests := []struct {
 		name string
 		a, b string
@@ -35,22 +35,9 @@ func TestChannelURLsEqual(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := sharedparsing.ChannelURLsEqual(tt.a, tt.b); got != tt.want {
-				t.Errorf("ChannelURLsEqual(%q, %q) = %v, want %v", tt.a, tt.b, got, tt.want)
+			if got := sharedparsing.NormalizeChannelURL(tt.a) == sharedparsing.NormalizeChannelURL(tt.b); got != tt.want {
+				t.Errorf("NormalizeChannelURL(%q) == NormalizeChannelURL(%q) is %v, want %v", tt.a, tt.b, got, tt.want)
 			}
 		})
-	}
-}
-
-// TestAppliesToChannel covers an unscoped operation applying everywhere.
-func TestAppliesToChannel(t *testing.T) {
-	if !sharedparsing.AppliesToChannel("", "https://google.com") {
-		t.Error("an operation with no channel URL should apply to any channel")
-	}
-	if !sharedparsing.AppliesToChannel("https://google.com/", "https://GOOGLE.com") {
-		t.Error("a scoped operation should apply to the same channel typed differently")
-	}
-	if sharedparsing.AppliesToChannel("https://google.com", "https://youtube.com") {
-		t.Error("a scoped operation should not apply to another channel")
 	}
 }

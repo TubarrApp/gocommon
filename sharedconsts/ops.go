@@ -37,9 +37,9 @@ const (
 	OpKeepAfter  = "keep-after"
 	OpKeepBefore = "keep-before"
 
-	// Append and suffix.
-	OpAppend = "append"
+	// Prefix and suffix.
 	OpPrefix = "prefix"
+	OpSuffix = "suffix"
 
 	// Set.
 	OpSet = "set"

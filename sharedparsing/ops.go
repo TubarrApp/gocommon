@@ -17,8 +17,6 @@ type WarningKind int
 const (
 	// WarnDuplicate means the entry repeated one already accepted.
 	WarnDuplicate WarningKind = iota
-	// WarnChannelURL means a leading segment looked like a channel URL but was unusable.
-	WarnChannelURL
 )
 
 // Warning describes an entry parsing could not use as written.
@@ -40,7 +38,7 @@ func (w Warning) String() string {
 // case-insensitively and stored lowercased. Values are left as written.
 //
 // Any malformed or invalid entry fails the batch, with err listing every malformed one.
-// Duplicates and unusable channel URLs are only described in warnings.
+// Duplicates are only described in warnings.
 func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, warnings []Warning, err error) {
 	if len(filenameOps) == 0 {
 		return nil, nil, nil
@@ -54,16 +52,7 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 	var invalid []string
 
 	for _, op := range filenameOps {
-		opURL, opPart, urlErr := SplitOpURL(op)
-		if errors.Is(urlErr, ErrDoubledURLSeparator) {
-			invalid = append(invalid, invalidEntry(op, urlErr.Error()))
-			continue
-		}
-		if urlErr != nil {
-			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
-		}
-
-		opType, rest, ok := nextField(opPart)
+		opType, rest, ok := nextField(op)
 		if !ok {
 			invalid = append(invalid, invalidEntry(op, "expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd'"))
 			continue
@@ -77,7 +66,7 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 		}
 		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
 
-		key := FormatFilenameOp(newOp, false)
+		key := FormatFilenameOp(newOp)
 		if isDateTagOp(newOp.OpType) {
 			key = newOp.OpType
 		}
@@ -88,7 +77,6 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 		}
 		seen[key] = struct{}{}
 
-		newOp.ChannelURL = opURL
 		valid = append(valid, newOp)
 	}
 
@@ -112,7 +100,7 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 // since metadata keys are case-sensitive.
 //
 // Any malformed or invalid entry fails the batch, with err listing every malformed one.
-// Duplicates and unusable channel URLs are only described in warnings.
+// Duplicates are only described in warnings.
 func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []Warning, err error) {
 	if len(metaOps) == 0 {
 		return nil, nil, nil
@@ -126,16 +114,7 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 	var invalid []string
 
 	for _, op := range metaOps {
-		opURL, opPart, urlErr := SplitOpURL(op)
-		if errors.Is(urlErr, ErrDoubledURLSeparator) {
-			invalid = append(invalid, invalidEntry(op, urlErr.Error()))
-			continue
-		}
-		if urlErr != nil {
-			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: op, Msg: urlErr.Error()})
-		}
-
-		field, rest, ok := nextField(opPart)
+		field, rest, ok := nextField(op)
 		var opType string
 		if ok {
 			opType, rest, ok = nextField(rest)
@@ -153,7 +132,7 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 		}
 		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
 
-		key := FormatMetaOp(newOp, false)
+		key := FormatMetaOp(newOp)
 		if isDateTagOp(newOp.OpType) {
 			key = newOp.Field + string(fieldSeparator) + newOp.OpType
 		}
@@ -164,7 +143,6 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 		}
 		seen[key] = struct{}{}
 
-		newOp.ChannelURL = opURL
 		valid = append(valid, newOp)
 	}
 
@@ -181,42 +159,34 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 }
 
 // FormatFilenameOp renders a filename operation back to its string form, the inverse
-// of [ParseFilenameOps]. includeURL prepends the channel URL when one is set.
-func FormatFilenameOp(f sharedmodels.FilenameOps, includeURL bool) string {
+// of [ParseFilenameOps].
+func FormatFilenameOp(f sharedmodels.FilenameOps) string {
 	args := opArgs{find: f.OpFindString, value: f.OpValue, loc: f.OpLoc, dateFormat: f.DateFormat}
-	return withURL(Escape(f.OpType)+string(fieldSeparator)+formatOpArgs(f.OpType, args), f.ChannelURL, includeURL)
+	return Escape(f.OpType) + string(fieldSeparator) + formatOpArgs(f.OpType, args)
 }
 
 // FormatMetaOp renders a meta operation back to its string form, the inverse of
-// [ParseMetaOps]. includeURL prepends the channel URL when one is set.
-func FormatMetaOp(m sharedmodels.MetaOps, includeURL bool) string {
+// [ParseMetaOps].
+func FormatMetaOp(m sharedmodels.MetaOps) string {
 	args := opArgs{find: m.OpFindString, value: m.OpValue, loc: m.OpLoc, dateFormat: m.DateFormat}
 	lead := JoinEscaped([]string{m.Field, m.OpType}, fieldSeparator)
-	return withURL(lead+string(fieldSeparator)+formatOpArgs(m.OpType, args), m.ChannelURL, includeURL)
+	return lead + string(fieldSeparator) + formatOpArgs(m.OpType, args)
 }
 
-// FormatFilenameOps renders each operation, skipping any that carry a channel URL
-// other than chanURL. An empty chanURL keeps every operation.
-func FormatFilenameOps(ops []sharedmodels.FilenameOps, chanURL string, includeURL bool) []string {
+// FormatFilenameOps renders each operation.
+func FormatFilenameOps(ops []sharedmodels.FilenameOps) []string {
 	out := make([]string, 0, len(ops))
 	for _, op := range ops {
-		if !opAppliesTo(op.ChannelURL, chanURL) {
-			continue
-		}
-		out = append(out, FormatFilenameOp(op, includeURL))
+		out = append(out, FormatFilenameOp(op))
 	}
 	return out
 }
 
-// FormatMetaOps renders each operation, skipping any that carry a channel URL other
-// than chanURL. An empty chanURL keeps every operation.
-func FormatMetaOps(ops []sharedmodels.MetaOps, chanURL string, includeURL bool) []string {
+// FormatMetaOps renders each operation.
+func FormatMetaOps(ops []sharedmodels.MetaOps) []string {
 	out := make([]string, 0, len(ops))
 	for _, op := range ops {
-		if !opAppliesTo(op.ChannelURL, chanURL) {
-			continue
-		}
-		out = append(out, FormatMetaOp(op, includeURL))
+		out = append(out, FormatMetaOp(op))
 	}
 	return out
 }
@@ -287,20 +257,6 @@ func formatOpArgs(opType string, a opArgs) string {
 	default:
 		return escapeLast(a.value)
 	}
-}
-
-// withURL optionally puts op behind a "channelURL|" prefix. A channel URL cannot
-// legally hold an unencoded metacharacter, so it is written as given.
-func withURL(op, chanURL string, includeURL bool) string {
-	if !includeURL || chanURL == "" {
-		return op
-	}
-	return chanURL + string(urlSeparator) + op
-}
-
-// opAppliesTo reports whether an operation scoped to opURL applies to chanURL.
-func opAppliesTo(opURL, chanURL string) bool {
-	return opURL == "" || chanURL == "" || opURL == chanURL
 }
 
 // invalidEntry describes a malformed entry.

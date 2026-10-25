@@ -1,7 +1,6 @@
 package sharedparsing
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -47,10 +46,7 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 
 	filters := make([]sharedmodels.Filters, 0, len(ops))
 	for _, op := range ops {
-		chanURL, rest, urlErr := SplitOpURL(op)
-		if errors.Is(urlErr, ErrDoubledURLSeparator) {
-			return nil, fmt.Errorf("filter %q: %w", op, urlErr)
-		}
+		rest := op
 
 		// Must/any is always the last part when required.
 		mustAny := sharedconsts.OpMust
@@ -89,7 +85,7 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 			// Grab final portion after last separator (e.g. ':must')
 			cond := strings.ToLower(strings.TrimSpace(rawValue[i+1:]))
 			if cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
-				// Prints a line like: 'filter 'https://site.com/@a|title:contains:Re: Zero:any' ends in 'any', which isn't used here. Use 'https://site.com/@a|title:contains:Re: Zero', or 'https://site.com/@a|title:contains:Re: Zero\:any' to match 'Re: Zero:any' literally'
+				// Prints a line like: 'filter 'title:contains:Re: Zero:any' ends in 'any', which isn't used here. Use 'title:contains:Re: Zero', or 'title:contains:Re: Zero\:any' to match 'Re: Zero:any' literally'
 				withoutCond := op[:len(op)-len(rawValue)+i]
 				return nil, fmt.Errorf("filter '%s' ends in '%s', which isn't used here. Use '%s', or '%s' to match '%s' literally", op, cond, withoutCond, withoutCond+`\`+op[len(withoutCond):], unescape(rawValue))
 			}
@@ -100,7 +96,6 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 			FilterType: filterType,
 			Value:      value,
 			MustAny:    mustAny,
-			ChannelURL: chanURL,
 		})
 	}
 	return filters, nil
@@ -121,14 +116,14 @@ func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
 	if withMustAny {
 		s += string(fieldSeparator) + f.MustAny
 	}
-	return withURL(s, f.ChannelURL, true)
+	return s
 }
 
 // escapeFilterValue escapes '\', and any '|' that could run into a [FilterSeparator].
 func escapeFilterValue(v string) string {
 	var buf strings.Builder
 	for i := range len(v) {
-		if v[i] == escapeByte || (v[i] == urlSeparator && (i == len(v)-1 || v[i+1] == urlSeparator)) {
+		if v[i] == escapeByte || (v[i] == pipe && (i == len(v)-1 || v[i+1] == pipe)) {
 			buf.WriteByte(escapeByte)
 		}
 		buf.WriteByte(v[i])
@@ -154,8 +149,6 @@ func splitFiltered(rest string) (filter, op string, ok bool) {
 
 // ParseFilteredMetaOps parses filter-gated meta operations, one filter and one operation
 // per entry, e.g. "title:contains:cat||director:set:Mr. Cat".
-//
-// A leading channel URL scopes the whole entry.
 func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -165,15 +158,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 
 	valid := make([]sharedmodels.FilteredMetaOps, 0, len(entries))
 	for _, entry := range entries {
-		chanURL, rest, urlErr := SplitOpURL(entry)
-		if errors.Is(urlErr, ErrDoubledURLSeparator) {
-			return nil, warnings, fmt.Errorf("filtered meta operation %q: %w", entry, urlErr)
-		}
-		if urlErr != nil {
-			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: entry, Msg: urlErr.Error()})
-		}
-
-		filter, op, ok := splitFiltered(rest)
+		filter, op, ok := splitFiltered(entry)
 		if !ok {
 			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rule||Meta Operation'", entry)
 		}
@@ -192,7 +177,6 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 			continue
 		}
 
-		scopeToChannel(chanURL, filters, metaOps)
 		valid = append(valid, sharedmodels.FilteredMetaOps{Filters: filters, MetaOps: metaOps})
 	}
 	if err := sharedvalidation.ValidateFilteredMetaOps(valid); err != nil {
@@ -212,15 +196,7 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 
 	valid := make([]sharedmodels.FilteredFilenameOps, 0, len(entries))
 	for _, entry := range entries {
-		chanURL, rest, urlErr := SplitOpURL(entry)
-		if errors.Is(urlErr, ErrDoubledURLSeparator) {
-			return nil, warnings, fmt.Errorf("filtered filename operation %q: %w", entry, urlErr)
-		}
-		if urlErr != nil {
-			warnings = append(warnings, Warning{Kind: WarnChannelURL, Entry: entry, Msg: urlErr.Error()})
-		}
-
-		filter, op, ok := splitFiltered(rest)
+		filter, op, ok := splitFiltered(entry)
 		if !ok {
 			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rule||Filename Operation'", entry)
 		}
@@ -239,38 +215,10 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 			continue
 		}
 
-		for i := range filters {
-			if filters[i].ChannelURL == "" {
-				filters[i].ChannelURL = chanURL
-			}
-		}
-		for i := range filenameOps {
-			if filenameOps[i].ChannelURL == "" {
-				filenameOps[i].ChannelURL = chanURL
-			}
-		}
 		valid = append(valid, sharedmodels.FilteredFilenameOps{Filters: filters, FilenameOps: filenameOps})
 	}
 	if err := sharedvalidation.ValidateFilteredFilenameOps(valid); err != nil {
 		return nil, warnings, err
 	}
 	return valid, warnings, nil
-}
-
-// scopeToChannel points an entry's filters and operations at chanURL, leaving any that
-// already name their own alone.
-func scopeToChannel(chanURL string, filters []sharedmodels.Filters, ops []sharedmodels.MetaOps) {
-	if chanURL == "" {
-		return
-	}
-	for i := range filters {
-		if filters[i].ChannelURL == "" {
-			filters[i].ChannelURL = chanURL
-		}
-	}
-	for i := range ops {
-		if ops[i].ChannelURL == "" {
-			ops[i].ChannelURL = chanURL
-		}
-	}
 }

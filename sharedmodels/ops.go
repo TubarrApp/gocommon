@@ -7,7 +7,6 @@ package sharedmodels
 
 // FilenameOps is a single filename operation applied by Metarr.
 type FilenameOps struct {
-	ChannelURL   string `json:"filename_op_channel_url"`
 	OpType       string `json:"filename_op_type"`
 	OpFindString string `json:"filename_op_find_string"`
 	OpValue      string `json:"filename_op_value"`
@@ -17,7 +16,6 @@ type FilenameOps struct {
 
 // MetaOps is a single metadata field operation applied by Metarr.
 type MetaOps struct {
-	ChannelURL   string `json:"meta_op_channel_url"`
 	Field        string `json:"meta_op_field"`
 	OpFindString string `json:"meta_op_find_string"`
 	OpType       string `json:"meta_op_type"`
@@ -28,7 +26,6 @@ type MetaOps struct {
 
 // Filters select videos, or the operations applied to them, by metadata field.
 type Filters struct {
-	ChannelURL string `json:"filter_url_specific"`
 	Field      string `json:"filter_field"`
 	FilterType string `json:"filter_type"`
 	Value      string `json:"filter_value"`

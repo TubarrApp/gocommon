@@ -151,29 +151,6 @@ func TestParseFilteredMetaOps(t *testing.T) {
 	}
 }
 
-// TestParseFilteredMetaOpsScopesChannel covers a leading channel URL applying to the
-// whole entry rather than being mistaken for the filter.
-func TestParseFilteredMetaOpsScopesChannel(t *testing.T) {
-	got, _, err := sharedparsing.ParseFilteredMetaOps([]string{
-		"https://example.com|title:contains:cat||title:prefix:[CAT] ",
-	})
-	if err != nil {
-		t.Fatalf("ParseFilteredMetaOps: %v", err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("parsed %d entries, want 1", len(got))
-	}
-	if got[0].Filters[0].ChannelURL != "https://example.com" {
-		t.Errorf("filter channel = %q", got[0].Filters[0].ChannelURL)
-	}
-	if got[0].MetaOps[0].ChannelURL != "https://example.com" {
-		t.Errorf("op channel = %q", got[0].MetaOps[0].ChannelURL)
-	}
-	if got[0].Filters[0].Field != "title" || got[0].Filters[0].Value != "cat" {
-		t.Errorf("filter = %+v", got[0].Filters[0])
-	}
-}
-
 func TestParseFilteredMetaOpsRejectsMissingDivider(t *testing.T) {
 	for _, entry := range []string{"title:contains:cat", "title:contains:cat|title:set:x"} {
 		if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{entry}); err == nil {

@@ -1,26 +1,23 @@
 // Package sharedparsing holds the operation-string grammar shared by Metarr and Tubarr.
 //
-// An operation is separator-delimited, e.g. "title:set:cats", optionally behind a
-// "channelURL|" prefix. The grammar has exactly one decoding pass: '|' delimiters are
-// located without decoding ([SplitUnescaped]), and the final split on ':' decodes
-// ([EscapedSplit]). Decoding only once is what allows the escape character itself to be
-// escaped, so any value is representable.
+// An operation is separator-delimited, e.g. "title:set:cats". The grammar has exactly one
+// decoding pass: the "||" dividing a filter from its operation is located without
+// decoding ([SplitUnescaped]), and the final split on ':' decodes ([EscapedSplit]).
+// Decoding only once is what allows the escape character itself to be escaped, so any
+// value is representable.
 //
 // An operation's last part is everything after the previous ':', so it needs no
 // escaping of ':'. A regex-replace pattern is wrapped in "[[ ]]" and taken verbatim.
 package sharedparsing
 
 import (
-	"errors"
-	"fmt"
-	"net/url"
 	"strings"
 )
 
 const (
 	escapeByte     = '\\'
 	fieldSeparator = ':'
-	urlSeparator   = '|'
+	pipe           = '|' // Half of a FilterSeparator.
 
 	rawOpen  = "[["
 	rawClose = "]]"
@@ -104,14 +101,14 @@ func escapeLast(s string) string {
 // isMetaByte reports whether c carries meaning in the grammar and so must be escaped
 // to appear literally in a value.
 func isMetaByte(c byte) bool {
-	return c == escapeByte || c == fieldSeparator || c == urlSeparator
+	return c == escapeByte || c == fieldSeparator || c == pipe
 }
 
 // SplitUnescaped splits s on unescaped occurrences of desiredSeparator, leaving every
 // escape sequence intact for a later [EscapedSplit].
 //
-// Use this for intermediate splits, such as stripping a channel URL or dividing filter
-// rules from operations, so the escapes survive to the single decoding pass.
+// Use this for intermediate splits, such as dividing filter rules from operations, so
+// the escapes survive to the single decoding pass.
 func SplitUnescaped(s string, desiredSeparator byte) []string {
 	var parts []string
 	var buf strings.Builder
@@ -173,8 +170,8 @@ func EscapedSplit(s string, desiredSeparator byte) []string {
 
 // Escape renders s so that a later [EscapedSplit] recovers it verbatim as one segment.
 //
-// Every grammar metacharacter is escaped, not just the separator in use, because an
-// operation is split on '|' before it is split on ':'.
+// Every grammar metacharacter is escaped, not just the separator in use, because a
+// filtered entry is split at its "||" before its parts are split on ':'.
 func Escape(s string) string {
 	if !strings.ContainsAny(s, `\:|`) {
 		return s
@@ -205,51 +202,6 @@ func JoinEscaped(parts []string, desiredSeparator byte) string {
 		escaped[i] = Escape(p)
 	}
 	return strings.Join(escaped, string(desiredSeparator))
-}
-
-// ErrDoubledURLSeparator is returned by [SplitOpURL] for an entry starting "channelURL||".
-var ErrDoubledURLSeparator = errors.New("use a single '|' after a channel URL, '||' only divides a filter from its operation")
-
-// isChannelURL reports whether s is usable as a channel URL prefix.
-//
-// Both a scheme and a host are required. Testing only that s parses is not enough,
-// since url.ParseRequestURI reads "title:set:cats" as the scheme "title" with the
-// opaque body "set:cats", which would make any value holding a '|' look prefixed.
-func isChannelURL(s string) bool {
-	u, err := url.ParseRequestURI(s)
-	if err != nil {
-		return false
-	}
-	return u.Scheme != "" && u.Host != ""
-}
-
-// SplitOpURL separates an optional leading "channelURL|" prefix from an operation.
-//
-// rest keeps its escapes for the caller's decoding split. A channel URL cannot legally
-// contain an unencoded '|' or '\', so it is returned as found.
-//
-// When the leading segment is not a channel URL there is no prefix, so op is returned
-// whole and the '|' is left to the operation. That keeps unescaped values such as
-// "title:set:Cats | Dogs" working. A non-nil err means the segment looked like an
-// attempted URL but was unusable; rest is still valid, so callers should log and
-// continue. [ErrDoubledURLSeparator] is the exception, as the entry can't be used.
-func SplitOpURL(op string) (chanURL, rest string, err error) {
-	split := SplitUnescaped(op, urlSeparator)
-	if len(split) < 2 {
-		return "", op, nil
-	}
-
-	u := split[0]
-	if !isChannelURL(u) {
-		if strings.Contains(u, "://") {
-			return "", op, fmt.Errorf("operation %q has an unusable channel URL in leading segment %q", op, u)
-		}
-		return "", op, nil
-	}
-	if len(split) > 2 && split[1] == "" {
-		return "", op, ErrDoubledURLSeparator
-	}
-	return u, strings.Join(split[1:], string(urlSeparator)), nil
 }
 
 // Deduplicate removes duplicates from input, preserving first-appearance order and

@@ -39,20 +39,15 @@ func TestEscapedSplit(t *testing.T) {
 }
 
 // TestStagedSplitPreservesInnerEscapes is the property that decides the escaping rule:
-// stripping a channel URL must not consume escapes meant for the decoding pass.
+// dividing a filter from its operation must not consume escapes meant for the decoding pass.
 func TestStagedSplitPreservesInnerEscapes(t *testing.T) {
-	const op = `https://example.com|title:set:a\:b`
-
-	chanURL, rest, err := sharedparsing.SplitOpURL(op)
-	if err != nil {
-		t.Fatalf("SplitOpURL(%q) returned error: %v", op, err)
-	}
-	if chanURL != "https://example.com" {
-		t.Errorf("chanURL = %q, want %q", chanURL, "https://example.com")
+	parts := sharedparsing.SplitUnescaped(`title:contains:a\:b||title:set:c\:d`, '|')
+	if len(parts) != 3 || parts[1] != "" {
+		t.Fatalf("SplitUnescaped = %q, want filter, empty, op", parts)
 	}
 
-	got := sharedparsing.EscapedSplit(rest, ':')
-	if want := []string{"title", "set", "a:b"}; !slices.Equal(got, want) {
+	got := sharedparsing.EscapedSplit(parts[2], ':')
+	if want := []string{"title", "set", "c:d"}; !slices.Equal(got, want) {
 		t.Errorf("fields = %q, want %q (inner escape lost in the '|' pass)", got, want)
 	}
 }
@@ -65,7 +60,7 @@ func TestEscapeSplitRoundTrip(t *testing.T) {
 		{"title", "set", "cats: the sequel"},
 		{"title", "replace", `C:\Dogs`, "x"},
 		{"title", "set", ""},
-		{"description", "append", ` | piped | value `},
+		{"description", "suffix", ` | piped | value `},
 		{"title", "set", `a:b:c`},
 		{"title", "replace", `\d`, "x"},
 		{"title", "replace", `C:\Dogs\`, "x"},
@@ -118,45 +113,6 @@ func TestNaiveJoinLosesSeparators(t *testing.T) {
 	escaped := sharedparsing.JoinEscaped(segments, ':')
 	if got := sharedparsing.EscapedSplit(escaped, ':'); !slices.Equal(got, segments) {
 		t.Errorf("JoinEscaped round trip = %q, want %q", got, segments)
-	}
-}
-
-func TestSplitOpURL(t *testing.T) {
-	tests := []struct {
-		name        string
-		input       string
-		wantURL     string
-		wantRest    string
-		wantWarning bool
-	}{
-		{"no url", `title:set:cats`, "", `title:set:cats`, false},
-		{"with url", `https://example.com|title:set:cats`, "https://example.com", `title:set:cats`, false},
-		// A leading segment that is not a URL is not a prefix, so the op is kept whole.
-		{"not a url keeps whole op", `notaurl|title:set:cats`, "", `notaurl|title:set:cats`, false},
-		{"botched url warns", `htp:/|title:set:cats`, "", `htp:/|title:set:cats`, false},
-		{"scheme-like value is not a url", `title:set:Cats | Dogs`, "", `title:set:Cats | Dogs`, false},
-		{"attempted url warns", `https://|title:set:cats`, "", `https://|title:set:cats`, true},
-		// Nothing is decoded here; every escape survives for the decoding split.
-		{"escaped pipe is not a prefix", `title:set:a\|b`, "", `title:set:a\|b`, false},
-		{"escaped pipe kept after url", `https://example.com|title:set:a\|b`, "https://example.com", `title:set:a\|b`, false},
-		{"colon escape kept for decoding pass", `https://example.com|title:set:a\:b`, "https://example.com", `title:set:a\:b`, false},
-		{"doubled separator after url", `https://example.com||title:set:cats`, "", `https://example.com||title:set:cats`, true},
-		{"escaped pipe after url is not doubled", `https://example.com|\|title:set:cats`, "https://example.com", `\|title:set:cats`, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotURL, gotRest, err := sharedparsing.SplitOpURL(tt.input)
-			if gotURL != tt.wantURL {
-				t.Errorf("chanURL = %q, want %q", gotURL, tt.wantURL)
-			}
-			if gotRest != tt.wantRest {
-				t.Errorf("rest = %q, want %q", gotRest, tt.wantRest)
-			}
-			if (err != nil) != tt.wantWarning {
-				t.Errorf("err = %v, want warning: %v", err, tt.wantWarning)
-			}
-		})
 	}
 }
 

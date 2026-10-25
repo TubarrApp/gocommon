@@ -1,12 +1,9 @@
 package sharedparsing_test
 
 import (
-	"errors"
-	"slices"
 	"strings"
 	"testing"
 
-	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
@@ -15,7 +12,7 @@ func TestParseMetaOps(t *testing.T) {
 		"director:set:Spielberg",
 		"title:date-tag:suffix:ymd",
 		"title:replace:old:new",
-		"https://example.com|title:prefix:[CATS] ",
+		"title:prefix:[CATS] ",
 	}
 
 	got, warnings, err := sharedparsing.ParseMetaOps(in)
@@ -38,8 +35,8 @@ func TestParseMetaOps(t *testing.T) {
 	if got[2].OpFindString != "old" || got[2].OpValue != "new" {
 		t.Errorf("replace op = %+v", got[2])
 	}
-	if got[3].ChannelURL != "https://example.com" || got[3].OpValue != "[CATS] " {
-		t.Errorf("url-scoped op = %+v", got[3])
+	if got[3].OpValue != "[CATS] " {
+		t.Errorf("prefix op = %+v", got[3])
 	}
 }
 
@@ -63,23 +60,21 @@ func TestParseMetaOpsRejectsInvalid(t *testing.T) {
 	}
 }
 
-// TestDoubledURLSeparatorRejected tests that every parser fails an entry with "||" straight after its channel URL.
-func TestDoubledURLSeparatorRejected(t *testing.T) {
-	const u = "https://example.com||"
-	if _, _, err := sharedparsing.ParseMetaOps([]string{u + "title:set:cats"}); err == nil || !strings.Contains(err.Error(), sharedparsing.ErrDoubledURLSeparator.Error()) {
-		t.Errorf("ParseMetaOps err = %v", err)
+// TestChannelURLPrefixRejected tests that a leading channel URL is read as part of the operation, so it fails as
+// invalid.
+func TestChannelURLPrefixRejected(t *testing.T) {
+	const u = "https://example.com|"
+	if _, _, err := sharedparsing.ParseMetaOps([]string{u + "title:set:cats"}); err == nil {
+		t.Error("ParseMetaOps should reject a channel URL prefix")
 	}
-	if _, _, err := sharedparsing.ParseFilenameOps([]string{u + "prefix:[A] "}); err == nil || !strings.Contains(err.Error(), sharedparsing.ErrDoubledURLSeparator.Error()) {
-		t.Errorf("ParseFilenameOps err = %v", err)
+	if _, _, err := sharedparsing.ParseFilenameOps([]string{u + "prefix:[A] "}); err == nil {
+		t.Error("ParseFilenameOps should reject a channel URL prefix")
 	}
-	if _, err := sharedparsing.ParseFilterOps([]string{u + "title:contains:cat:must"}, true); !errors.Is(err, sharedparsing.ErrDoubledURLSeparator) {
-		t.Errorf("ParseFilterOps err = %v", err)
+	if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{u + "title:contains:cat||title:set:cats"}); err == nil {
+		t.Error("ParseFilteredMetaOps should reject a channel URL prefix")
 	}
-	if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{u + "title:contains:cat||title:set:cats"}); !errors.Is(err, sharedparsing.ErrDoubledURLSeparator) {
-		t.Errorf("ParseFilteredMetaOps err = %v", err)
-	}
-	if _, _, err := sharedparsing.ParseFilteredFilenameOps([]string{u + "title:contains:cat||prefix:[A] "}); !errors.Is(err, sharedparsing.ErrDoubledURLSeparator) {
-		t.Errorf("ParseFilteredFilenameOps err = %v", err)
+	if _, _, err := sharedparsing.ParseFilteredFilenameOps([]string{u + "title:contains:cat||prefix:[A] "}); err == nil {
+		t.Error("ParseFilteredFilenameOps should reject a channel URL prefix")
 	}
 }
 
@@ -127,7 +122,7 @@ func TestParseFilenameOps(t *testing.T) {
 		"prefix:[DOG VIDEOS]",
 		"date-tag:prefix:ymd",
 		"replace-suffix:_1:",
-		"https://example.com|append:(new)",
+		"suffix:(new)",
 	}
 
 	got, warnings, err := sharedparsing.ParseFilenameOps(in)
@@ -147,8 +142,8 @@ func TestParseFilenameOps(t *testing.T) {
 	if got[2].OpFindString != "_1" || got[2].OpValue != "" {
 		t.Errorf("replace-suffix op = %+v", got[2])
 	}
-	if got[3].ChannelURL != "https://example.com" {
-		t.Errorf("url-scoped op = %+v", got[3])
+	if got[3].OpType != "suffix" || got[3].OpValue != "(new)" {
+		t.Errorf("suffix op = %+v", got[3])
 	}
 }
 
@@ -164,7 +159,8 @@ func TestMetaOpRoundTrip(t *testing.T) {
 		"title:replace-prefix:pre:post",
 		`title:set:cats\: the sequel`,
 		`title:replace:C\:\\Dogs:x`,
-		`description:append: \| piped \| value `,
+		`description:suffix: \| piped \| value `,
+		"title:set:a|b:c",
 		"title:set:md",
 		"title:set:HELLO: THIS IS MY TEXT",
 		"title:replace:old:new: text",
@@ -181,7 +177,7 @@ func TestMetaOpRoundTrip(t *testing.T) {
 				t.Fatalf("first parse of %q failed: %v", op, err)
 			}
 
-			formatted := sharedparsing.FormatMetaOp(first[0], false)
+			formatted := sharedparsing.FormatMetaOp(first[0])
 
 			second, _, err := sharedparsing.ParseMetaOps([]string{formatted})
 			if err != nil {
@@ -214,7 +210,7 @@ func TestFilenameOpRoundTrip(t *testing.T) {
 				t.Fatalf("first parse of %q failed: %v", op, err)
 			}
 
-			formatted := sharedparsing.FormatFilenameOp(first[0], false)
+			formatted := sharedparsing.FormatFilenameOp(first[0])
 
 			second, _, err := sharedparsing.ParseFilenameOps([]string{formatted})
 			if err != nil {
@@ -224,48 +220,6 @@ func TestFilenameOpRoundTrip(t *testing.T) {
 				t.Errorf("round trip changed the operation:\n original  %q\n formatted %q\n first     %+v\n second    %+v", op, formatted, first[0], second[0])
 			}
 		})
-	}
-}
-
-// TestMetaOpRoundTripWithURL covers the staged encode/decode, where the channel URL
-// prefix must not disturb escapes belonging to the field separator.
-func TestMetaOpRoundTripWithURL(t *testing.T) {
-	op := sharedmodels.MetaOps{
-		ChannelURL: "https://example.com",
-		Field:      "title",
-		OpType:     "set",
-		OpValue:    `a|b:c`,
-	}
-
-	formatted := sharedparsing.FormatMetaOp(op, true)
-
-	got, _, err := sharedparsing.ParseMetaOps([]string{formatted})
-	if err != nil {
-		t.Fatalf("re-parse of %q failed: %v", formatted, err)
-	}
-	if len(got) != 1 {
-		t.Fatalf("re-parse of %q gave %d operations, want 1", formatted, len(got))
-	}
-	if got[0] != op {
-		t.Errorf("round trip changed the operation:\n formatted %q\n want %+v\n got  %+v", formatted, op, got[0])
-	}
-}
-
-func TestFormatOpsFiltersByChannel(t *testing.T) {
-	ops := []sharedmodels.MetaOps{
-		{Field: "title", OpType: "set", OpValue: "global"},
-		{ChannelURL: "https://a.com", Field: "title", OpType: "set", OpValue: "a"},
-		{ChannelURL: "https://b.com", Field: "title", OpType: "set", OpValue: "b"},
-	}
-
-	got := sharedparsing.FormatMetaOps(ops, "https://a.com", false)
-	want := []string{"title:set:global", "title:set:a"}
-	if !slices.Equal(got, want) {
-		t.Errorf("FormatMetaOps = %q, want %q", got, want)
-	}
-
-	if all := sharedparsing.FormatMetaOps(ops, "", false); len(all) != 3 {
-		t.Errorf("empty chanURL should keep every op, got %q", all)
 	}
 }
 
@@ -313,8 +267,6 @@ func TestOpTypeCaseInsensitive(t *testing.T) {
 }
 
 // TestUnescapedPipeInValue covers values holding a bare '|', such as "Title | Channel".
-// The segment before it parses as a URI with a scheme, so requiring a host is what
-// stops it being mistaken for a channel URL prefix.
 func TestUnescapedPipeInValue(t *testing.T) {
 	got, warnings, err := sharedparsing.ParseMetaOps([]string{"title:set:Cats | Dogs"})
 	if err != nil {
@@ -325,9 +277,6 @@ func TestUnescapedPipeInValue(t *testing.T) {
 	}
 	if len(got) != 1 {
 		t.Fatalf("parsed %d ops, want 1", len(got))
-	}
-	if got[0].ChannelURL != "" {
-		t.Errorf("ChannelURL = %q, want empty", got[0].ChannelURL)
 	}
 	if got[0].OpValue != "Cats | Dogs" {
 		t.Errorf("OpValue = %q, want %q", got[0].OpValue, "Cats | Dogs")
@@ -361,7 +310,7 @@ func TestLastPartNeedsNoEscaping(t *testing.T) {
 		{`title:set:cats\: the sequel`, "", "cats: the sequel"},
 		{"title:replace:old:new: text", "old", "new: text"},
 		{"title:keep-after:| ", "", "| "},
-		{"https://example.com|title:append: : x", "", " : x"},
+		{"title:suffix: : x", "", " : x"},
 	}
 
 	for _, tt := range tests {
@@ -423,15 +372,14 @@ func TestRegexReplacePattern(t *testing.T) {
 func TestFilteredOpTakesRemainder(t *testing.T) {
 	tests := []struct {
 		entry     string
-		wantURL   string
 		wantType  string
 		wantFind  string
 		wantValue string
 	}{
-		{"title:contains:Kino||title:keep-after:| ", "", "keep-after", "", "| "},
-		{"title:contains:Kino||title:set:Cats | Dogs | Birds", "", "set", "", "Cats | Dogs | Birds"},
-		{"https://example.com|title:contains:Kino||title:regex-replace:[[^a|b ]]:x|y", "https://example.com", "regex-replace", "^a|b ", "x|y"},
-		{"title:contains:a | b: c||title:append:!", "", "append", "", "!"},
+		{"title:contains:Kino||title:keep-after:| ", "keep-after", "", "| "},
+		{"title:contains:Kino||title:set:Cats | Dogs | Birds", "set", "", "Cats | Dogs | Birds"},
+		{"title:contains:Kino||title:regex-replace:[[^a|b ]]:x|y", "regex-replace", "^a|b ", "x|y"},
+		{"title:contains:a | b: c||title:suffix:!", "suffix", "", "!"},
 	}
 
 	for _, tt := range tests {
@@ -444,14 +392,14 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 				t.Fatalf("got %+v, want one filter and one operation", got)
 			}
 			op := got[0].MetaOps[0]
-			if op.ChannelURL != tt.wantURL || op.OpType != tt.wantType || op.OpFindString != tt.wantFind || op.OpValue != tt.wantValue {
+			if op.OpType != tt.wantType || op.OpFindString != tt.wantFind || op.OpValue != tt.wantValue {
 				t.Errorf("op = %+v", op)
 			}
 		})
 	}
 
 	// The filter value is the rest of the filter, so ':' and a lone '|' are taken as written.
-	got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:Ep 5 | Show: Finale||title:append:!"})
+	got, _, _ := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:Ep 5 | Show: Finale||title:suffix:!"})
 	if len(got) != 1 || len(got[0].Filters) != 1 {
 		t.Fatalf("ParseFilteredMetaOps = %+v, want one entry with one filter", got)
 	}
@@ -459,7 +407,7 @@ func TestFilteredOpTakesRemainder(t *testing.T) {
 		t.Errorf("filter value = %+v", got[0].Filters[0])
 	}
 	// A '|' at the end of the value is escaped, so it isn't read as part of the divider.
-	if got, _, _ = sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|||title:append:!`}); len(got) != 1 || got[0].Filters[0].Value != "a|" {
+	if got, _, _ = sharedparsing.ParseFilteredMetaOps([]string{`title:contains:a\|||title:suffix:!`}); len(got) != 1 || got[0].Filters[0].Value != "a|" {
 		t.Errorf("escaped trailing '|' = %+v", got)
 	}
 
