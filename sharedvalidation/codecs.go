@@ -18,7 +18,8 @@ func ValidateVideoCodec(c string) (string, error) {
 	}
 
 	// Normalize input.
-	c = strings.ToLower(strings.TrimSpace(c))
+	c = strings.TrimSpace(c)
+	c = strings.ToLower(c)
 	c = strings.ReplaceAll(c, ".", "")
 	c = strings.ReplaceAll(c, "-", "")
 	c = strings.ReplaceAll(c, "_", "")
@@ -63,7 +64,8 @@ func ValidateAudioCodec(a string) (validAudioCodec string, err error) {
 	}
 
 	// Normalize input.
-	a = strings.ToLower(strings.TrimSpace(a))
+	a = strings.TrimSpace(a)
+	a = strings.ToLower(a)
 	a = strings.ReplaceAll(a, ".", "")
 	a = strings.ReplaceAll(a, "-", "")
 	a = strings.ReplaceAll(a, "_", "")
@@ -79,6 +81,49 @@ func ValidateAudioCodec(a string) (validAudioCodec string, err error) {
 	}
 
 	return "", fmt.Errorf("audio codec %q is not valid. Supported: %v", a, sortedKeys(sharedconsts.ValidAudioCodecs))
+}
+
+// ParseCodecMappings splits codec entries into one plain codec for everything else and per-source "from:to" pairs.
+//
+// Names are normalized by validate, and order doesn't matter: pairs always override the plain codec.
+func ParseCodecMappings(entries []string, validate func(string) (string, error)) (all string, pairs map[string]string, err error) {
+	pairs = make(map[string]string, len(entries))
+
+	for _, e := range entries {
+		if e == "" {
+			continue
+		}
+		from, to, isPair := strings.Cut(e, ":")
+
+		// Passed in validation function (video or audio codec name validator).
+		if from, err = validate(from); err != nil {
+			return "", nil, err
+		}
+
+		// Plain codec, only one allowed.
+		if !isPair {
+			if all != "" && from != "" && from != all {
+				return "", nil, fmt.Errorf("more than one plain codec (%q and %q), keep only one", all, from)
+			}
+			if from != "" {
+				all = from
+			}
+			continue
+		}
+
+		// Pair, each source named once.
+		if from == "" {
+			return "", nil, fmt.Errorf("codec pair %q has no source codec", e)
+		}
+		if to, err = validate(to); err != nil {
+			return "", nil, err
+		}
+		if prev, ok := pairs[from]; ok && prev != to {
+			return "", nil, fmt.Errorf("source codec %q is named more than once (%q and %q), keep only one", from, prev, to)
+		}
+		pairs[from] = to
+	}
+	return all, pairs, nil
 }
 
 // ValidateGPUAccelType validates a GPU acceleration type string.

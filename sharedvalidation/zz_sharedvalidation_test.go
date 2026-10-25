@@ -2,6 +2,7 @@ package sharedvalidation
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"testing"
@@ -188,6 +189,44 @@ func FuzzValidateAudioCodec(f *testing.F) {
 			t.Fatalf("Input %q gave invalid output string %q", a, out)
 		}
 	})
+}
+
+// TestParseCodecMappings tests splitting codec entries into a plain codec and per-source pairs, in any order.
+func TestParseCodecMappings(t *testing.T) {
+	tests := []struct {
+		in        []string
+		wantAll   string
+		wantPairs map[string]string
+		ok        bool
+	}{
+		// Pass states.
+		{[]string{"hevc", "vp9:h264"}, "hevc", map[string]string{"vp9": "h264"}, true},
+		{[]string{"vp9:h264", "hevc"}, "hevc", map[string]string{"vp9": "h264"}, true},
+		{[]string{"x264"}, "h264", map[string]string{}, true},
+		{[]string{"hevc", "libx265"}, "hevc", map[string]string{}, true},
+		{[]string{"vp9:h264", "vp09:x264"}, "", map[string]string{"vp9": "h264"}, true},
+		{[]string{"", "av1:hevc"}, "", map[string]string{"av1": "hevc"}, true},
+		{nil, "", map[string]string{}, true},
+
+		// Fail states.
+		{[]string{"hevc", "h264"}, "", nil, false},
+		{[]string{"vp9:h264", "libvpxvp9:hevc"}, "", nil, false},
+		{[]string{":h264"}, "", nil, false},
+		{[]string{"vp9:bad"}, "", nil, false},
+		{[]string{"vp9:h264:av1"}, "", nil, false},
+		{[]string{"bad"}, "", nil, false},
+	}
+
+	for _, tt := range tests {
+		all, pairs, err := ParseCodecMappings(tt.in, ValidateVideoCodec)
+		if tt.ok != (err == nil) {
+			t.Errorf("ParseCodecMappings(%q) error = %v, want ok %v", tt.in, err, tt.ok)
+			continue
+		}
+		if all != tt.wantAll || !maps.Equal(pairs, tt.wantPairs) {
+			t.Errorf("ParseCodecMappings(%q) = (%q, %v), want (%q, %v)", tt.in, all, pairs, tt.wantAll, tt.wantPairs)
+		}
+	}
 }
 
 func TestValidateGPUAccelType(t *testing.T) {
