@@ -45,8 +45,9 @@ const (
 	JUploadDate          = "upload_date"             // YYYY-MM-DD
 	JYear                = "year"                    // YYYY
 	JReleaseYear         = "release_year"
-
-	JFormattedDate = "formatted_date" // YYYY-MM-DD
+	JFormattedDate       = "formatted_date" // YYYY-MM-DD
+	JDuration            = "duration"
+	JDurationString      = "duration_string"
 )
 
 // JSON show constants.

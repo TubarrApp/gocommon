@@ -4,7 +4,6 @@ package sharedconsts
 const (
 	BackupTag = "_mbackup"
 	TempTag   = "tmp_"
-	IDTag     = "id_"
 )
 
 // Rename styles.
