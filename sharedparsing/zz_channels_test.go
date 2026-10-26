@@ -41,3 +41,22 @@ func TestNormalizeChannelURL(t *testing.T) {
 		})
 	}
 }
+
+// TestStripURLScheme tests only a leading scheme is dropped, keeping subdomains like www.
+func TestStripURLScheme(t *testing.T) {
+	for in, want := range map[string]string{
+		"https://www.youtube.com/@cats": "www.youtube.com/@cats",
+		"http://example.com":            "example.com",
+		"HTTPS://Example.com/a":         "Example.com/a",
+		"youtube.com/@cats":             "youtube.com/@cats",
+		"svn+ssh://host/repo":           "host/repo",
+		"a.b-c2://host":                 "host",
+		"a b://c":                       "a b://c", // Not a scheme.
+		"a_b://c":                       "a_b://c",
+		"://c":                          "://c",
+	} {
+		if got := sharedparsing.StripURLScheme(in); got != want {
+			t.Errorf("StripURLScheme(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -1,5 +1,8 @@
 package sharedconsts
 
+// MaxNameBytes is the longest file or directory name most filesystems allow.
+const MaxNameBytes = 255
+
 // Filename tags.
 const (
 	BackupTag = "_mbackup"

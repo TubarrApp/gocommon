@@ -5,69 +5,21 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 )
 
-// MaxNameBytes is the longest file or directory name most filesystems allow.
-const MaxNameBytes = 255
-
-// pathSeparatorReplacer replaces characters that would split a name into directories.
-var pathSeparatorReplacer = strings.NewReplacer("/", "-", "\\", "-", "\x00", "")
-
-// StripURLScheme drops a URL's leading "scheme://" (e.g. "https://youtube.com/@cats" → "youtube.com/@cats").
-func StripURLScheme(u string) string {
-	scheme, rest, ok := strings.Cut(u, "://")
-	if !ok || !isURLScheme(scheme) {
-		return u
-	}
-	return rest
-}
-
-// isURLScheme reports whether s can be a URL's scheme (the "https" in "https://"): letters, digits, "+", "-" and ".".
-func isURLScheme(s string) bool {
-	if s == "" {
-		return false
-	}
-	for _, r := range s {
-		isLetter := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
-		isDigit := r >= '0' && r <= '9'
-		if !isLetter && !isDigit && r != '+' && r != '-' && r != '.' {
-			return false
-		}
-	}
-	return true
-}
-
-// SanitizePathComponent makes s safe as a single file or directory name, cut to at most maxBytes. Control characters
-// become spaces, as a name holding a line break splits paths read a line at a time.
-func SanitizePathComponent(s string, maxBytes int) string {
-	s = strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
-			return ' '
-		}
-		return r
-	}, pathSeparatorReplacer.Replace(s))
-	s = strings.TrimSpace(s)
-	if s == "." || s == ".." {
-		s = strings.ReplaceAll(s, ".", "-")
-	}
-	if len(s) <= maxBytes {
-		return s
-	}
-	cut := maxBytes
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
-	}
-	return strings.TrimSpace(s[:cut])
+// init initializes the MoveOpTemplateTags map.
+func init() {
+	maps.Copy(MoveOpTemplateTags, AllTemplatesMap)
+	MoveOpTemplateTags[OutputDirectory] = struct{}{}
 }
 
 // Template tags for channel elements.
 const (
-	ChannelID      = "channel_id"
-	ChannelName    = "channel_name"
-	ChannelURL     = "channel_url"
-	ChannelURLName = "channel_url_name"
+	ChannelID       = "channel_id"
+	ChannelName     = "channel_name"
+	ChannelURL      = "channel_url"
+	ChannelURLName  = "channel_url_name"
+	OutputDirectory = "output_directory"
 )
 
 // Template tags for individual video elements.
@@ -140,6 +92,9 @@ const (
 const (
 	MetDomain = "domain"
 )
+
+// MoveOpTemplateTags contains the regular templates plus the special output_directory tag.
+var MoveOpTemplateTags = make(map[string]struct{}, len(AllTemplatesMap)+1)
 
 // AllTemplatesMap contains the different template tags available across both Tubarr and Metarr.
 var AllTemplatesMap = map[string]struct{}{
