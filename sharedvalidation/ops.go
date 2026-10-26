@@ -214,6 +214,9 @@ func ValidateFilterOps(filters []sharedmodels.Filters) error {
 			if strings.Contains(filter.Value, "||") {
 				return fmt.Errorf("filter at position %d: pattern cannot contain \"||\", which divides a filter from its operation", i)
 			}
+			if strings.Contains(filter.Value, "&&") {
+				return fmt.Errorf("filter at position %d: pattern cannot contain \"&&\", which divides one filter from the next", i)
+			}
 			if _, err := regexp.Compile(filter.Value); err != nil {
 				return fmt.Errorf("filter at position %d: invalid pattern %q: %w", i, filter.Value, err)
 			}

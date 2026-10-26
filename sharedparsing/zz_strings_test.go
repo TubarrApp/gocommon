@@ -19,6 +19,7 @@ func TestEscapedSplit(t *testing.T) {
 		{"escaped backslash", `a\\b`, []string{`a\b`}},
 		{"escaped backslash then separator", `a\\:b`, []string{`a\`, "b"}},
 		{"escaped pipe is decoded", `a\|b`, []string{`a|b`}},
+		{"escaped ampersand is decoded", `a\&b`, []string{`a&b`}},
 		{"backslash before other char is kept", `a\db`, []string{`a\db`}},
 		{"windows-style path", `C:\Dogs`, []string{"C", `\Dogs`}},
 		{"trailing backslash", `a\`, []string{`a\`}},
@@ -97,6 +98,23 @@ func TestBackslashHeavySegmentsRoundTrip(t *testing.T) {
 				t.Errorf("round trip failed:\n segments %q\n joined   %q\n split    %q", want, joined, got)
 			}
 		})
+	}
+}
+
+// TestEscapeAmpersands tests only a '&' starting "&&" is escaped, and that each decodes back.
+func TestEscapeAmpersands(t *testing.T) {
+	for in, want := range map[string]string{
+		"Tom & Jerry": "Tom & Jerry",
+		"R&&B":        `R\&&B`,
+		"a&&&b":       `a\&\&&b`,
+		"ends in &":   "ends in &",
+	} {
+		if got := sharedparsing.Escape(in); got != want {
+			t.Errorf("Escape(%q) = %q, want %q", in, got, want)
+		}
+		if got := sharedparsing.EscapedSplit(want, ':'); len(got) != 1 || got[0] != in {
+			t.Errorf("EscapedSplit(%q) = %q, want %q", want, got, in)
+		}
 	}
 }
 

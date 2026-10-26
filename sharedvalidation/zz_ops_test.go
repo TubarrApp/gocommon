@@ -124,6 +124,7 @@ func TestValidateFilterOps(t *testing.T) {
 		{"regex-contains invalid pattern", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "(", MustAny: "must"}, true},
 		{"regex-contains pattern with ]]:", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "[[:digit:]]:", MustAny: "must"}, true},
 		{"regex-contains pattern with ||", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "a||b", MustAny: "must"}, true},
+		{"regex-contains pattern with &&", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "a&&b", MustAny: "must"}, true},
 	}
 
 	for _, tt := range tests {

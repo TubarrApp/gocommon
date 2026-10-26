@@ -1,6 +1,7 @@
 package sharedparsing_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -154,6 +155,8 @@ func FuzzFilterRoundTrip(f *testing.F) {
 	f.Add("title", "contains", `back\slash\\ and \| escapes`, true)
 	f.Add("date", "omits", "", true)
 	f.Add("my:field|x", "equals", ":leading colon", false)
+	f.Add("title", "contains", "tom && jerry&", false)
+	f.Add("a&&b&", "equals", "&&&", false)
 
 	f.Fuzz(func(t *testing.T, field, filterType, value string, withMustAny bool) {
 		field = strings.ToLower(strings.TrimSpace(field))
@@ -179,6 +182,16 @@ func FuzzFilterRoundTrip(f *testing.F) {
 		if err != nil || len(filtered) != 1 || filtered[0].Filters[0] != want {
 			t.Fatalf("filtered round trip of %+v:\n formatted %q\n got %+v, %v", want, formatted, filtered, err)
 		}
+
+		// Before and after another filter in the same entry.
+		other := sharedmodels.Filters{Field: "duration", FilterType: "more-than", Value: "60", MustAny: "must"}
+		for _, filters := range [][]sharedmodels.Filters{{want, other}, {other, want}} {
+			entry := sharedparsing.FormatFilters(filters) + sharedparsing.FilterSeparator + "title:set:x"
+			filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{entry})
+			if err != nil || len(filtered) != 1 || !slices.Equal(filtered[0].Filters, filters) {
+				t.Fatalf("joined round trip of %+v:\n formatted %q\n got %+v, %v", filters, entry, filtered, err)
+			}
+		}
 	})
 }
 
@@ -201,6 +214,51 @@ func TestParseFilteredMetaOps(t *testing.T) {
 	}
 	if op := got[0].MetaOps[0]; op.Field != "title" || op.OpType != "prefix" || op.OpValue != "[CAT VIDEOS] " {
 		t.Errorf("meta op = %+v", op)
+	}
+}
+
+// TestParseFilteredOpsSeveralFilters tests an entry's filters joined by "&&" are all read, and written back the same.
+func TestParseFilteredOpsSeveralFilters(t *testing.T) {
+	want := []sharedmodels.Filters{
+		{Field: "title", FilterType: "contains", Value: "cats", MustAny: "must"},
+		{Field: "duration", FilterType: "more-than", Value: "3600", MustAny: "must"},
+	}
+
+	meta, _, err := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:cats&&duration:more-than:3600||title:prefix:[LONG CAT VIDEO] "})
+	if err != nil || len(meta) != 1 || !slices.Equal(meta[0].Filters, want) {
+		t.Fatalf("ParseFilteredMetaOps = %+v, %v, want filters %+v", meta, err, want)
+	}
+	if op := meta[0].MetaOps[0]; op.Field != "title" || op.OpType != "prefix" || op.OpValue != "[LONG CAT VIDEO] " {
+		t.Errorf("meta op = %+v", op)
+	}
+
+	filename, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:cats&&duration:more-than:3600||prefix:[LONG CAT VIDEO] "})
+	if err != nil || len(filename) != 1 || !slices.Equal(filename[0].Filters, want) {
+		t.Fatalf("ParseFilteredFilenameOps = %+v, %v, want filters %+v", filename, err, want)
+	}
+
+	if got := sharedparsing.FormatFilters(want); got != "title:contains:cats&&duration:more-than:3600" {
+		t.Errorf("FormatFilters = %q", got)
+	}
+
+	// A "&&" or trailing '&' in a value is escaped, so it stays part of the value.
+	escaped := []sharedmodels.Filters{
+		{Field: "title", FilterType: "contains", Value: "tom && jerry&", MustAny: "must"},
+		{Field: "title", FilterType: "omits", Value: "r&b", MustAny: "must"},
+	}
+	formatted := sharedparsing.FormatFilters(escaped)
+	if formatted != `title:contains:tom \&& jerry\&&&title:omits:r&b` {
+		t.Errorf("FormatFilters = %q", formatted)
+	}
+	got, _, err := sharedparsing.ParseFilteredMetaOps([]string{formatted + "||title:set:x"})
+	if err != nil || len(got) != 1 || !slices.Equal(got[0].Filters, escaped) {
+		t.Errorf("round trip of %q = %+v, %v", formatted, got, err)
+	}
+
+	for _, bad := range []string{"title:contains:cats&&||title:set:x", "&&title:contains:cats||title:set:x"} {
+		if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{bad}); err == nil {
+			t.Errorf("%q has an empty filter, so should be rejected", bad)
+		}
 	}
 }
 

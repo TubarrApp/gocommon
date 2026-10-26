@@ -17,7 +17,8 @@ import (
 const (
 	escapeByte     = '\\'
 	fieldSeparator = ':'
-	pipe           = '|' // Half of a FilterSeparator.
+	pipe           = '|' // Half of a FilterSeparator ('||').
+	amp            = '&' // Half of a FilterJoiner ('&&').
 
 	rawOpen  = "[["
 	rawClose = "]]"
@@ -98,10 +99,10 @@ func escapeLast(s string) string {
 	return strings.ReplaceAll(s, `\`, `\\`)
 }
 
-// isMetaByte reports whether c carries meaning in the grammar and so must be escaped
-// to appear literally in a value.
+// isMetaByte reports whether c carries meaning in the grammar, so a backslash before it
+// is an escape.
 func isMetaByte(c byte) bool {
-	return c == escapeByte || c == fieldSeparator || c == pipe
+	return c == escapeByte || c == fieldSeparator || c == pipe || c == amp
 }
 
 // SplitUnescaped splits s on unescaped occurrences of desiredSeparator, leaving every
@@ -136,7 +137,7 @@ func SplitUnescaped(s string, desiredSeparator byte) []string {
 // EscapedSplit splits s on unescaped occurrences of desiredSeparator and decodes the
 // escape sequences, so it is the final pass over an operation string.
 //
-// A backslash before a grammar metacharacter ('\', ':' or '|') yields that character
+// A backslash before a grammar metacharacter ('\', ':', '|' or '&') yields that character
 // literally; before anything else it is retained verbatim, which leaves values such as
 // "\d" untouched. Scanning is byte-wise so segments holding invalid UTF-8 survive.
 func EscapedSplit(s string, desiredSeparator byte) []string {
@@ -171,16 +172,17 @@ func EscapedSplit(s string, desiredSeparator byte) []string {
 // Escape renders s so that a later [EscapedSplit] recovers it verbatim as one segment.
 //
 // Every grammar metacharacter is escaped, not just the separator in use, because a
-// filtered entry is split at its "||" before its parts are split on ':'.
+// filtered entry is split at its "||" before its parts are split on ':'. A '&' is only
+// escaped where it starts a [FilterJoiner].
 func Escape(s string) string {
-	if !strings.ContainsAny(s, `\:|`) {
+	if !strings.ContainsAny(s, `\:|`) && !strings.Contains(s, FilterJoiner) {
 		return s
 	}
 
 	var buf strings.Builder
 	buf.Grow(len(s) + 8)
 	for i := range len(s) {
-		if isMetaByte(s[i]) {
+		if isMetaByte(s[i]) && (s[i] != amp || strings.HasPrefix(s[i:], FilterJoiner)) {
 			buf.WriteByte(escapeByte)
 		}
 		buf.WriteByte(s[i])

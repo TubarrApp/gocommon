@@ -9,8 +9,12 @@ import (
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
-// FilterSeparator divides a filtered entry's filter from its operation.
-const FilterSeparator = "||"
+const (
+	// FilterSeparator divides a filtered entry's filters from its operation.
+	FilterSeparator = "||"
+	// FilterJoiner divides a filtered entry's filters, all of which must match.
+	FilterJoiner = "&&"
+)
 
 // filterFormatWithMustAny describes the download filter form, where several filters
 // combine and each states whether it must match or may match.
@@ -20,19 +24,20 @@ const filterFormatWithMustAny = "please enter filters in the format 'field:filte
 	"'date:omits:must' omits videos only when the metafile contains a date field.\n" +
 	"'duration:more-than:3600:must' only includes videos with a duration field more than 3600 (one hour in seconds).\n"
 
-// filterFormatPlain describes the filtered-operation form, where each entry holds a
-// single filter so must/any would mean nothing.
-const filterFormatPlain = "please enter filters in the format 'field:filter_type:value'.\n" +
-	"('must'/'any' is not used here, as each entry holds a single filter).\n\n" +
+// filterFormatPlain describes the filtered-operation form, where every filter in an entry
+// must match so must/any would mean nothing.
+const filterFormatPlain = "please enter filters in the format 'field:filter_type:value', joining several with '&&' to require all of them.\n" +
+	"('must'/'any' is not used here, as every filter must match).\n\n" +
 	"'title:contains:cat' applies the operations to videos with cat in the metatitle.\n" +
 	"'title:omits:frogs' skips the operations for videos with frogs in the metatitle.\n" +
 	"'date:omits' applies the operations only when the metafile has no date field.\n" +
-	"'duration:more-than:3600' applies the operations to videos with a duration field more than 3600 (one hour in seconds).\n"
+	"'duration:more-than:3600' applies the operations to videos with a duration field more than 3600 (one hour in seconds).\n" +
+	"'title:contains:cat&&duration:more-than:3600' applies the operations to videos with cat in the metatitle that are over an hour long.\n"
 
 // ParseFilterOps parses filter strings, e.g. "title:omits:frogs:must" or
 // "title:contains:cat".
 //
-// When requireMustAny is false each entry holds one filter, so "must" is implied.
+// When requireMustAny is false "must" is implied, as every filter has to match.
 func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, error) {
 	if len(ops) == 0 {
 		return nil, nil
@@ -133,11 +138,22 @@ func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
 	return s
 }
 
-// escapeFilterValue escapes '\', and any '|' that could run into a [FilterSeparator].
+// FormatFilters renders a filtered entry's filters, the inverse of [SplitFilters] and [ParseFilterOps].
+func FormatFilters(filters []sharedmodels.Filters) string {
+	parts := make([]string, 0, len(filters))
+	for _, f := range filters {
+		parts = append(parts, FormatFilter(f, false))
+	}
+	return strings.Join(parts, FilterJoiner)
+}
+
+// escapeFilterValue escapes '\', and any '|' or '&' that could run into a [FilterSeparator] or [FilterJoiner].
 func escapeFilterValue(v string) string {
 	var buf strings.Builder
 	for i := range len(v) {
-		if v[i] == escapeByte || (v[i] == pipe && (i == len(v)-1 || v[i+1] == pipe)) {
+		// Escape every '\', and a '|' or '&' that's doubled or the last character.
+		if v[i] == escapeByte ||
+			((v[i] == pipe || v[i] == amp) && (i == len(v)-1 || v[i+1] == v[i])) {
 			buf.WriteByte(escapeByte)
 		}
 		buf.WriteByte(v[i])
@@ -161,8 +177,28 @@ func splitFiltered(rest string) (filter, op string, ok bool) {
 	return "", "", false
 }
 
-// ParseFilteredMetaOps parses filter-gated meta operations, one filter and one operation
-// per entry, e.g. "title:contains:cat||director:set:Mr. Cat".
+// SplitFilters divides a filtered entry's filters at each unescaped [FilterJoiner], leaving escapes for [ParseFilterOps].
+func SplitFilters(s string) []string {
+	var parts []string
+	start := 0
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		switch {
+		case escaped:
+			escaped = false
+		case s[i] == escapeByte:
+			escaped = true
+		case strings.HasPrefix(s[i:], FilterJoiner):
+			parts = append(parts, s[start:i])
+			i += len(FilterJoiner) - 1
+			start = i + 1
+		}
+	}
+	return append(parts, s[start:])
+}
+
+// ParseFilteredMetaOps parses filter-gated meta operations, one or more filters and one
+// operation per entry, e.g. "title:contains:cat&&duration:more-than:600||director:set:Mr. Cat".
 func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -177,7 +213,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rule||Meta Operation'", entry)
 		}
 
-		filters, err := ParseFilterOps([]string{filter}, false)
+		filters, err := ParseFilterOps(SplitFilters(filter), false)
 		if err != nil {
 			return nil, warnings, err
 		}
@@ -199,8 +235,8 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 	return valid, warnings, nil
 }
 
-// ParseFilteredFilenameOps parses filter-gated filename operations, one filter and one
-// operation per entry, e.g. "title:contains:cat||prefix:[CATS] ".
+// ParseFilteredFilenameOps parses filter-gated filename operations, one or more filters and
+// one operation per entry, e.g. "title:contains:cat&&duration:more-than:600||prefix:[CATS] ".
 func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredFilenameOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -215,7 +251,7 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rule||Filename Operation'", entry)
 		}
 
-		filters, err := ParseFilterOps([]string{filter}, false)
+		filters, err := ParseFilterOps(SplitFilters(filter), false)
 		if err != nil {
 			return nil, warnings, err
 		}
