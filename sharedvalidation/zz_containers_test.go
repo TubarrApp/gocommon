@@ -57,13 +57,15 @@ func TestFittingCodecs(t *testing.T) {
 
 // TestValidateFFmpegOutputExt tests that known containers are accepted as output, and unknown ones refused.
 func TestValidateFFmpegOutputExt(t *testing.T) {
-	for _, ext := range []string{"webm", "ogm", "rmvb"} {
+	for _, ext := range []string{"webm", "ogm", "ts", "m4v"} {
 		if _, err := ValidateFFmpegOutputExt(ext); err != nil {
 			t.Errorf("ValidateFFmpegOutputExt(%q): %v", ext, err)
 		}
 	}
-	if _, err := ValidateFFmpegOutputExt("xyz"); err == nil {
-		t.Error("ValidateFFmpegOutputExt(xyz) accepted it")
+	for _, ext := range []string{"xyz", "rm", "rmvb"} {
+		if _, err := ValidateFFmpegOutputExt(ext); err == nil {
+			t.Errorf("ValidateFFmpegOutputExt(%q) accepted it", ext)
+		}
 	}
 }
 
