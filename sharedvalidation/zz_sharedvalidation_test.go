@@ -80,7 +80,7 @@ func TestValidateOutputExt(t *testing.T) {
 		{sharedconsts.ExtMP4, sharedconsts.ExtMP4, true},
 		{"mp4", sharedconsts.ExtMP4, true},
 		{sharedconsts.ExtOGV, sharedconsts.ExtOGV, true},
-		{"rm", sharedconsts.ExtRM, true},
+		{"rm", "", false},
 		{"    MP4   ", sharedconsts.ExtMP4, true},
 		{"    JUNK   ", "", false},
 	}
