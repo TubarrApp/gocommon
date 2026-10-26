@@ -1,5 +1,10 @@
 package sharedconsts
 
+// Backup tag.
+const (
+	BackupTag = "_mbackup"
+)
+
 // Rename styles.
 const (
 	RenameFixesOnly   = "fixes-only"
