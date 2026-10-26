@@ -1,8 +1,10 @@
 package sharedconsts
 
-// Backup tag.
+// Filename tags.
 const (
 	BackupTag = "_mbackup"
+	TempTag   = "tmp_"
+	IDTag     = "id_"
 )
 
 // Rename styles.
