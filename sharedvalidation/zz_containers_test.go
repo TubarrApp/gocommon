@@ -1,6 +1,7 @@
 package sharedvalidation
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -35,23 +36,21 @@ func TestValidateCodecsForContainer(t *testing.T) {
 	}
 }
 
-// TestFittingCodecs tests that the preferred codec a container can hold, and is usable, is picked.
+// TestFittingCodecs tests that the codecs a container can hold are listed, most preferred first.
 func TestFittingCodecs(t *testing.T) {
-	all := func(string) bool { return true }
-	if got := FittingVideoCodec(".webm", all); got != sharedconsts.VCodecVP9 {
-		t.Errorf("FittingVideoCodec(.webm) = %q, want vp9", got)
-	}
-	if got := FittingVideoCodec(".webm", func(c string) bool { return c != sharedconsts.VCodecVP9 }); got != sharedconsts.VCodecVP8 {
-		t.Errorf("FittingVideoCodec(.webm) without vp9 = %q, want vp8", got)
-	}
-	if got := FittingAudioCodec(".webm", all); got != sharedconsts.ACodecOpus {
-		t.Errorf("FittingAudioCodec(.webm) = %q, want opus", got)
-	}
-	if got := FittingVideoCodec(".mp4", all); got != sharedconsts.VCodecH264 {
-		t.Errorf("FittingVideoCodec(.mp4) = %q, want h264", got)
-	}
-	if got := FittingVideoCodec(".ogm", all); got != sharedconsts.VCodecVP8 {
-		t.Errorf("FittingVideoCodec(.ogm) = %q, want vp8", got)
+	for _, c := range []struct {
+		name      string
+		got, want []string
+	}{
+		{"webm video", FittingVideoCodecs(".webm"), []string{sharedconsts.VCodecVP9, sharedconsts.VCodecVP8, sharedconsts.VCodecAV1}},
+		{"webm audio", FittingAudioCodecs(".webm"), []string{sharedconsts.ACodecOpus, sharedconsts.ACodecVorbis}},
+		{"mp4 video", FittingVideoCodecs(".mp4"), []string{sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecAV1}},
+		{"ogm video", FittingVideoCodecs(".ogm"), []string{sharedconsts.VCodecVP8}},
+		{"rm video", FittingVideoCodecs(".rm"), nil},
+	} {
+		if !slices.Equal(c.got, c.want) {
+			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)
+		}
 	}
 }
 

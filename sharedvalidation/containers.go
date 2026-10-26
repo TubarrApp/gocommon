@@ -35,26 +35,26 @@ func AudioCodecFits(ext, codec string) bool {
 	return codecFits(sharedconsts.ContainerCompatibleAudioCodecs, ext, codec)
 }
 
-// FittingVideoCodec returns the first video codec in sharedconsts.IncompatibleVideoCodecPreference that fits ext and
-// usable accepts (e.g. as its encoder is installed), or "" if none does.
-func FittingVideoCodec(ext string, usable func(codec string) bool) string {
+// FittingVideoCodecs returns the video codecs ext can hold, in sharedconsts.IncompatibleVideoCodecPreference order.
+func FittingVideoCodecs(ext string) []string {
+	var fits []string
 	for _, c := range sharedconsts.IncompatibleVideoCodecPreference {
-		if VideoCodecFits(ext, c) && usable(c) {
-			return c
+		if VideoCodecFits(ext, c) {
+			fits = append(fits, c)
 		}
 	}
-	return ""
+	return fits
 }
 
-// FittingAudioCodec returns the first audio codec in sharedconsts.IncompatibleAudioCodecPreference that fits ext and
-// usable accepts (e.g. as its encoder is installed), or "" if none does.
-func FittingAudioCodec(ext string, usable func(codec string) bool) string {
+// FittingAudioCodecs returns the audio codecs ext can hold, in sharedconsts.IncompatibleAudioCodecPreference order.
+func FittingAudioCodecs(ext string) []string {
+	var fits []string
 	for _, c := range sharedconsts.IncompatibleAudioCodecPreference {
-		if AudioCodecFits(ext, c) && usable(c) {
-			return c
+		if AudioCodecFits(ext, c) {
+			fits = append(fits, c)
 		}
 	}
-	return ""
+	return fits
 }
 
 // CodecMismatchError describes a codec that can't go in a container, naming the containers it fits.
