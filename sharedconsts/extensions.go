@@ -2,6 +2,7 @@ package sharedconsts
 
 // Video extensions.
 const (
+	ExtSame = "same"
 	Ext3GP  = ".3gp"
 	Ext3G2  = ".3g2"
 	ExtASF  = ".asf"
