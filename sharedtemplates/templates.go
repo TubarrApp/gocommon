@@ -64,9 +64,10 @@ func SanitizePathComponent(s string, maxBytes int) string {
 
 // Template tags for channel elements.
 const (
-	ChannelID   = "channel_id"
-	ChannelName = "channel_name"
-	ChannelURL  = "channel_url"
+	ChannelID      = "channel_id"
+	ChannelName    = "channel_name"
+	ChannelURL     = "channel_url"
+	ChannelURLName = "channel_url_name"
 )
 
 // Template tags for individual video elements.
@@ -142,24 +143,26 @@ const (
 
 // AllTemplatesMap contains the different template tags available across both Tubarr and Metarr.
 var AllTemplatesMap = map[string]struct{}{
-	ChannelID:     {},
-	ChannelName:   {},
-	ChannelURL:    {},
-	MetVideoTitle: {},
-	MetVideoURL:   {},
-	MetDay:        {},
-	MetMonth:      {},
-	MetYear:       {},
-	MetAuthor:     {},
-	MetDirector:   {},
-	MetDomain:     {},
+	ChannelID:      {},
+	ChannelName:    {},
+	ChannelURL:     {},
+	ChannelURLName: {},
+	MetVideoTitle:  {},
+	MetVideoURL:    {},
+	MetDay:         {},
+	MetMonth:       {},
+	MetYear:        {},
+	MetAuthor:      {},
+	MetDirector:    {},
+	MetDomain:      {},
 }
 
 // TubarrTemplateTags contains templating tags which are fillable by Tubarr channels.
 var TubarrTemplateTags = map[string]struct{}{
-	ChannelID:   {},
-	ChannelName: {},
-	ChannelURL:  {},
+	ChannelID:      {},
+	ChannelName:    {},
+	ChannelURL:     {},
+	ChannelURLName: {},
 }
 
 // MetarrTemplateTags contains templating tags which are fillable by Metarr.
