@@ -18,7 +18,7 @@ const filterFormatWithMustAny = "please enter filters in the format 'field:filte
 	"'title:omits:frogs:must' ignores all videos with frogs in the metatitle.\n" +
 	"'title:contains:cat:any','title:contains:dog:any' only includes videos with EITHER cat and dog in the title (use 'must' to require both).\n" +
 	"'date:omits:must' omits videos only when the metafile contains a date field.\n" +
-	"'duration:morethan:3600:must' only includes videos with a duration field more than 3600 (one hour in seconds).\n"
+	"'duration:more-than:3600:must' only includes videos with a duration field more than 3600 (one hour in seconds).\n"
 
 // filterFormatPlain describes the filtered-operation form, where each entry holds a
 // single filter so must/any would mean nothing.
@@ -27,7 +27,7 @@ const filterFormatPlain = "please enter filters in the format 'field:filter_type
 	"'title:contains:cat' applies the operations to videos with cat in the metatitle.\n" +
 	"'title:omits:frogs' skips the operations for videos with frogs in the metatitle.\n" +
 	"'date:omits' applies the operations only when the metafile has no date field.\n" +
-	"'duration:morethan:3600' applies the operations to videos with a duration field more than 3600 (one hour in seconds).\n"
+	"'duration:more-than:3600' applies the operations to videos with a duration field more than 3600 (one hour in seconds).\n"
 
 // ParseFilterOps parses filter strings, e.g. "title:omits:frogs:must" or
 // "title:contains:cat".
@@ -91,6 +91,15 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 			}
 		}
 
+		// A regex-contains pattern is wrapped in "[[ ]]" and taken verbatim, keeping its case.
+		if filterType == sharedconsts.OpRegexContains {
+			end := rawSpanEnd(rawValue)
+			if end != len(rawValue) {
+				return nil, fmt.Errorf("filter '%s': %s expects a pattern wrapped in %s %s, e.g. 'title:%s:%s^cats? %s'", op, filterType, rawOpen, rawClose, filterType, rawOpen, rawClose)
+			}
+			value = rawValue[len(rawOpen) : end-len(rawClose)]
+		}
+
 		filters = append(filters, sharedmodels.Filters{
 			Field:      field,
 			FilterType: filterType,
@@ -104,7 +113,10 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 // FormatFilter renders a filter as [ParseFilterOps] reads it.
 func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
 	s := Escape(f.Field) + string(fieldSeparator) + f.FilterType
-	if f.Value != "" {
+	switch {
+	case f.FilterType == sharedconsts.OpRegexContains:
+		s += string(fieldSeparator) + rawOpen + f.Value + rawClose
+	case f.Value != "":
 		v := escapeFilterValue(f.Value)
 		if i := strings.LastIndexByte(v, fieldSeparator); !withMustAny && i >= 0 {
 			if cond := strings.ToLower(strings.TrimSpace(v[i+1:])); cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
@@ -112,6 +124,8 @@ func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
 			}
 		}
 		s += string(fieldSeparator) + v
+	case f.FilterType != sharedconsts.OpContains && f.FilterType != sharedconsts.OpOmits:
+		s += string(fieldSeparator) // An empty value to compare against, rather than the presence-only form.
 	}
 	if withMustAny {
 		s += string(fieldSeparator) + f.MustAny

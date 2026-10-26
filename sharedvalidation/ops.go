@@ -187,31 +187,35 @@ func validateDateTagOp(opType, opLoc, dateFormat string, i int) error {
 	return nil
 }
 
-// validFilterTypes are the comparisons accepted by a filter.
-var validFilterTypes = map[string]struct{}{
-	sharedconsts.OpContains:  {},
-	sharedconsts.OpOmits:     {},
-	sharedconsts.OpEquals:    {},
-	sharedconsts.OpNotEquals: {},
-	sharedconsts.OpMoreThan:  {},
-	sharedconsts.OpLessThan:  {},
-}
-
 // ValidFilterTypes lists the accepted filter types.
-var ValidFilterTypes = sortedKeys(validFilterTypes)
+var ValidFilterTypes = sortedKeys(sharedconsts.ValidFilterTypes)
 
 // ValidateFilterOps validates filter models.
 func ValidateFilterOps(filters []sharedmodels.Filters) error {
 	for i, filter := range filters {
-		if _, ok := validFilterTypes[filter.FilterType]; !ok {
+		if _, ok := sharedconsts.ValidFilterTypes[filter.FilterType]; !ok {
 			return fmt.Errorf("filter at position %d has invalid type %q (valid: %v)", i, filter.FilterType, ValidFilterTypes)
 		}
 
-		// A numeric comparison needs something numeric to compare against.
+		// A numeric comparison needs something numeric to compare against, and a regex a pattern that compiles and
+		// can be written back inside "[[ ]]".
 		switch filter.FilterType {
 		case sharedconsts.OpMoreThan, sharedconsts.OpLessThan:
 			if _, err := strconv.ParseFloat(filter.Value, 64); err != nil {
 				return fmt.Errorf("filter at position %d has invalid value %q for type %q (must be a number)", i, filter.Value, filter.FilterType)
+			}
+		case sharedconsts.OpRegexContains:
+			if filter.Value == "" {
+				return fmt.Errorf("filter at position %d has an empty pattern for type %q", i, filter.FilterType)
+			}
+			if strings.Contains(filter.Value, "]]:") {
+				return fmt.Errorf("filter at position %d: pattern cannot contain \"]]:\" (try [0-9] in place of [[:digit:]])", i)
+			}
+			if strings.Contains(filter.Value, "||") {
+				return fmt.Errorf("filter at position %d: pattern cannot contain \"||\", which divides a filter from its operation", i)
+			}
+			if _, err := regexp.Compile(filter.Value); err != nil {
+				return fmt.Errorf("filter at position %d: invalid pattern %q: %w", i, filter.Value, err)
 			}
 		}
 

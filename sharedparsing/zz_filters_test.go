@@ -39,8 +39,8 @@ func TestParseFilterOps(t *testing.T) {
 	}
 
 	// A valueless form only makes sense for contains and omits.
-	if _, err := sharedparsing.ParseFilterOps([]string{"duration:morethan"}, false); err == nil {
-		t.Error("valueless morethan should be rejected")
+	if _, err := sharedparsing.ParseFilterOps([]string{"duration:more-than"}, false); err == nil {
+		t.Error("valueless more-than should be rejected")
 	}
 	if _, err := sharedparsing.ParseFilterOps([]string{"title:contains:cat:maybe"}, true); err == nil {
 		t.Error("invalid must/any should be rejected")
@@ -88,6 +88,62 @@ func TestParseFilterOpsValueIsRemainder(t *testing.T) {
 	}
 }
 
+// TestParseFilterOpsRegexContains tests a regex-contains pattern is read verbatim from inside "[[ ]]", keeping its case
+// and escapes, and is written back the same way.
+func TestParseFilterOpsRegexContains(t *testing.T) {
+	tests := []struct {
+		in          string
+		withMustAny bool
+		wantValue   string
+	}{
+		{`title:regex-contains:[[^Cat \d+: Part]]:must`, true, `^Cat \d+: Part`},
+		{`title:regex-contains:[[cats|dogs]]`, false, `cats|dogs`},
+		{`title:regex-contains:[[[A-Z]]]:any`, true, `[A-Z]`},
+		{`title:regex-contains:[[(?i)ep\.? ?\d]]`, false, `(?i)ep\.? ?\d`},
+	}
+	for _, tt := range tests {
+		got, err := sharedparsing.ParseFilterOps([]string{tt.in}, tt.withMustAny)
+		if err != nil || len(got) != 1 || got[0].FilterType != "regex-contains" || got[0].Value != tt.wantValue {
+			t.Errorf("ParseFilterOps(%q) = %+v, %v, want value %q", tt.in, got, err, tt.wantValue)
+			continue
+		}
+		if formatted := sharedparsing.FormatFilter(got[0], tt.withMustAny); formatted != tt.in {
+			t.Errorf("FormatFilter(%+v) = %q, want %q", got[0], formatted, tt.in)
+		}
+	}
+
+	for _, bad := range []string{`title:regex-contains:cats`, `title:regex-contains:[[a]]:b]]`, `title:regex-contains:[[cats]]:any`} {
+		if _, err := sharedparsing.ParseFilterOps([]string{bad}, false); err == nil {
+			t.Errorf("%q should be rejected", bad)
+		}
+	}
+
+	filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{`title:regex-contains:[[^Cat|^Dog]]||genre:set:Pets`})
+	if err != nil || len(filtered) != 1 || filtered[0].Filters[0].Value != "^Cat|^Dog" {
+		t.Errorf("filtered regex-contains = %+v, %v", filtered, err)
+	}
+}
+
+// TestFormatFilterEmptyEquals tests equals and not-equals with no value are written so they parse back, rather than as
+// the presence-only form.
+func TestFormatFilterEmptyEquals(t *testing.T) {
+	for _, f := range []sharedmodels.Filters{
+		{Field: "description", FilterType: "equals", MustAny: "must"},
+		{Field: "description", FilterType: "not-equals", MustAny: "any"},
+	} {
+		for _, withMustAny := range []bool{true, false} {
+			if !withMustAny && f.MustAny != "must" {
+				continue
+			}
+			formatted := sharedparsing.FormatFilter(f, withMustAny)
+			got, err := sharedparsing.ParseFilterOps([]string{formatted}, withMustAny)
+			if err != nil || len(got) != 1 || got[0] != f {
+				t.Errorf("round trip of %+v: formatted %q, got %+v, %v", f, formatted, got, err)
+			}
+		}
+	}
+}
+
 // FuzzFilterRoundTrip tests a formatted filter parses back the same, alone and as a filtered entry's filter.
 func FuzzFilterRoundTrip(f *testing.F) {
 	f.Add("title", "contains", "Ep 5 | Show: Finale", false)
@@ -109,9 +165,6 @@ func FuzzFilterRoundTrip(f *testing.F) {
 		want := sharedmodels.Filters{Field: field, FilterType: filterType, Value: value, MustAny: mustAny}
 		if field == "" || strings.ToLower(value) != value || (filterType != "contains" && filterType != "omits" && filterType != "equals") {
 			t.Skip()
-		}
-		if value == "" && filterType == "equals" {
-			t.Skip() // The valueless form is only for contains and omits.
 		}
 
 		formatted := sharedparsing.FormatFilter(want, withMustAny)

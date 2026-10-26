@@ -109,12 +109,21 @@ func TestValidateFilterOps(t *testing.T) {
 		{"contains", sharedmodels.Filters{Field: "title", FilterType: "contains", Value: "cat", MustAny: "must"}, false},
 		{"omits any", sharedmodels.Filters{Field: "title", FilterType: "omits", Value: "dog", MustAny: "any"}, false},
 		{"equals", sharedmodels.Filters{Field: "title", FilterType: "equals", Value: "cat", MustAny: "must"}, false},
-		{"morethan numeric", sharedmodels.Filters{Field: "duration", FilterType: "morethan", Value: "3600", MustAny: "must"}, false},
+		{"more-than numeric", sharedmodels.Filters{Field: "duration", FilterType: "more-than", Value: "3600", MustAny: "must"}, false},
+		{"presence contains must", sharedmodels.Filters{Field: "date", FilterType: "contains", MustAny: "must"}, false},
+		{"presence contains any", sharedmodels.Filters{Field: "date", FilterType: "contains", MustAny: "any"}, false},
+		{"presence omits any", sharedmodels.Filters{Field: "date", FilterType: "omits", MustAny: "any"}, false},
+		{"equals empty any", sharedmodels.Filters{Field: "title", FilterType: "equals", MustAny: "any"}, false},
+		{"regex-contains", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `(?i)^ep\.? ?\d+`, MustAny: "must"}, false},
 
 		{"unknown type", sharedmodels.Filters{Field: "title", FilterType: "explodes", Value: "x", MustAny: "must"}, true},
-		{"morethan non-numeric", sharedmodels.Filters{Field: "duration", FilterType: "morethan", Value: "soon", MustAny: "must"}, true},
+		{"more-than non-numeric", sharedmodels.Filters{Field: "duration", FilterType: "more-than", Value: "soon", MustAny: "must"}, true},
 		{"bad must/any", sharedmodels.Filters{Field: "title", FilterType: "contains", Value: "cat", MustAny: "maybe"}, true},
 		{"empty field", sharedmodels.Filters{FilterType: "contains", Value: "cat", MustAny: "must"}, true},
+		{"regex-contains empty pattern", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", MustAny: "must"}, true},
+		{"regex-contains invalid pattern", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "(", MustAny: "must"}, true},
+		{"regex-contains pattern with ]]:", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "[[:digit:]]:", MustAny: "must"}, true},
+		{"regex-contains pattern with ||", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: "a||b", MustAny: "must"}, true},
 	}
 
 	for _, tt := range tests {

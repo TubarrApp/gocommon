@@ -1,14 +1,26 @@
 package sharedconsts
 
+// ValidFilterTypes are the comparisons accepted by a filter.
+var ValidFilterTypes = map[string]struct{}{
+	OpContains:      {},
+	OpRegexContains: {},
+	OpOmits:         {},
+	OpEquals:        {},
+	OpNotEquals:     {},
+	OpMoreThan:      {},
+	OpLessThan:      {},
+}
+
 // Operations for various features.
 const (
 	// Contains or omits.
-	OpContains  = "contains"
-	OpOmits     = "omits"
-	OpEquals    = "equals"
-	OpNotEquals = "notequals"
-	OpMoreThan  = "morethan"
-	OpLessThan  = "lessthan"
+	OpContains      = "contains"
+	OpRegexContains = "regex-contains"
+	OpOmits         = "omits"
+	OpEquals        = "equals"
+	OpNotEquals     = "not-equals"
+	OpMoreThan      = "more-than"
+	OpLessThan      = "less-than"
 
 	// Musts and anys.
 	OpMust = "must"

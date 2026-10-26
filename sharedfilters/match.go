@@ -3,24 +3,33 @@ package sharedfilters
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
 // Match reports whether meta satisfies filter.
 //
-// A filter with no value tests only whether the field is present, which is why only
-// contains and omits accept that form. A numeric comparison against a missing or
-// non-numeric field has nothing to compare, so it reports skipped rather than a result.
+// Contains or omits filter with no value tests only whether the field is present.
+//
+// Equals and not-equals with no value compare the field against "" (a missing field counts
+// as ""). A numeric comparison against a missing or empty field has nothing to compare, so
+// it reports skipped rather than a result. A numeric field that is neither a number nor a duration
+// doesn't match.
+//
+// Comparisons ignore case, except a regex-contains pattern, which matches the field as written
+// unless the pattern itself sets "(?i)".
 func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, err error) {
 	raw, exists := meta[filter.Field]
-	value := strings.ToLower(fmt.Sprint(raw))
+	text := fmt.Sprint(raw)
 	if !exists {
-		value = ""
+		text = ""
 	}
+	value := strings.ToLower(text)
 	want := strings.ToLower(filter.Value)
 
 	if isNumeric(filter.FilterType) {
@@ -30,27 +39,37 @@ func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped b
 		return matchNumeric(filter.FilterType, value, want)
 	}
 
-	// Presence-only form.
+	// Presence-only form (e.g. 'title:must' means the title field must exist).
 	if filter.Value == "" {
 		switch filter.FilterType {
 		case sharedconsts.OpContains:
 			return exists, false, nil
 		case sharedconsts.OpOmits:
 			return !exists, false, nil
-		default:
-			return false, false, fmt.Errorf("filter type %q needs a value", filter.FilterType)
 		}
 	}
 
+	// Filter has a value. Perform checks against value:
 	switch filter.FilterType {
 	case sharedconsts.OpContains:
 		return strings.Contains(value, want), false, nil
+
+	case sharedconsts.OpRegexContains:
+		re, err := regexp.Compile(filter.Value)
+		if err != nil {
+			return false, false, fmt.Errorf("invalid pattern %q for field %q: %w", filter.Value, filter.Field, err)
+		}
+		return re.MatchString(text), false, nil
+
 	case sharedconsts.OpOmits:
 		return !strings.Contains(value, want), false, nil
+
 	case sharedconsts.OpEquals:
 		return value == want, false, nil
+
 	case sharedconsts.OpNotEquals:
 		return value != want, false, nil
+
 	default:
 		return false, false, fmt.Errorf("unknown filter type %q for field %q", filter.FilterType, filter.Field)
 	}
@@ -79,13 +98,18 @@ func isNumeric(filterType string) bool {
 	return filterType == sharedconsts.OpMoreThan || filterType == sharedconsts.OpLessThan
 }
 
-// matchNumeric compares two numeric strings, reporting skipped when either will not
-// parse as a number.
+// matchNumeric compares a field's number, or duration in seconds, with the filter's number.
 func matchNumeric(filterType, value, want string) (matched, skipped bool, err error) {
 	got, gotErr := strconv.ParseFloat(value, 64)
+	if gotErr != nil {
+		var secs int
+		if secs, gotErr = sharedparsing.ParseDuration(value); gotErr == nil {
+			got = float64(secs)
+		}
+	}
 	target, targetErr := strconv.ParseFloat(want, 64)
 	if gotErr != nil || targetErr != nil {
-		return false, true, nil //nolint:nilerr // A value that isn't a number skips the filter rather than failing it.
+		return false, false, nil //nolint:nilerr // A value that isn't a number doesn't match, rather than failing the filter.
 	}
 
 	switch filterType {

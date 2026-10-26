@@ -9,10 +9,12 @@ import (
 
 func TestMatch(t *testing.T) {
 	meta := map[string]any{
-		"title":       "Cat Compilation",
-		"description": "",
-		"duration":    3600.0,
-		"views":       "500",
+		"title":           "Cat Compilation",
+		"description":     "",
+		"duration":        3600.0,
+		"duration_string": "7:24:44",
+		"length":          "PT07H24M44S",
+		"views":           "500",
 	}
 
 	tests := []struct {
@@ -28,22 +30,38 @@ func TestMatch(t *testing.T) {
 		{"omits hit", sharedmodels.Filters{Field: "title", FilterType: "omits", Value: "dog"}, true, false, false},
 		{"omits miss", sharedmodels.Filters{Field: "title", FilterType: "omits", Value: "cat"}, false, false, false},
 		{"equals hit", sharedmodels.Filters{Field: "title", FilterType: "equals", Value: "cat compilation"}, true, false, false},
-		{"notequals hit", sharedmodels.Filters{Field: "title", FilterType: "notequals", Value: "dogs"}, true, false, false},
+		{"not-equals hit", sharedmodels.Filters{Field: "title", FilterType: "not-equals", Value: "dogs"}, true, false, false},
 
 		// Presence-only form.
 		{"presence contains hit", sharedmodels.Filters{Field: "title", FilterType: "contains"}, true, false, false},
 		{"presence contains missing field", sharedmodels.Filters{Field: "absent", FilterType: "contains"}, false, false, false},
 		{"presence omits missing field", sharedmodels.Filters{Field: "absent", FilterType: "omits"}, true, false, false},
 		{"presence omits present field", sharedmodels.Filters{Field: "title", FilterType: "omits"}, false, false, false},
-		{"presence needs a value", sharedmodels.Filters{Field: "title", FilterType: "equals"}, false, false, true},
+
+		// Equals and not-equals with no value compare against "".
+		{"equals empty on empty field", sharedmodels.Filters{Field: "description", FilterType: "equals"}, true, false, false},
+		{"equals empty on missing field", sharedmodels.Filters{Field: "absent", FilterType: "equals"}, true, false, false},
+		{"equals empty on set field", sharedmodels.Filters{Field: "title", FilterType: "equals"}, false, false, false},
+		{"not-equals empty on set field", sharedmodels.Filters{Field: "title", FilterType: "not-equals"}, true, false, false},
+		{"not-equals empty on missing field", sharedmodels.Filters{Field: "absent", FilterType: "not-equals"}, false, false, false},
 
 		// Numeric.
-		{"morethan hit", sharedmodels.Filters{Field: "duration", FilterType: "morethan", Value: "60"}, true, false, false},
-		{"morethan miss", sharedmodels.Filters{Field: "duration", FilterType: "morethan", Value: "7200"}, false, false, false},
-		{"lessthan hit", sharedmodels.Filters{Field: "views", FilterType: "lessthan", Value: "1000"}, true, false, false},
-		{"numeric on missing field skips", sharedmodels.Filters{Field: "absent", FilterType: "morethan", Value: "1"}, false, true, false},
-		{"numeric on empty field skips", sharedmodels.Filters{Field: "description", FilterType: "morethan", Value: "1"}, false, true, false},
-		{"numeric on text field skips", sharedmodels.Filters{Field: "title", FilterType: "morethan", Value: "1"}, false, true, false},
+		{"more-than hit", sharedmodels.Filters{Field: "duration", FilterType: "more-than", Value: "60"}, true, false, false},
+		{"more-than miss", sharedmodels.Filters{Field: "duration", FilterType: "more-than", Value: "7200"}, false, false, false},
+		{"less-than hit", sharedmodels.Filters{Field: "views", FilterType: "less-than", Value: "1000"}, true, false, false},
+		{"numeric on missing field skips", sharedmodels.Filters{Field: "absent", FilterType: "more-than", Value: "1"}, false, true, false},
+		{"numeric on empty field skips", sharedmodels.Filters{Field: "description", FilterType: "more-than", Value: "1"}, false, true, false},
+		{"numeric on text field doesn't match", sharedmodels.Filters{Field: "title", FilterType: "more-than", Value: "1"}, false, false, false},
+		{"more-than duration string", sharedmodels.Filters{Field: "duration_string", FilterType: "more-than", Value: "3600"}, true, false, false},
+		{"less-than duration string", sharedmodels.Filters{Field: "duration_string", FilterType: "less-than", Value: "3600"}, false, false, false},
+		{"more-than iso duration", sharedmodels.Filters{Field: "length", FilterType: "more-than", Value: "26000"}, true, false, false},
+
+		// Regex, which keeps case unless the pattern sets (?i).
+		{"regex hit", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `^Cat \w+$`}, true, false, false},
+		{"regex is case sensitive", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `^cat`}, false, false, false},
+		{"regex (?i) ignores case", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `(?i)^cat`}, true, false, false},
+		{"regex on missing field", sharedmodels.Filters{Field: "absent", FilterType: "regex-contains", Value: `x`}, false, false, false},
+		{"invalid regex errors", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `(`}, false, false, true},
 
 		{"unknown type errors", sharedmodels.Filters{Field: "title", FilterType: "explodes", Value: "x"}, false, false, true},
 	}
@@ -73,7 +91,7 @@ func TestMatchAll(t *testing.T) {
 			name: "all hit",
 			filters: []sharedmodels.Filters{
 				{Field: "title", FilterType: "contains", Value: "cat"},
-				{Field: "duration", FilterType: "morethan", Value: "60"},
+				{Field: "duration", FilterType: "more-than", Value: "60"},
 			},
 			want: true,
 		},
@@ -87,7 +105,12 @@ func TestMatchAll(t *testing.T) {
 		},
 		{
 			name:    "a skipped filter does not pass",
-			filters: []sharedmodels.Filters{{Field: "absent", FilterType: "morethan", Value: "1"}},
+			filters: []sharedmodels.Filters{{Field: "absent", FilterType: "more-than", Value: "1"}},
+			want:    false,
+		},
+		{
+			name:    "a non-numeric field does not pass",
+			filters: []sharedmodels.Filters{{Field: "title", FilterType: "more-than", Value: "1"}},
 			want:    false,
 		},
 		{name: "no filters match trivially", filters: nil, want: true},
