@@ -228,8 +228,11 @@ func ValidateFilterOps(filters []sharedmodels.Filters) error {
 		if filter.MustAny != sharedconsts.OpMust && filter.MustAny != sharedconsts.OpAny {
 			return fmt.Errorf("filter at position %d has invalid condition %q (must be %q or %q)", i, filter.MustAny, sharedconsts.OpMust, sharedconsts.OpAny)
 		}
-		if filter.Field == "" {
-			return fmt.Errorf("filter at position %d has empty field", i)
+		// Every field in a list is named, so "title,fulltitle" is fine but "title," isn't.
+		for field := range strings.SplitSeq(filter.Field, sharedconsts.FieldSeparator) {
+			if strings.TrimSpace(field) == "" {
+				return fmt.Errorf("filter at position %d has empty field", i)
+			}
 		}
 	}
 	return nil

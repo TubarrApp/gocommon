@@ -64,6 +64,21 @@ func TestMatch(t *testing.T) {
 		{"invalid regex errors", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `(`}, false, false, true},
 
 		{"unknown type errors", sharedmodels.Filters{Field: "title", FilterType: "explodes", Value: "x"}, false, false, true},
+
+		// A field list matches when any field does, but omits and not-equals need all of them to.
+		{"list contains in a later field", sharedmodels.Filters{Field: "description,title", FilterType: "contains", Value: "cat"}, true, false, false},
+		{"list contains in no field", sharedmodels.Filters{Field: "title,description", FilterType: "contains", Value: "dog"}, false, false, false},
+		{"list trims spaces", sharedmodels.Filters{Field: "absent, title", FilterType: "contains", Value: "cat"}, true, false, false},
+		{"list equals any field", sharedmodels.Filters{Field: "absent,title", FilterType: "equals", Value: "cat compilation"}, true, false, false},
+		{"list regex any field", sharedmodels.Filters{Field: "description,title", FilterType: "regex-contains", Value: `^Cat`}, true, false, false},
+		{"list omits in every field", sharedmodels.Filters{Field: "title,description", FilterType: "omits", Value: "dog"}, true, false, false},
+		{"list omits fails on one field", sharedmodels.Filters{Field: "title,description", FilterType: "omits", Value: "cat"}, false, false, false},
+		{"list not-equals fails on one field", sharedmodels.Filters{Field: "title,description", FilterType: "not-equals"}, false, false, false},
+		{"list presence contains any field", sharedmodels.Filters{Field: "absent,title", FilterType: "contains"}, true, false, false},
+		{"list presence omits every field", sharedmodels.Filters{Field: "absent,title", FilterType: "omits"}, false, false, false},
+		{"list numeric any field", sharedmodels.Filters{Field: "absent,duration", FilterType: "more-than", Value: "1000"}, true, false, false},
+		{"list numeric miss", sharedmodels.Filters{Field: "absent,duration", FilterType: "more-than", Value: "9000"}, false, false, false},
+		{"list numeric skips when no field has a value", sharedmodels.Filters{Field: "absent,description", FilterType: "more-than", Value: "5"}, false, true, false},
 	}
 
 	for _, tt := range tests {

@@ -14,6 +14,10 @@ import (
 
 // Match reports whether meta satisfies filter.
 //
+// A comma-separated field list, e.g. "title,fulltitle", matches when any of its fields does, except
+// omits and not-equals, which need all of them to: "title,fulltitle:omits:cat" means neither field
+// holds cat. A numeric comparison is skipped only when no listed field has anything to compare.
+//
 // Contains or omits filter with no value tests only whether the field is present.
 //
 // Equals and not-equals with no value compare the field against "" (a missing field counts
@@ -24,6 +28,34 @@ import (
 // Comparisons ignore case, except a regex-contains pattern, which matches the field as written
 // unless the pattern itself sets "(?i)".
 func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, err error) {
+	needsAll := filter.FilterType == sharedconsts.OpOmits || filter.FilterType == sharedconsts.OpNotEquals
+
+	allSkipped := true
+	for _, field := range sharedparsing.SplitMultiField(filter.Field) {
+		f := filter
+		f.Field = field
+		ok, fieldSkipped, err := matchField(meta, f)
+		if err != nil {
+			return false, false, err
+		}
+		if fieldSkipped {
+			continue
+		}
+		allSkipped = false
+
+		// One field settles it: a match for most types, a mismatch for omits and not-equals.
+		if ok != needsAll {
+			return ok, false, nil
+		}
+	}
+	if allSkipped {
+		return false, true, nil
+	}
+	return needsAll, false, nil
+}
+
+// matchField is [Match] for a filter on a single field.
+func matchField(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, err error) {
 	raw, exists := meta[filter.Field]
 	text := fmt.Sprint(raw)
 	if !exists {

@@ -310,6 +310,31 @@ func TestParseFilteredOpsMultiOp(t *testing.T) {
 	}
 }
 
+// TestParseFilterFieldList tests a filter's comma-separated field list is kept as written and written back the same,
+// and that a list holding an empty field is rejected.
+func TestParseFilterFieldList(t *testing.T) {
+	got, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title,fulltitle:contains:lion||prefix:[LIONS] "})
+	if err != nil || len(got) != 1 {
+		t.Fatalf("ParseFilteredFilenameOps = %+v, %v", got, err)
+	}
+	if f := got[0].Filters[0]; f.Field != "title,fulltitle" || f.FilterType != "contains" || f.Value != "lion" {
+		t.Errorf("filter = %+v", f)
+	}
+	if formatted := sharedparsing.FormatFilters(got[0].Filters); formatted != "title,fulltitle:contains:lion" {
+		t.Errorf("FormatFilters = %q", formatted)
+	}
+
+	for _, bad := range []string{
+		"title,:contains:lion||prefix:x",
+		",title:contains:lion||prefix:x",
+		"title,,fulltitle:contains:lion||prefix:x",
+	} {
+		if _, _, err := sharedparsing.ParseFilteredFilenameOps([]string{bad}); err == nil {
+			t.Errorf("%q has an empty field, so should be rejected", bad)
+		}
+	}
+}
+
 // TestParseFilteredOpsSeveralFilters tests an entry's filters joined by "&&" are all read, and written back the same.
 func TestParseFilteredOpsSeveralFilters(t *testing.T) {
 	want := []sharedmodels.Filters{
