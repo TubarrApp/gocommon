@@ -96,8 +96,9 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 // or "title:date-tag:suffix:ymd".
 //
 // Operation types and date tag locations are fixed vocabularies, so they are matched
-// case-insensitively and stored lowercased. Field names and values are left as written,
-// since metadata keys are case-sensitive.
+// case-insensitively and stored lowercased. Field names and values keep their case,
+// since metadata keys are case-sensitive. A comma-separated field list, e.g.
+// "actor,director:set:Spielberg", gives one operation per field.
 //
 // Any malformed or invalid entry fails the batch, with err listing every malformed one.
 // Duplicates are only described in warnings.
@@ -124,26 +125,38 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 			continue
 		}
 
-		newOp := sharedmodels.MetaOps{Field: field, OpType: strings.ToLower(opType)}
-		args, argErr := parseOpArgs(newOp.OpType, rest)
+		opType = strings.ToLower(opType)
+		args, argErr := parseOpArgs(opType, rest)
 		if argErr != nil {
 			invalid = append(invalid, invalidEntry(op, argErr.Error()))
 			continue
 		}
-		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
 
-		key := FormatMetaOp(newOp)
-		if isDateTagOp(newOp.OpType) {
-			key = newOp.Field + string(fieldSeparator) + newOp.OpType
+		// One operation per listed field, e.g. "title,description:suffix: [x]".
+		for _, f := range SplitMultiField(field) {
+			newOp := sharedmodels.MetaOps{
+				Field:        f,
+				OpType:       opType,
+				OpFindString: args.find,
+				OpValue:      args.value,
+				OpLoc:        args.loc,
+				DateFormat:   args.dateFormat,
+			}
+
+			key := FormatMetaOp(newOp)
+			if isDateTagOp(newOp.OpType) {
+				key = newOp.Field + string(fieldSeparator) + newOp.OpType
+			}
+
+			// Name the skipped operation itself, as the rest of a field list may still apply.
+			if _, ok := seen[key]; ok {
+				warnings = append(warnings, duplicateWarning(FormatMetaOp(newOp)))
+				continue
+			}
+			seen[key] = struct{}{}
+
+			valid = append(valid, newOp)
 		}
-
-		if _, ok := seen[key]; ok {
-			warnings = append(warnings, duplicateWarning(op))
-			continue
-		}
-		seen[key] = struct{}{}
-
-		valid = append(valid, newOp)
 	}
 
 	if len(invalid) > 0 {
@@ -224,9 +237,9 @@ func parseOpArgs(opType, rest string) (a opArgs, err error) {
 	case opType == sharedconsts.OpRegexReplace:
 		end := rawSpanEnd(rest)
 		if end < 0 {
-			return a, fmt.Errorf("%s expects a pattern wrapped in %s %s, e.g. '%s:%s^foo %s:bar'", opType, rawOpen, rawClose, opType, rawOpen, rawClose)
+			return a, fmt.Errorf("%s expects a pattern wrapped in %s %s, e.g. '%s:%s^foo %s:bar'", opType, openSquareBrackets, closeSquareBrackets, opType, openSquareBrackets, closeSquareBrackets)
 		}
-		a.find = rest[len(rawOpen) : end-len(rawClose)]
+		a.find = rest[len(openSquareBrackets) : end-len(closeSquareBrackets)]
 		if end < len(rest) {
 			a.value = Unescape(rest[end+1:])
 		}
@@ -251,7 +264,7 @@ func formatOpArgs(opType string, a opArgs) string {
 	case isDateTagOp(opType):
 		return Escape(a.loc) + string(fieldSeparator) + escapeLast(a.dateFormat)
 	case opType == sharedconsts.OpRegexReplace:
-		return rawOpen + a.find + rawClose + string(fieldSeparator) + escapeLast(a.value)
+		return openSquareBrackets + a.find + closeSquareBrackets + string(fieldSeparator) + escapeLast(a.value)
 	case isFindReplaceOp(opType):
 		return Escape(a.find) + string(fieldSeparator) + escapeLast(a.value)
 	default:

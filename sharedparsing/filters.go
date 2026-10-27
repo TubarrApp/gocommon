@@ -9,13 +9,6 @@ import (
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
-const (
-	// FilterSeparator divides a filtered entry's filters from its operation.
-	FilterSeparator = "||"
-	// FilterJoiner divides a filtered entry's filters, all of which must match.
-	FilterJoiner = "&&"
-)
-
 // filterFormatWithMustAny describes the download filter form, where several filters
 // combine and each states whether it must match or may match.
 const filterFormatWithMustAny = "please enter filters in the format 'field:filter_type:value:must_or_any'.\n\n" +
@@ -100,9 +93,9 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 		if filterType == sharedconsts.OpRegexContains {
 			end := rawSpanEnd(rawValue)
 			if end != len(rawValue) {
-				return nil, fmt.Errorf("filter '%s': %s expects a pattern wrapped in %s %s, e.g. 'title:%s:%s^cats? %s'", op, filterType, rawOpen, rawClose, filterType, rawOpen, rawClose)
+				return nil, fmt.Errorf("filter '%s': %s expects a pattern wrapped in %s %s, e.g. 'title:%s:%s^cats? %s'", op, filterType, openSquareBrackets, closeSquareBrackets, filterType, openSquareBrackets, closeSquareBrackets)
 			}
-			value = rawValue[len(rawOpen) : end-len(rawClose)]
+			value = rawValue[len(openSquareBrackets) : end-len(closeSquareBrackets)]
 		}
 
 		filters = append(filters, sharedmodels.Filters{
@@ -120,7 +113,7 @@ func FormatFilter(f sharedmodels.Filters, withMustAny bool) string {
 	s := Escape(f.Field) + string(fieldSeparator) + f.FilterType
 	switch {
 	case f.FilterType == sharedconsts.OpRegexContains:
-		s += string(fieldSeparator) + rawOpen + f.Value + rawClose
+		s += string(fieldSeparator) + openSquareBrackets + f.Value + closeSquareBrackets
 	case f.Value != "":
 		v := escapeFilterValue(f.Value)
 		if i := strings.LastIndexByte(v, fieldSeparator); !withMustAny && i >= 0 {
@@ -144,10 +137,10 @@ func FormatFilters(filters []sharedmodels.Filters) string {
 	for _, f := range filters {
 		parts = append(parts, FormatFilter(f, false))
 	}
-	return strings.Join(parts, FilterJoiner)
+	return strings.Join(parts, sharedconsts.FilterJoiner)
 }
 
-// escapeFilterValue escapes '\', and any '|' or '&' that could run into a [FilterSeparator] or [FilterJoiner].
+// escapeFilterValue escapes '\', and any '|' or '&' that could run into a [sharedcosnts.FilterSeparator] or [sharedconsts.FilterJoiner].
 func escapeFilterValue(v string) string {
 	var buf strings.Builder
 	for i := range len(v) {
@@ -161,7 +154,16 @@ func escapeFilterValue(v string) string {
 	return buf.String()
 }
 
-// SplitFiltered divides a filtered entry at its first unescaped [FilterSeparator], keeping escapes.
+// SplitMultiField divides a field list at each comma, e.g. "title, description" -> ["title", "description"].
+func SplitMultiField(field string) []string {
+	fields := strings.Split(field, sharedconsts.FieldSeparator)
+	for i := range fields {
+		fields[i] = strings.TrimSpace(fields[i])
+	}
+	return fields
+}
+
+// SplitFiltered divides a filtered entry at its first unescaped [sharedconsts.FilterSeparator], keeping escapes.
 func SplitFiltered(rest string) (filter, op string, ok bool) {
 	escaped := false
 	for i := range len(rest) {
@@ -170,14 +172,14 @@ func SplitFiltered(rest string) (filter, op string, ok bool) {
 			escaped = false
 		case rest[i] == escapeByte:
 			escaped = true
-		case strings.HasPrefix(rest[i:], FilterSeparator):
-			return rest[:i], rest[i+len(FilterSeparator):], true
+		case strings.HasPrefix(rest[i:], sharedconsts.FilterSeparator):
+			return rest[:i], rest[i+len(sharedconsts.FilterSeparator):], true
 		}
 	}
 	return "", "", false
 }
 
-// SplitFilters divides a filtered entry's filters at each unescaped [FilterJoiner], leaving escapes for [ParseFilterOps].
+// SplitFilters divides a filtered entry's filters at each unescaped [sharedconsts.FilterJoiner], leaving escapes for [ParseFilterOps].
 func SplitFilters(s string) []string {
 	var parts []string
 	start := 0
@@ -188,9 +190,9 @@ func SplitFilters(s string) []string {
 			escaped = false
 		case s[i] == escapeByte:
 			escaped = true
-		case strings.HasPrefix(s[i:], FilterJoiner):
+		case strings.HasPrefix(s[i:], sharedconsts.FilterJoiner):
 			parts = append(parts, s[start:i])
-			i += len(FilterJoiner) - 1
+			i += len(sharedconsts.FilterJoiner) - 1
 			start = i + 1
 		}
 	}
@@ -207,6 +209,8 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 	warnings = duplicateWarnings(dupes)
 
 	valid := make([]sharedmodels.FilteredMetaOps, 0, len(entries))
+
+	// Iterate entries.
 	for _, entry := range entries {
 		filter, op, ok := SplitFiltered(entry)
 		if !ok {
@@ -218,6 +222,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 			return nil, warnings, err
 		}
 
+		// A field list in the operation gives one operation per field, see [ParseMetaOps].
 		metaOps, opWarnings, err := ParseMetaOps([]string{op})
 		warnings = append(warnings, opWarnings...)
 		if err != nil {

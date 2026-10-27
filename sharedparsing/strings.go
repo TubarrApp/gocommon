@@ -2,7 +2,7 @@
 //
 // An operation is separator-delimited, e.g. "title:set:cats". The grammar has exactly one
 // decoding pass: the "||" dividing a filter from its operation is located without
-// decoding ([SplitUnescaped]), and the final split on ':' decodes ([EscapedSplit]).
+// decoding ([SplitAndKeepEscapes]), and the final split on ':' decodes ([SplitAndRemoveEscapes]).
 // Decoding only once is what allows the escape character itself to be escaped, so any
 // value is representable.
 //
@@ -12,30 +12,32 @@ package sharedparsing
 
 import (
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 const (
-	escapeByte     = '\\'
-	fieldSeparator = ':'
-	pipe           = '|' // Half of a FilterSeparator ('||').
-	amp            = '&' // Half of a FilterJoiner ('&&').
+	escapeByte     = '\\' // '\'
+	fieldSeparator = ':'  // title:contains (etc).
+	pipe           = '|'  // Half of a FilterSeparator ('||').
+	amp            = '&'  // Half of a FilterJoiner ('&&').
 
-	rawOpen  = "[["
-	rawClose = "]]"
+	openSquareBrackets  = "[["
+	closeSquareBrackets = "]]"
 )
 
 // rawSpanEnd returns the index just past the "]]" closing a raw span opening at the
 // start of s, or -1. The span closes at the first "]]" followed by ':' or the end of s,
 // so patterns may hold "]]" elsewhere, as in "[[:digit:]]".
 func rawSpanEnd(s string) int {
-	if !strings.HasPrefix(s, rawOpen) {
+	if !strings.HasPrefix(s, openSquareBrackets) {
 		return -1
 	}
-	for i := len(rawOpen); i+len(rawClose) <= len(s); i++ {
-		if s[i:i+len(rawClose)] != rawClose {
+	for i := len(openSquareBrackets); i+len(closeSquareBrackets) <= len(s); i++ {
+		if s[i:i+len(closeSquareBrackets)] != closeSquareBrackets {
 			continue
 		}
-		if end := i + len(rawClose); end == len(s) || s[end] == fieldSeparator {
+		if end := i + len(closeSquareBrackets); end == len(s) || s[end] == fieldSeparator {
 			return end
 		}
 	}
@@ -106,7 +108,7 @@ func isMetaByte(c byte) bool {
 }
 
 // SplitAndKeepEscapes splits s on unescaped occurrences of desiredSeparator, leaving every
-// escape sequence intact for a later [EscapedSplit].
+// escape sequence intact for a later [SplitAndRemoveEscapes].
 //
 // Use this for intermediate splits, such as dividing filter rules from operations, so
 // the escapes survive to the single decoding pass.
@@ -169,20 +171,20 @@ func SplitAndRemoveEscapes(s string, desiredSeparator byte) []string {
 	return append(parts, buf.String())
 }
 
-// Escape renders s so that a later [EscapedSplit] recovers it verbatim as one segment.
+// Escape renders s so that a later [SplitAndRemoveEscapes] recovers it verbatim as one segment.
 //
 // Every grammar metacharacter is escaped, not just the separator in use, because a
 // filtered entry is split at its "||" before its parts are split on ':'. A '&' is only
 // escaped where it starts a [FilterJoiner].
 func Escape(s string) string {
-	if !strings.ContainsAny(s, `\:|`) && !strings.Contains(s, FilterJoiner) {
+	if !strings.ContainsAny(s, `\:|`) && !strings.Contains(s, sharedconsts.FilterJoiner) {
 		return s
 	}
 
 	var buf strings.Builder
 	buf.Grow(len(s) + 8)
 	for i := range len(s) {
-		if isMetaByte(s[i]) && (s[i] != amp || strings.HasPrefix(s[i:], FilterJoiner)) {
+		if isMetaByte(s[i]) && (s[i] != amp || strings.HasPrefix(s[i:], sharedconsts.FilterJoiner)) {
 			buf.WriteByte(escapeByte)
 		}
 		buf.WriteByte(s[i])

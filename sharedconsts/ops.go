@@ -1,5 +1,14 @@
 package sharedconsts
 
+const (
+	// FilterSeparator divides a filtered entry's filters from its operation.
+	FilterSeparator = "||"
+	// FilterJoiner divides a filtered entry's filters, all of which must match.
+	FilterJoiner = "&&"
+	// FieldSeparator divides multiple fields in a single operation.
+	FieldSeparator = ","
+)
+
 // ValidFilterTypes are the comparisons accepted by a filter.
 var ValidFilterTypes = map[string]struct{}{
 	OpContains:      {},

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
@@ -178,7 +179,7 @@ func FuzzFilterRoundTrip(f *testing.F) {
 		if withMustAny {
 			return
 		}
-		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{formatted + sharedparsing.FilterSeparator + "title:set:x"})
+		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{formatted + sharedconsts.FilterSeparator + "title:set:x"})
 		if err != nil || len(filtered) != 1 || filtered[0].Filters[0] != want {
 			t.Fatalf("filtered round trip of %+v:\n formatted %q\n got %+v, %v", want, formatted, filtered, err)
 		}
@@ -186,7 +187,7 @@ func FuzzFilterRoundTrip(f *testing.F) {
 		// Before and after another filter in the same entry.
 		other := sharedmodels.Filters{Field: "duration", FilterType: "more-than", Value: "60", MustAny: "must"}
 		for _, filters := range [][]sharedmodels.Filters{{want, other}, {other, want}} {
-			entry := sharedparsing.FormatFilters(filters) + sharedparsing.FilterSeparator + "title:set:x"
+			entry := sharedparsing.FormatFilters(filters) + sharedconsts.FilterSeparator + "title:set:x"
 			filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{entry})
 			if err != nil || len(filtered) != 1 || !slices.Equal(filtered[0].Filters, filters) {
 				t.Fatalf("joined round trip of %+v:\n formatted %q\n got %+v, %v", filters, entry, filtered, err)
@@ -214,6 +215,30 @@ func TestParseFilteredMetaOps(t *testing.T) {
 	}
 	if op := got[0].MetaOps[0]; op.Field != "title" || op.OpType != "prefix" || op.OpValue != "[CAT VIDEOS] " {
 		t.Errorf("meta op = %+v", op)
+	}
+}
+
+// TestParseFilteredMetaOpsMultiField tests a field list in the operation gives one operation per field under the
+// same filters, while a comma in a filter value stays part of the value.
+func TestParseFilteredMetaOpsMultiField(t *testing.T) {
+	got, _, err := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:lizards, frogs||title,description:suffix: [lizards]"})
+	if err != nil || len(got) != 1 {
+		t.Fatalf("ParseFilteredMetaOps = %+v, %v", got, err)
+	}
+
+	want := []sharedmodels.Filters{{Field: "title", FilterType: "contains", Value: "lizards, frogs", MustAny: "must"}}
+	if !slices.Equal(got[0].Filters, want) {
+		t.Errorf("filters = %+v, want %+v", got[0].Filters, want)
+	}
+
+	ops := got[0].MetaOps
+	if len(ops) != 2 || ops[0].Field != "title" || ops[1].Field != "description" {
+		t.Fatalf("meta ops = %+v, want title then description", ops)
+	}
+	for _, op := range ops {
+		if op.OpType != "suffix" || op.OpValue != " [lizards]" {
+			t.Errorf("meta op = %+v, want suffix %q", op, " [lizards]")
+		}
 	}
 }
 

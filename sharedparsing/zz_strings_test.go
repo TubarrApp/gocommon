@@ -8,7 +8,7 @@ import (
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
-func TestEscapedSplit(t *testing.T) {
+func TestSplitAndRemoveEscapes(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -33,7 +33,7 @@ func TestEscapedSplit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := sharedparsing.SplitAndRemoveEscapes(tt.input, ':')
 			if !slices.Equal(got, tt.want) {
-				t.Errorf("EscapedSplit(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("SplitAndRemoveEscapes(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -44,7 +44,7 @@ func TestEscapedSplit(t *testing.T) {
 func TestStagedSplitPreservesInnerEscapes(t *testing.T) {
 	parts := sharedparsing.SplitAndKeepEscapes(`title:contains:a\:b||title:set:c\:d`, '|')
 	if len(parts) != 3 || parts[1] != "" {
-		t.Fatalf("SplitUnescaped = %q, want filter, empty, op", parts)
+		t.Fatalf("SplitAndKeepEscapes = %q, want filter, empty, op", parts)
 	}
 
 	got := sharedparsing.SplitAndRemoveEscapes(parts[2], ':')
@@ -113,7 +113,7 @@ func TestEscapeAmpersands(t *testing.T) {
 			t.Errorf("Escape(%q) = %q, want %q", in, got, want)
 		}
 		if got := sharedparsing.SplitAndRemoveEscapes(want, ':'); len(got) != 1 || got[0] != in {
-			t.Errorf("EscapedSplit(%q) = %q, want %q", want, got, in)
+			t.Errorf("SplitAndRemoveEscapes(%q) = %q, want %q", want, got, in)
 		}
 	}
 }

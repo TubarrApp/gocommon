@@ -117,6 +117,32 @@ func TestParseMetaOpsDeduplicates(t *testing.T) {
 	}
 }
 
+// TestParseMetaOpsMultiField tests a comma-separated field list gives one operation per trimmed field, leaving
+// commas in the value alone, and that a duplicate warning names only the skipped field's operation.
+func TestParseMetaOpsMultiField(t *testing.T) {
+	got, warnings, err := sharedparsing.ParseMetaOps([]string{"actor, director ,artist:set:Example, Inc", "actor:set:Example, Inc"})
+	if err != nil {
+		t.Fatalf("ParseMetaOps: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("parsed %d ops, want 3: %+v", len(got), got)
+	}
+	for i, field := range []string{"actor", "director", "artist"} {
+		if op := got[i]; op.Field != field || op.OpType != "set" || op.OpValue != "Example, Inc" {
+			t.Errorf("op %d = %+v, want %s set to %q", i, op, field, "Example, Inc")
+		}
+	}
+	if len(warnings) != 1 || warnings[0].Entry != "actor:set:Example, Inc" {
+		t.Errorf("warnings = %v, want one for the repeated actor operation", warnings)
+	}
+
+	for _, bad := range []string{"title,:set:x", "title,,description:set:x"} {
+		if _, _, err := sharedparsing.ParseMetaOps([]string{bad}); err == nil {
+			t.Errorf("%q has an empty field, so should be rejected", bad)
+		}
+	}
+}
+
 func TestParseFilenameOps(t *testing.T) {
 	in := []string{
 		"prefix:[DOG VIDEOS]",

@@ -27,8 +27,9 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 		if opType == "" || isMultiPartOpType(opType) {
 			t.Skip()
 		}
-		// A field or operation type holding a separator would change the parsed shape.
-		if strings.ContainsAny(field+opType, ":|") {
+		// A field or operation type holding a separator would change the parsed shape, as would a field holding
+		// a comma or surrounding spaces, since parsing splits field lists and trims each field.
+		if strings.ContainsAny(field+opType, ":|,") || field != strings.TrimSpace(field) {
 			t.Skip()
 		}
 		// Parsing validates, so only valid operations can round trip.
