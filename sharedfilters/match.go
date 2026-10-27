@@ -27,16 +27,23 @@ import (
 //
 // Comparisons ignore case, except a regex-contains pattern, which matches the field as written
 // unless the pattern itself sets "(?i)".
-func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, err error) {
+func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, metaText string, err error) {
 	needsAll := filter.FilterType == sharedconsts.OpOmits || filter.FilterType == sharedconsts.OpNotEquals
 
 	allSkipped := true
 	for _, field := range sharedparsing.SplitMultiField(filter.Field) {
+		// Get field value.
+		raw, metaExists := meta[field]
+		metaText = fmt.Sprint(raw)
+		if !metaExists {
+			metaText = ""
+		}
+
 		f := filter
 		f.Field = field
-		ok, fieldSkipped, err := matchField(meta, f)
+		ok, fieldSkipped, err := matchField(metaText, metaExists, f)
 		if err != nil {
-			return false, false, err
+			return false, false, metaText, err
 		}
 		if fieldSkipped {
 			continue
@@ -45,27 +52,22 @@ func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped b
 
 		// One field settles it: a match for most types, a mismatch for omits and not-equals.
 		if ok != needsAll {
-			return ok, false, nil
+			return ok, false, metaText, nil
 		}
 	}
 	if allSkipped {
-		return false, true, nil
+		return false, true, metaText, nil
 	}
-	return needsAll, false, nil
+	return needsAll, false, metaText, nil
 }
 
 // matchField is [Match] for a filter on a single field.
-func matchField(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, err error) {
-	raw, exists := meta[filter.Field]
-	text := fmt.Sprint(raw)
-	if !exists {
-		text = ""
-	}
-	value := strings.ToLower(text)
+func matchField(metaText string, metaExists bool, filter sharedmodels.Filters) (matched, skipped bool, err error) {
+	value := strings.ToLower(metaText)
 	want := strings.ToLower(filter.Value)
 
 	if isNumeric(filter.FilterType) {
-		if !exists || value == "" || value == "<nil>" {
+		if !metaExists || value == "" || value == "<nil>" {
 			return false, true, nil
 		}
 		return matchNumeric(filter.FilterType, value, want)
@@ -75,9 +77,9 @@ func matchField(meta map[string]any, filter sharedmodels.Filters) (matched, skip
 	if filter.Value == "" {
 		switch filter.FilterType {
 		case sharedconsts.OpContains:
-			return exists, false, nil
+			return metaExists, false, nil
 		case sharedconsts.OpOmits:
-			return !exists, false, nil
+			return !metaExists, false, nil
 		}
 	}
 
@@ -91,7 +93,7 @@ func matchField(meta map[string]any, filter sharedmodels.Filters) (matched, skip
 		if err != nil {
 			return false, false, fmt.Errorf("invalid pattern %q for field %q: %w", filter.Value, filter.Field, err)
 		}
-		return re.MatchString(text), false, nil
+		return re.MatchString(metaText), false, nil
 
 	case sharedconsts.OpOmits:
 		return !strings.Contains(value, want), false, nil
@@ -114,7 +116,7 @@ func matchField(meta map[string]any, filter sharedmodels.Filters) (matched, skip
 // wrote should not be assumed to pass.
 func MatchAll(meta map[string]any, filters []sharedmodels.Filters) (matched bool, err error) {
 	for _, f := range filters {
-		ok, skipped, err := Match(meta, f)
+		ok, skipped, _, err := Match(meta, f)
 		if err != nil {
 			return false, err
 		}
