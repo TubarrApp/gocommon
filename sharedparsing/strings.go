@@ -90,7 +90,7 @@ func unescape(s string) string {
 	if !strings.ContainsRune(s, escapeByte) {
 		return s
 	}
-	return strings.Join(EscapedSplit(s, fieldSeparator), string(fieldSeparator))
+	return strings.Join(SplitAndRemoveEscapes(s, fieldSeparator), string(fieldSeparator))
 }
 
 // escapeLast renders the last part of an operation, which needs only '\' escaped since
@@ -105,12 +105,12 @@ func isMetaByte(c byte) bool {
 	return c == escapeByte || c == fieldSeparator || c == pipe || c == amp
 }
 
-// SplitUnescaped splits s on unescaped occurrences of desiredSeparator, leaving every
+// SplitAndKeepEscapes splits s on unescaped occurrences of desiredSeparator, leaving every
 // escape sequence intact for a later [EscapedSplit].
 //
 // Use this for intermediate splits, such as dividing filter rules from operations, so
 // the escapes survive to the single decoding pass.
-func SplitUnescaped(s string, desiredSeparator byte) []string {
+func SplitAndKeepEscapes(s string, desiredSeparator byte) []string {
 	var parts []string
 	var buf strings.Builder
 	escaped := false
@@ -134,13 +134,13 @@ func SplitUnescaped(s string, desiredSeparator byte) []string {
 	return append(parts, buf.String())
 }
 
-// EscapedSplit splits s on unescaped occurrences of desiredSeparator and decodes the
+// SplitAndRemoveEscapes splits s on unescaped occurrences of desiredSeparator and decodes the
 // escape sequences, so it is the final pass over an operation string.
 //
 // A backslash before a grammar metacharacter ('\', ':', '|' or '&') yields that character
 // literally; before anything else it is retained verbatim, which leaves values such as
 // "\d" untouched. Scanning is byte-wise so segments holding invalid UTF-8 survive.
-func EscapedSplit(s string, desiredSeparator byte) []string {
+func SplitAndRemoveEscapes(s string, desiredSeparator byte) []string {
 	var parts []string
 	var buf strings.Builder
 	escaped := false
