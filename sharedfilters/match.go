@@ -66,8 +66,14 @@ func matchField(metaText string, metaExists bool, filter sharedmodels.Filters) (
 	value := strings.ToLower(metaText)
 	want := strings.ToLower(filter.Value)
 
+	// 'title:equals:' should match '<nil>'
+	if value == "<nil>" {
+		value = ""
+	}
+
+	// Check numeric field.
 	if isNumeric(filter.FilterType) {
-		if !metaExists || value == "" || value == "<nil>" {
+		if !metaExists || value == "" || value == "<nil>" { // '<nil>' guarded against above, keep in case above is dropped.
 			return false, true, nil
 		}
 		return matchNumeric(filter.FilterType, value, want)

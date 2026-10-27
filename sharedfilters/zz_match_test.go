@@ -83,7 +83,7 @@ func TestMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			matched, skipped, err := sharedfilters.Match(meta, tt.filter)
+			matched, skipped, _, err := sharedfilters.Match(meta, tt.filter)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}
