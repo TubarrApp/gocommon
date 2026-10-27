@@ -1,9 +1,9 @@
 package sharedconsts
 
 const (
-	// FilterSeparator divides a filtered entry's filters from its operation.
+	// FilterSeparator divides a filtered entry's filters from its operations.
 	FilterSeparator = "||"
-	// FilterJoiner divides a filtered entry's filters, all of which must match.
+	// FilterJoiner divides a filtered entry's filters, all of which must match, and its operations, all of which apply.
 	FilterJoiner = "&&"
 	// FieldSeparator divides multiple fields in a single operation.
 	FieldSeparator = ","

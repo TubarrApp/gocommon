@@ -179,7 +179,8 @@ func SplitFiltered(rest string) (filter, op string, ok bool) {
 	return "", "", false
 }
 
-// SplitFilters divides a filtered entry's filters at each unescaped [sharedconsts.FilterJoiner], leaving escapes for [ParseFilterOps].
+// SplitFilters divides a filtered entry's filters, or its operations, at each unescaped [sharedconsts.FilterJoiner],
+// leaving escapes for the parser that reads each part.
 func SplitFilters(s string) []string {
 	var parts []string
 	start := 0
@@ -199,8 +200,18 @@ func SplitFilters(s string) []string {
 	return append(parts, s[start:])
 }
 
-// ParseFilteredMetaOps parses filter-gated meta operations, one or more filters and one
-// operation per entry, e.g. "title:contains:cat&&duration:more-than:600||director:set:Mr. Cat".
+// splitOps divides a filtered entry's operations at each unescaped [sharedconsts.FilterJoiner], keeping escapes.
+// Spaces after a "&&" are dropped, as an operation never starts with one, but spaces before it stay part of a value.
+func splitOps(s string) []string {
+	ops := SplitFilters(s)
+	for i := range ops {
+		ops[i] = strings.TrimLeft(ops[i], " ")
+	}
+	return ops
+}
+
+// ParseFilteredMetaOps parses filter-gated meta operations, one or more filters and one or more operations per
+// entry, each joined by "&&", e.g. "title:contains:cat&&duration:more-than:600||director:set:Mr. Cat&&genre:set:Cats".
 func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -222,8 +233,8 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 			return nil, warnings, err
 		}
 
-		// A field list in the operation gives one operation per field, see [ParseMetaOps].
-		metaOps, opWarnings, err := ParseMetaOps([]string{op})
+		// Operations joined by "&&" all apply, and a field list gives one operation per field, see [ParseMetaOps].
+		metaOps, opWarnings, err := ParseMetaOps(splitOps(op))
 		warnings = append(warnings, opWarnings...)
 		if err != nil {
 			return nil, warnings, fmt.Errorf("filtered meta operation %q: %w", entry, err)
@@ -240,8 +251,8 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 	return valid, warnings, nil
 }
 
-// ParseFilteredFilenameOps parses filter-gated filename operations, one or more filters and
-// one operation per entry, e.g. "title:contains:cat&&duration:more-than:600||prefix:[CATS] ".
+// ParseFilteredFilenameOps parses filter-gated filename operations, one or more filters and one or more operations
+// per entry, each joined by "&&", e.g. "title:contains:cat&&duration:more-than:600||prefix:[CATS] &&suffix: (long)".
 func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredFilenameOps, warnings []Warning, err error) {
 	if len(entries) == 0 {
 		return nil, nil, nil
@@ -261,7 +272,8 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 			return nil, warnings, err
 		}
 
-		filenameOps, opWarnings, err := ParseFilenameOps([]string{op})
+		// Operations joined by "&&" all apply.
+		filenameOps, opWarnings, err := ParseFilenameOps(splitOps(op))
 		warnings = append(warnings, opWarnings...)
 		if err != nil {
 			return nil, warnings, fmt.Errorf("filtered filename operation %q: %w", entry, err)

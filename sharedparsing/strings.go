@@ -7,7 +7,9 @@
 // value is representable.
 //
 // An operation's last part is everything after the previous ':', so it needs no
-// escaping of ':'. A regex-replace pattern is wrapped in "[[ ]]" and taken verbatim.
+// escaping of ':'. In a filtered entry it ends at the next unescaped "&&", which divides
+// one operation from the next, so a "&&" in it is written "\&&". A regex-replace pattern
+// is wrapped in "[[ ]]" and taken verbatim, so it can't hold a "&&".
 package sharedparsing
 
 import (
@@ -95,10 +97,18 @@ func Unescape(s string) string {
 	return strings.Join(SplitAndRemoveEscapes(s, fieldSeparator), string(fieldSeparator))
 }
 
-// escapeLast renders the last part of an operation, which needs only '\' escaped since
-// it is never split.
+// escapeLast renders the last part of an operation. It's never split on ':', so it needs only '\' escaped, and any
+// '&' that could run into a [sharedconsts.FilterJoiner] dividing it from the next operation in a filtered entry.
 func escapeLast(s string) string {
-	return strings.ReplaceAll(s, `\`, `\\`)
+	var buf strings.Builder
+	for i := range len(s) {
+		// Escape every '\', and a '&' that's doubled or the last character.
+		if s[i] == escapeByte || (s[i] == amp && (i == len(s)-1 || s[i+1] == amp)) {
+			buf.WriteByte(escapeByte)
+		}
+		buf.WriteByte(s[i])
+	}
+	return buf.String()
 }
 
 // isMetaByte reports whether c carries meaning in the grammar, so a backslash before it
@@ -175,7 +185,7 @@ func SplitAndRemoveEscapes(s string, desiredSeparator byte) []string {
 //
 // Every grammar metacharacter is escaped, not just the separator in use, because a
 // filtered entry is split at its "||" before its parts are split on ':'. A '&' is only
-// escaped where it starts a [FilterJoiner].
+// escaped where it starts a [sharedconsts.FilterJoiner].
 func Escape(s string) string {
 	if !strings.ContainsAny(s, `\:|`) && !strings.Contains(s, sharedconsts.FilterJoiner) {
 		return s

@@ -242,6 +242,74 @@ func TestParseFilteredMetaOpsMultiField(t *testing.T) {
 	}
 }
 
+// TestParseFilteredOpsMultiOp tests operations joined by "&&" all apply under the entry's filters, with spaces after
+// a "&&" dropped and an escaped "\&&" kept in a value, and that formatted operations joined this way read back the same.
+func TestParseFilteredOpsMultiOp(t *testing.T) {
+	meta, _, err := sharedparsing.ParseFilteredMetaOps([]string{
+		"title:contains:cats||title:suffix: [cats]&&description:prefix:[cat videos] ",
+		`title:contains:tom||title,description:set:Tom \&& Jerry&& artist:set:Hanna`,
+	})
+	if err != nil || len(meta) != 2 {
+		t.Fatalf("ParseFilteredMetaOps = %+v, %v", meta, err)
+	}
+	want := []sharedmodels.MetaOps{
+		{Field: "title", OpType: "suffix", OpValue: " [cats]"},
+		{Field: "description", OpType: "prefix", OpValue: "[cat videos] "},
+	}
+	if !slices.Equal(meta[0].MetaOps, want) {
+		t.Errorf("meta ops = %+v, want %+v", meta[0].MetaOps, want)
+	}
+	want = []sharedmodels.MetaOps{
+		{Field: "title", OpType: "set", OpValue: "Tom && Jerry"},
+		{Field: "description", OpType: "set", OpValue: "Tom && Jerry"},
+		{Field: "artist", OpType: "set", OpValue: "Hanna"},
+	}
+	if !slices.Equal(meta[1].MetaOps, want) {
+		t.Errorf("meta ops = %+v, want %+v", meta[1].MetaOps, want)
+	}
+
+	filename, _, err := sharedparsing.ParseFilteredFilenameOps([]string{"title:contains:lions||set:{{fulltitle}}&&prefix:[Animals] &&suffix: - Animal Kingdom"})
+	if err != nil || len(filename) != 1 {
+		t.Fatalf("ParseFilteredFilenameOps = %+v, %v", filename, err)
+	}
+	wantFilename := []sharedmodels.FilenameOps{
+		{OpType: "set", OpValue: "{{fulltitle}}"},
+		{OpType: "prefix", OpValue: "[Animals] "},
+		{OpType: "suffix", OpValue: " - Animal Kingdom"},
+	}
+	if !slices.Equal(filename[0].FilenameOps, wantFilename) {
+		t.Errorf("filename ops = %+v, want %+v", filename[0].FilenameOps, wantFilename)
+	}
+
+	// A doubled or trailing '&' in a value is escaped, so formatted operations can be joined.
+	ops := []sharedmodels.MetaOps{
+		{Field: "title", OpType: "set", OpValue: "R&&B&"},
+		{Field: "artist", OpType: "set", OpValue: `back\slash`},
+	}
+	formatted := sharedparsing.FormatMetaOps(ops)
+	if formatted[0] != `title:set:R\&&B\&` {
+		t.Errorf("FormatMetaOp = %q", formatted[0])
+	}
+	entry := "title:contains:x||" + strings.Join(formatted, sharedconsts.FilterJoiner)
+	got, _, err := sharedparsing.ParseFilteredMetaOps([]string{entry})
+	if err != nil || len(got) != 1 || !slices.Equal(got[0].MetaOps, ops) {
+		t.Errorf("round trip of %q = %+v, %v", entry, got, err)
+	}
+
+	for _, bad := range []string{
+		"title:contains:cats||title:set:a&&",                  // An empty operation.
+		"title:contains:cats||&&title:set:a",                  // An empty operation.
+		"title:contains:cats||title:regex-replace:[[a&&b]]:c", // A "&&" in a pattern.
+	} {
+		if _, _, err := sharedparsing.ParseFilteredMetaOps([]string{bad}); err == nil {
+			t.Errorf("%q was accepted", bad)
+		}
+	}
+	if _, _, err := sharedparsing.ParseMetaOps([]string{"title:regex-replace:[[a&&b]]:c"}); err == nil {
+		t.Error(`a regex-replace pattern holding "&&" was accepted`)
+	}
+}
+
 // TestParseFilteredOpsSeveralFilters tests an entry's filters joined by "&&" are all read, and written back the same.
 func TestParseFilteredOpsSeveralFilters(t *testing.T) {
 	want := []sharedmodels.Filters{

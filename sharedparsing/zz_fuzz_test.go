@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
@@ -45,6 +46,16 @@ func FuzzMetaOpRoundTrip(f *testing.F) {
 		}
 		if got[0] != want {
 			t.Errorf("round trip changed the operation:\n formatted %q\n want %+v\n got  %+v", formatted, want, got[0])
+		}
+
+		// Joined with another operation in a filtered entry, it still reads back the same.
+		const other = "artist:set:y"
+		if formatted == other {
+			return
+		}
+		filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"title:contains:x||" + formatted + sharedconsts.FilterJoiner + other})
+		if err != nil || len(filtered) != 1 || len(filtered[0].MetaOps) != 2 || filtered[0].MetaOps[0] != want {
+			t.Errorf("joined round trip changed the operation:\n formatted %q\n want %+v\n got  %+v, %v", formatted, want, filtered, err)
 		}
 	})
 }

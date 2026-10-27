@@ -157,6 +157,9 @@ func validateTextOp(opType, find, value string, i int) error {
 		if strings.Contains(find, "]]:") {
 			return fmt.Errorf("%s at position %d: pattern cannot contain \"]]:\" (try [0-9] in place of [[:digit:]])", opType, i)
 		}
+		if strings.Contains(find, "&&") {
+			return fmt.Errorf("%s at position %d: pattern cannot contain \"&&\", which divides one operation from the next (try &{2})", opType, i)
+		}
 		if _, err := regexp.Compile(find); err != nil {
 			return fmt.Errorf("%s at position %d: invalid pattern: %w", opType, i, err)
 		}
