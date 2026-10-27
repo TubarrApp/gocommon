@@ -219,7 +219,7 @@ func parseOpArgs(opType, rest string) (a opArgs, err error) {
 		if !ok {
 			return a, fmt.Errorf("%s expects a location and date format, e.g. '%s:prefix:ymd'", opType, opType)
 		}
-		a.loc, a.dateFormat = strings.ToLower(loc), unescape(format)
+		a.loc, a.dateFormat = strings.ToLower(loc), Unescape(format)
 
 	case opType == sharedconsts.OpRegexReplace:
 		end := rawSpanEnd(rest)
@@ -228,7 +228,7 @@ func parseOpArgs(opType, rest string) (a opArgs, err error) {
 		}
 		a.find = rest[len(rawOpen) : end-len(rawClose)]
 		if end < len(rest) {
-			a.value = unescape(rest[end+1:])
+			a.value = Unescape(rest[end+1:])
 		}
 
 	case isFindReplaceOp(opType):
@@ -236,10 +236,10 @@ func parseOpArgs(opType, rest string) (a opArgs, err error) {
 		if !ok {
 			return a, fmt.Errorf("%s expects find text and a replacement, e.g. '%s:old:new'", opType, opType)
 		}
-		a.find, a.value = find, unescape(value)
+		a.find, a.value = find, Unescape(value)
 
 	default:
-		a.value = unescape(rest)
+		a.value = Unescape(rest)
 	}
 	return a, nil
 }

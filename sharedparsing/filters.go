@@ -60,7 +60,7 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 			if i < 0 {
 				return nil, fmt.Errorf("%s", formatErrorMsg)
 			}
-			mustAny = strings.ToLower(strings.TrimSpace(unescape(rest[i+1:])))
+			mustAny = strings.ToLower(strings.TrimSpace(Unescape(rest[i+1:])))
 			if mustAny != sharedconsts.OpMust && mustAny != sharedconsts.OpAny {
 				return nil, fmt.Errorf("%s:\nInvalid must/any value %q", formatErrorMsg, mustAny)
 			}
@@ -77,10 +77,10 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 		// omits can make use of.
 		filterType, rawValue, hasValue := nextField(afterField)
 		if !hasValue {
-			filterType = unescape(afterField)
+			filterType = Unescape(afterField)
 		}
 		filterType = strings.ToLower(strings.TrimSpace(filterType))
-		value := strings.ToLower(unescape(rawValue))
+		value := strings.ToLower(Unescape(rawValue))
 		if !hasValue && filterType != sharedconsts.OpContains && filterType != sharedconsts.OpOmits {
 			return nil, fmt.Errorf("%s", formatErrorMsg)
 		}
@@ -92,7 +92,7 @@ func ParseFilterOps(ops []string, requireMustAny bool) ([]sharedmodels.Filters, 
 			if cond == sharedconsts.OpMust || cond == sharedconsts.OpAny {
 				// Prints a line like: 'filter 'title:contains:Re: Zero:any' ends in 'any', which isn't used here. Use 'title:contains:Re: Zero', or 'title:contains:Re: Zero\:any' to match 'Re: Zero:any' literally'
 				withoutCond := op[:len(op)-len(rawValue)+i]
-				return nil, fmt.Errorf("filter '%s' ends in '%s', which isn't used here. Use '%s', or '%s' to match '%s' literally", op, cond, withoutCond, withoutCond+`\`+op[len(withoutCond):], unescape(rawValue))
+				return nil, fmt.Errorf("filter '%s' ends in '%s', which isn't used here. Use '%s', or '%s' to match '%s' literally", op, cond, withoutCond, withoutCond+`\`+op[len(withoutCond):], Unescape(rawValue))
 			}
 		}
 
@@ -161,8 +161,8 @@ func escapeFilterValue(v string) string {
 	return buf.String()
 }
 
-// splitFiltered divides a filtered entry at its first unescaped [FilterSeparator].
-func splitFiltered(rest string) (filter, op string, ok bool) {
+// SplitFiltered divides a filtered entry at its first unescaped [FilterSeparator], keeping escapes.
+func SplitFiltered(rest string) (filter, op string, ok bool) {
 	escaped := false
 	for i := range len(rest) {
 		switch {
@@ -208,7 +208,7 @@ func ParseFilteredMetaOps(entries []string) (parsed []sharedmodels.FilteredMetaO
 
 	valid := make([]sharedmodels.FilteredMetaOps, 0, len(entries))
 	for _, entry := range entries {
-		filter, op, ok := splitFiltered(entry)
+		filter, op, ok := SplitFiltered(entry)
 		if !ok {
 			return nil, warnings, fmt.Errorf("invalid format for filtered meta operation %q, use 'Filter Rule||Meta Operation'", entry)
 		}
@@ -246,7 +246,7 @@ func ParseFilteredFilenameOps(entries []string) (parsed []sharedmodels.FilteredF
 
 	valid := make([]sharedmodels.FilteredFilenameOps, 0, len(entries))
 	for _, entry := range entries {
-		filter, op, ok := splitFiltered(entry)
+		filter, op, ok := SplitFiltered(entry)
 		if !ok {
 			return nil, warnings, fmt.Errorf("invalid format for filtered filename operation %q, use 'Filter Rule||Filename Operation'", entry)
 		}

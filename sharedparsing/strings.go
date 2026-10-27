@@ -82,11 +82,11 @@ func nextField(s string) (field, rest string, ok bool) {
 	if i < 0 {
 		return "", "", false
 	}
-	return unescape(s[:i]), s[i+1:], true
+	return Unescape(s[:i]), s[i+1:], true
 }
 
-// unescape decodes every escape sequence in s, treating ':' as literal.
-func unescape(s string) string {
+// Unescape decodes every escape sequence in s without splitting it, e.g. `/home/a\|b` -> `/home/a|b`.
+func Unescape(s string) string {
 	if !strings.ContainsRune(s, escapeByte) {
 		return s
 	}
