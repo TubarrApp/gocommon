@@ -345,6 +345,10 @@ func (pl *ProgramLogger) W(msg string, args ...any) {
 }
 
 // TestLogger checks that an externally sent in ProgramLogger is accepted.
-func TestLogger(pl *ProgramLogger) {
+func TestLogger(pl *ProgramLogger) error {
+	if pl == nil {
+		return fmt.Errorf("program logger sent in nil")
+	}
 	pl.S("%s logger is set up correctly.", pl.Program)
+	return nil
 }
