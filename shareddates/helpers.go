@@ -58,7 +58,7 @@ func addDaySuffixes(day string, pl *logging.ProgramLogger) string {
 }
 
 // joinNonEmptyWithHyphens joins non-empty strings from an array with hyphens.
-func joinNonEmptyWithHyphens(parts [3]string) string {
+func joinNonEmptyWithHyphens(parts []string) string {
 	nonEmpty := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if p != "" {

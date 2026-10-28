@@ -79,21 +79,21 @@ func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate boo
 
 // FormatDateString formats the date as a hyphenated string.
 func FormatDateString(year, month, day string, dateFmt sharedenums.DateFormat) string {
-	var parts [3]string
+	var parts []string
 
 	switch dateFmt {
 	case sharedenums.DateYyyyMmDd, sharedenums.DateYyMmDd:
-		parts = [3]string{year, month, day}
+		parts = []string{year, month, day}
 	case sharedenums.DateYyyyDdMm, sharedenums.DateYyDdMm:
-		parts = [3]string{year, day, month}
+		parts = []string{year, day, month}
 	case sharedenums.DateDdMmYyyy, sharedenums.DateDdMmYy:
-		parts = [3]string{day, month, year}
+		parts = []string{day, month, year}
 	case sharedenums.DateMmDdYyyy, sharedenums.DateMmDdYy:
-		parts = [3]string{month, day, year}
+		parts = []string{month, day, year}
 	case sharedenums.DateMmDd:
-		parts = [3]string{month, day}
+		parts = []string{month, day}
 	case sharedenums.DateDdMm:
-		parts = [3]string{day, month}
+		parts = []string{day, month}
 	}
-	return joinNonEmptyWithHyphens(parts)
+	return joinNonEmptyWithHyphens(parts[:])
 }
