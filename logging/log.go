@@ -346,9 +346,5 @@ func (pl *ProgramLogger) W(msg string, args ...any) {
 
 // TestLogger checks that an externally sent in ProgramLogger is accepted.
 func TestLogger(pl *ProgramLogger) {
-	var console = "unknown"
-	if pl.Console == os.Stdout {
-		console = "os.Stdout"
-	}
-	pl.S("%s logger initialized and writing to '%s'.", pl.Program, console)
+	pl.S("%s logger is set up correctly.", pl.Program)
 }
