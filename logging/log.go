@@ -343,3 +343,8 @@ func (pl *ProgramLogger) S(msg string, args ...any) {
 func (pl *ProgramLogger) W(msg string, args ...any) {
 	pl.log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
 }
+
+// TestExternalLogger checks that an externally sent in ProgramLogger is accepted.
+func TestExternalLogger(pl *ProgramLogger) {
+	pl.S("Logger from %s is set up correctly.", pl.Program)
+}

@@ -41,8 +41,3 @@ func TestLogsSince(t *testing.T) {
 
 	want(pl.GetRecentLogs(), "6", "7", "8")
 }
-
-// TestExternalLogger checks that an externally sent in ProgramLogger is accepted.
-func TestExternalLogger(pl *ProgramLogger) {
-	pl.S("External logger worked correctly.")
-}
