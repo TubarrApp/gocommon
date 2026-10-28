@@ -12,6 +12,9 @@ import (
 	"github.com/araddon/dateparse"
 )
 
+// ************ Public **************************************************************************************
+// Check ProgramLogger for nil.
+
 // ParseWordDate parses and formats the inputted word date (e.g. Jan 2nd, 2006).
 func ParseWordDate(dateString string) (string, error) {
 	t, err := dateparse.ParseAny(dateString)
@@ -23,9 +26,14 @@ func ParseWordDate(dateString string) (string, error) {
 
 // ParseNumDate parses and formats the inputted numerical date string.
 func ParseNumDate(dateNum string, pl *logging.ProgramLogger) (dateStr string, err error) {
+	if pl == nil {
+		return "", fmt.Errorf("dev error: sent logger in nil")
+	}
+
+	// Parse date.
 	t, err := dateparse.ParseAny(dateNum)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse date %q to word date: %w", dateNum, err)
+		return "", fmt.Errorf("unable to parse date %q: %w", dateNum, err)
 	}
 
 	// Get day, month, year.
@@ -43,10 +51,15 @@ func ParseNumDate(dateNum string, pl *logging.ProgramLogger) (dateStr string, er
 }
 
 // YmdFromMeta converts inputted date strings into the user's defined format.
-func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate bool) {
+func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate bool, err error) {
+	if pl == nil {
+		return "", false, fmt.Errorf("dev error: sent logger in nil")
+	}
+
+	// Empty date.
 	if date == "" {
 		pl.D(3, "Date sent in empty (%q), not formatting date element.", date)
-		return date, false
+		return date, false, nil
 	}
 
 	// Get date and T00:00:00Z components.
@@ -63,14 +76,14 @@ func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate boo
 	case 8:
 		formatted := beforeT[:4] + "-" + beforeT[4:6] + "-" + beforeT[6:] + t
 		pl.D(3, "Made YYYY-MM-DD date %s", formatted)
-		return formatted, true
+		return formatted, true, nil
 	case 6:
 		formatted := beforeT[:2] + "-" + beforeT[2:4] + "-" + beforeT[4:] + t
 		pl.D(3, "Made YY-MM-DD date %s", formatted)
-		return formatted, true
+		return formatted, true, nil
 	default:
 		pl.W("Returning malformed date element (%s) without formatting.", date)
-		return date, false
+		return date, false, nil
 	}
 }
 

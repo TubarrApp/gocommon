@@ -18,18 +18,31 @@ var (
 	monthWordShortSlice = [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
 )
 
+// ************ Public **************************************************************************************
+// Check ProgramLogger for nil.
+
 // ParseDateComponents extracts and validates year, month, and day from the date string.
 func ParseDateComponents(date string, dateFmt sharedenums.DateFormat, pl *logging.ProgramLogger) (year, month, day string, err error) {
+	if pl == nil {
+		return "", "", "", fmt.Errorf("dev error: sent logger in nil")
+	}
+
+	// Remove hyphens and spaces.
 	date = strings.ReplaceAll(date, "-", "")
 	date = strings.TrimSpace(date)
 
+	// Grab year, month, day string.
 	year, month, day, err = getYearMonthDay(date, dateFmt, pl)
 	if err != nil {
 		return "", "", "", err
 	}
 
+	// Validate date arrangement.
 	return validateDateComponents(year, month, day, pl)
 }
+
+// ************ Private **************************************************************************************
+// Check ProgramLogger for nil in caller.
 
 // addDaySuffixes appends a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd').
 func addDaySuffixes(day string, pl *logging.ProgramLogger) (daySuffixed string) {
@@ -59,6 +72,10 @@ func addDaySuffixes(day string, pl *logging.ProgramLogger) (daySuffixed string) 
 
 // getYearMonthDay returns the year, month, and day digits from the date string.
 func getYearMonthDay(d string, dateFmt sharedenums.DateFormat, pl *logging.ProgramLogger) (year, month, day string, err error) {
+	if pl == nil {
+		return "", "", "", fmt.Errorf("dev error: sent logger in nil")
+	}
+
 	d = strings.ReplaceAll(d, "-", "")
 	d = strings.TrimSpace(d)
 
