@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -345,6 +346,10 @@ func (pl *ProgramLogger) W(msg string, args ...any) {
 }
 
 // TestExternalLogger checks that an externally sent in ProgramLogger is accepted.
-func TestExternalLogger(pl *ProgramLogger) {
-	pl.S("Logger from %s is set up correctly.", pl.Program)
+func TestExternalLogger(pl *ProgramLogger, logPath string) (err error) {
+	if logPath, err = filepath.Abs(logPath); err != nil {
+		return fmt.Errorf("could not retrieve absolute path of log file location %q", logPath)
+	}
+	pl.S("%s logger is set up correctly and writing to %q.", pl.Program, logPath)
+	return nil
 }
