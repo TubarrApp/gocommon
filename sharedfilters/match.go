@@ -28,37 +28,53 @@ import (
 // Comparisons ignore case, except a regex-contains pattern, which matches the field as written
 // unless the pattern itself sets "(?i)".
 func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped bool, metaText string, err error) {
-	needsAll := filter.FilterType == sharedconsts.OpOmits || filter.FilterType == sharedconsts.OpNotEquals
+	// True: All components in a multi-field check must pass ('omits' or 'not-equals' filter type).
+	// False: Singular components in a multi-field check can fail.
+	matchAll := filter.FilterType == sharedconsts.OpOmits || filter.FilterType == sharedconsts.OpNotEquals
 
 	allSkipped := true
 	for _, field := range sharedparsing.SplitMultiField(filter.Field) {
-		// Get field value.
+		// Get metadata field value.
 		raw, metaExists := meta[field]
 		metaText = fmt.Sprint(raw)
 		if !metaExists {
 			metaText = ""
 		}
 
+		// Set filter field value to iteration's split form
+		// (send 'title' instead of 'title,description').
 		f := filter
 		f.Field = field
-		ok, fieldSkipped, err := matchField(metaText, metaExists, f)
+
+		// Check match for iteration's field value
+		// (e.g. matches 'title:contains:cat').
+		match, fieldSkipped, err := matchField(metaText, metaExists, f)
 		if err != nil {
 			return false, false, metaText, err
 		}
+
+		// Skip field which cannot be compared against
+		// (e.g. 'more-than' but there's no numerical field to compare).
 		if fieldSkipped {
 			continue
 		}
+
+		// Pass skip check, at least one field check was not skipped.
 		allSkipped = false
 
-		// One field settles it: a match for most types, a mismatch for omits and not-equals.
-		if ok != needsAll {
-			return ok, false, metaText, nil
+		// 'match all' (true) but a match failed -> return FALSE.
+		// 'match all' (false) and at least one match passes (true) -> return TRUE.
+		if match != matchAll {
+			return match, false, metaText, nil
 		}
 	}
+
+	// Every entry was skipped.
 	if allSkipped {
 		return false, true, metaText, nil
 	}
-	return needsAll, false, metaText, nil
+
+	return matchAll, false, metaText, nil
 }
 
 // matchField is [Match] for a filter on a single field.

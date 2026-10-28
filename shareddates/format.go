@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/TubarrApp/gocommon/logging"
 	"github.com/TubarrApp/gocommon/sharedenums"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/araddon/dateparse"
 )
 
@@ -21,10 +21,10 @@ func ParseWordDate(dateString string) (string, error) {
 }
 
 // ParseNumDate parses and formats the inputted numerical date string.
-func ParseNumDate(dateNum string, pl *logging.ProgramLogger) (string, error) {
+func ParseNumDate(dateNum string) (dateStr string, logMessage string, err error) {
 	t, err := dateparse.ParseAny(dateNum)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse date %q to word date: %w", dateNum, err)
+		return "", "", fmt.Errorf("unable to parse date %q to word date: %w", dateNum, err)
 	}
 
 	// Get day, month, year.
@@ -36,20 +36,15 @@ func ParseNumDate(dateNum string, pl *logging.ProgramLogger) (string, error) {
 	// Get 'January 1st' type entries.
 	indexOfMonth := slices.Index(monthNumStringSlice[:], month) // Find index in slice (e.g. the index where '02' appears).
 	month = monthWordFullSlice[indexOfMonth]                    // Grab value at the same index in the alternate month format slice.
-	day = addDaySuffixes(day, pl)
+	day, logMessage = addDaySuffixes(day)
 
-	// Write date string (e.g. 'January 1st, 2001').
-	dateStr := fmt.Sprintf("%s %s, %s", month, day, year)
-	pl.S("Made string %q from date input %q", dateStr, dateNum)
-
-	return dateStr, nil
+	return fmt.Sprintf("%s %s, %s", month, day, year), logMessage, nil
 }
 
 // YmdFromMeta converts inputted date strings into the user's defined format.
-func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate bool) {
+func YmdFromMeta(date string) (t string, logMessage string, madeDate bool) {
 	if date == "" {
-		pl.D(1, "Date sent in empty (%q), not formatting date element.", date)
-		return date, false
+		return date, fmt.Sprintf("Date sent in empty (%q), not formatting date element.", date), false
 	}
 
 	// Get date and T00:00:00Z components.
@@ -65,15 +60,12 @@ func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate boo
 	switch len(beforeT) {
 	case 8:
 		formatted := beforeT[:4] + "-" + beforeT[4:6] + "-" + beforeT[6:] + t
-		pl.D(3, "Made YYYY-MM-DD date %s", formatted)
-		return formatted, true
+		return formatted, fmt.Sprintf("Made YYYY-MM-DD date %s", formatted), true
 	case 6:
 		formatted := beforeT[:2] + "-" + beforeT[2:4] + "-" + beforeT[4:] + t
-		pl.D(3, "Made YY-MM-DD date %s", formatted)
-		return formatted, true
+		return formatted, fmt.Sprintf("Made YY-MM-DD date %s", formatted), true
 	default:
-		pl.D(3, "Returning malformed date element (%s) without formatting.", date)
-		return date, false
+		return date, fmt.Sprintf("Returning malformed date element (%s) without formatting.", date), false
 	}
 }
 
@@ -95,5 +87,5 @@ func FormatDateString(year, month, day string, dateFmt sharedenums.DateFormat) s
 	case sharedenums.DateDdMm:
 		parts = []string{day, month}
 	}
-	return joinNonEmptyWithHyphens(parts[:])
+	return sharedparsing.JoinNonEmptyWithHyphens(parts[:])
 }

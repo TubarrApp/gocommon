@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TubarrApp/gocommon/logging"
 	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
@@ -19,60 +18,45 @@ var (
 )
 
 // ParseDateComponents extracts and validates year, month, and day from the date string.
-func ParseDateComponents(date string, dateFmt sharedenums.DateFormat, pl *logging.ProgramLogger) (year, month, day string, err error) {
+func ParseDateComponents(date string, dateFmt sharedenums.DateFormat) (year, month, day string, logMessage string, err error) {
 	date = strings.ReplaceAll(date, "-", "")
 	date = strings.TrimSpace(date)
 
-	year, month, day, err = getYearMonthDay(date, dateFmt, pl)
+	year, month, day, logMessage, err = getYearMonthDay(date, dateFmt)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	return validateDateComponents(year, month, day)
 }
 
 // addDaySuffixes appends a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd').
-func addDaySuffixes(day string, pl *logging.ProgramLogger) string {
+func addDaySuffixes(day string) (daySuffixed string, logMessage string) {
 	num, err := strconv.Atoi(day)
 	if err != nil {
-		pl.E("Failed to convert date string to number")
-		return day
+		return day, fmt.Sprintf("Failed to suffix day string %q", day)
 	}
 
 	// 11 and all 'teens.
 	if num > 10 && num < 20 {
-		return day + "th"
+		return day + "th", ""
 	}
 
 	// All others.
 	switch num % 10 {
 	case 1:
-		return day + "st"
+		return day + "st", ""
 	case 2:
-		return day + "nd"
+		return day + "nd", ""
 	case 3:
-		return day + "rd"
+		return day + "rd", ""
 	default:
-		return day + "th"
+		return day + "th", ""
 	}
-}
-
-// joinNonEmptyWithHyphens joins non-empty strings from an array with hyphens.
-func joinNonEmptyWithHyphens(parts []string) string {
-	nonEmpty := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p != "" {
-			nonEmpty = append(nonEmpty, p)
-		}
-	}
-	if len(nonEmpty) == 0 {
-		return ""
-	}
-	return strings.Join(nonEmpty, "-")
 }
 
 // getYearMonthDay returns the year, month, and day digits from the date string.
-func getYearMonthDay(d string, dateFmt sharedenums.DateFormat, pl *logging.ProgramLogger) (year, month, day string, err error) {
+func getYearMonthDay(d string, dateFmt sharedenums.DateFormat) (year, month, day string, logMessage string, err error) {
 	d = strings.ReplaceAll(d, "-", "")
 	d = strings.TrimSpace(d)
 
@@ -87,7 +71,7 @@ func getYearMonthDay(d string, dateFmt sharedenums.DateFormat, pl *logging.Progr
 		month = d[4:6]
 		day = d[6:8]
 
-		return year, month, day, nil
+		return year, month, day, "", nil
 	}
 
 	// 'yymmdd'.
@@ -96,29 +80,29 @@ func getYearMonthDay(d string, dateFmt sharedenums.DateFormat, pl *logging.Progr
 		month = d[2:4]
 		day = d[4:6]
 
-		return year, month, day, nil
+		return year, month, day, "", nil
 	}
 
 	// 'yyyy', 'mmdd', 'ddmm', etc.
 	if len(d) == 4 { // Guess year, mmdd, or ddmm.
-		return guessYearDayMonth(d, dateFmt, pl)
+		return guessYearDayMonth(d, dateFmt)
 	}
-	return "", "", "", fmt.Errorf("failed to parse year, month, and day from %q", d)
+	return "", "", "", "", fmt.Errorf("failed to parse year, month, and day from %q", d)
 }
 
 // validateDateComponents attempts to fix faulty date arrangements.
-func validateDateComponents(year, month, day string) (y, m, d string, err error) {
+func validateDateComponents(year, month, day string) (y, m, d string, logMessage string, err error) {
 	if isValidMonthNum(month) && isValidDayNum(day, month, year) {
-		return year, month, day, nil
+		return year, month, day, fmt.Sprintf("Detected 'mmdd' format from %s%s%s"), nil
 	}
 
 	// Attempt swapping day and month.
 	if isValidMonthNum(day) && isValidDayNum(month, day, year) {
-		return year, day, month, nil
+		return year, day, month, fmt.Sprintf("Detected 'ddmm' format from %s%s%s"), nil
 	}
 
 	// Fail check:
-	return "", "", "", fmt.Errorf("invalid date components: year=%s, month=%s, day=%s", year, month, day)
+	return "", "", "", "", fmt.Errorf("invalid date components: year=%s, month=%s, day=%s", year, month, day)
 }
 
 // isValidMonthNum checks if the month inputted is a valid month.
@@ -175,11 +159,11 @@ func isValidDayNum(day, month, year string) bool {
 }
 
 // guessYearDayMonth tries to guess the meaning of the date string.
-func guessYearDayMonth(d string, dateFmt sharedenums.DateFormat, pl *logging.ProgramLogger) (year, month, day string, err error) {
+func guessYearDayMonth(d string, dateFmt sharedenums.DateFormat) (year, month, day string, logMessage string, err error) {
 	// Get xxxx, xx__, and __xx.
 	full, err := strconv.Atoi(d)
 	if err != nil {
-		return "", "", "", fmt.Errorf("invalid date string %q threw error: %w", d, err)
+		return "", "", "", "", fmt.Errorf("invalid date string %q threw error: %w", d, err)
 	}
 
 	i := full / 100 // 1999/100 = 19(.00) -> 19 (Go discards after decimal, no rounding)
@@ -189,29 +173,25 @@ func guessYearDayMonth(d string, dateFmt sharedenums.DateFormat, pl *logging.Pro
 
 	// Prefer a year when month and day would be impossible (whether it was 'mmdd' or 'ddmm').
 	if (i == 19 || i == 20) && j > 12 && full <= currentYear {
-		pl.I("Guessing date string %q as year", d)
-		return guessedYear(d, dateFmt), "", "", nil
+		return guessedYear(d, dateFmt), "", "", fmt.Sprintf("Guessing date string %q as year", d), nil
 	}
 
 	// Guess 'mmdd' first (US convention), then 'ddmm'.
 	switch {
 	case isValidMonthNum(d[:2]) && isValidDayNum(d[2:4], d[:2], ""):
-		pl.I("Guessing date string %q as month-day", d)
-		return "", d[:2], d[2:4], nil
+		return "", d[:2], d[2:4], fmt.Sprintf("Guessing date string %q as month-day", d), nil
 
 	case isValidMonthNum(d[2:4]) && isValidDayNum(d[:2], d[2:4], ""):
-		pl.I("Guessing date string %q as day-month", d)
-		return "", d[2:4], d[:2], nil
+		return "", d[2:4], d[:2], fmt.Sprintf("Guessing date string %q as day-month", d), nil
 	}
 
 	// Last guess, ancient year (e.g. "Passage de Vénus", "View from the Window at Le Gras", ancient audio)
 	// or possible near-future years.
 	if full >= 1826 && full <= currentYear+5 {
-		pl.I("Guessing date string %q as year", d)
-		return guessedYear(d, dateFmt), "", "", nil
+		return guessedYear(d, dateFmt), "", "", fmt.Sprintf("Guessing date string %q as day-month", d), nil
 	}
 
-	return "", "", "", fmt.Errorf("failed to guess year, month, and day from %q", d)
+	return "", "", "", "", fmt.Errorf("failed to guess year, month, and day from %q", d)
 }
 
 // guessedYear returns the year using the width required by the date format.

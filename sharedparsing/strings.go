@@ -238,3 +238,17 @@ func Deduplicate(input []string) (deduped, removed []string) {
 	}
 	return deduped, removed
 }
+
+// JoinNonEmptyWithHyphens joins non-empty strings from an array with hyphens (useful for making 'yyyy-mm-dd' strings).
+func JoinNonEmptyWithHyphens(parts []string) string {
+	nonEmpty := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			nonEmpty = append(nonEmpty, p)
+		}
+	}
+	if len(nonEmpty) == 0 {
+		return ""
+	}
+	return strings.Join(nonEmpty, "-")
+}
