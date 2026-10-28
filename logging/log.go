@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -345,10 +346,9 @@ func (pl *ProgramLogger) W(msg string, args ...any) {
 }
 
 // TestLogger checks that an externally sent in ProgramLogger is accepted.
-func TestLogger(pl *ProgramLogger) error {
+func TestLogger(pl *ProgramLogger) {
 	if pl == nil {
-		return fmt.Errorf("program logger sent in nil")
+		log.Fatalf("dev error: program logger sent in nil")
 	}
 	pl.S("%s logger is set up correctly.", pl.Program)
-	return nil
 }
