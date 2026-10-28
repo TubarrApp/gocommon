@@ -350,5 +350,5 @@ func TestLogger(pl *ProgramLogger) {
 	if pl.Console == os.Stdout {
 		console = "os.Stdout"
 	}
-	pl.S("%s logger is set up correctly and writing to %q.", pl.Program, console)
+	pl.S("%s logger initialized and writing to '%s'.", pl.Program, console)
 }
