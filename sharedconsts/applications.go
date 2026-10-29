@@ -1,8 +1,7 @@
 package sharedconsts
 
 import (
-	"fmt"
-	"slices"
+	"strings"
 )
 
 // BlockedFFmpegOptions contains FFmpeg options that users shouldn't use.
@@ -18,11 +17,6 @@ var BlockedFFmpegOptions = map[string]struct{}{
 	"-vstats_file":        {},
 }
 
-// BlockedFFmpegNoValueOptions are blocked FFmpeg options which receive no values.
-var BlockedFFmpegNoValueOptions = map[string]struct{}{
-	"-report": {},
-}
-
 // BlockedYtdlpOptions contains YT-DLP options that users shouldn't use.
 var BlockedYtdlpOptions = map[string]struct{}{
 	"--alias":            {},
@@ -32,33 +26,15 @@ var BlockedYtdlpOptions = map[string]struct{}{
 	"--plugin-dirs":      {},
 }
 
-// BlockedYtdlpNoValueOptions are blocked YT-DLP options which receive no values.
-var BlockedYtdlpNoValueOptions = map[string]struct{}{}
-
-// RemoveBlockedOptions removes disallowed options and their values.
-func RemoveBlockedOptions(args []string, blockList, noValueOptions map[string]struct{}, channelName string) (validArgs, warnings []string) {
-	blockedValue := false
-	deletedKey := ""
-	return slices.DeleteFunc(args, func(arg string) bool {
-		if blockedValue {
-			warnings = append(warnings, fmt.Sprintf("Deleted disallowed option %q and value %q from command for channel %q", deletedKey, arg, channelName))
-			blockedValue = false
-			deletedKey = ""
-			return true
+// HasBlockedOptions reports whether args contains any disallowed options.
+func HasBlockedOptions(args []string, blockList map[string]struct{}) (disallowed bool, option string) {
+	for _, arg := range args {
+		option, _, _ = strings.Cut(arg, "=")
+		if _, blocked := blockList[option]; blocked {
+			return true, option
 		}
-
-		if _, blocked := blockList[arg]; blocked {
-			if _, takesNoValue := noValueOptions[arg]; !takesNoValue {
-				blockedValue = true
-				deletedKey = arg
-			} else {
-				warnings = append(warnings, fmt.Sprintf("Deleted disallowed option %q from command for channel %q", arg, channelName))
-			}
-			return true
-		}
-
-		return false
-	}), warnings
+	}
+	return false, ""
 }
 
 // GPU acceleration type constants.
