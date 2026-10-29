@@ -48,3 +48,19 @@ var RenameAlias = map[string]string{
 	"underscored":  RenameUnderscores,
 	"underscoring": RenameUnderscores,
 }
+
+// Accepted uploaded image extensions.
+const (
+	IUploadGIF  = "gif"
+	IUploadJPG  = "jpg"
+	IUploadJPEG = "jpeg"
+	IUploadPNG  = "png"
+)
+
+// ImageUploadTypes holds a lookup map for accepted image types.
+var ImageUploadTypes = map[string]bool{
+	IUploadGIF:  true,
+	IUploadJPG:  true,
+	IUploadJPEG: true,
+	IUploadPNG:  true,
+}
