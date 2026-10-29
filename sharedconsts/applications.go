@@ -1,33 +1,65 @@
 package sharedconsts
 
-// Video codec constants.
-const (
-	VCodecCopy  = "copy"
-	VCodecAV1   = "av1"
-	VCodecH264  = "h264"
-	VCodecHEVC  = "hevc"
-	VCodecMPEG2 = "mpeg2"
-	VCodecVP8   = "vp8"
-	VCodecVP9   = "vp9"
+import (
+	"fmt"
+	"slices"
 )
 
-// Audio codec constants.
-const (
-	ACodecCopy   = "copy"
-	ACodecAAC    = "aac"
-	ACodecAC3    = "ac3"
-	ACodecALAC   = "alac"
-	ACodecDTS    = "dts"
-	ACodecEAC3   = "eac3"
-	ACodecFLAC   = "flac"
-	ACodecMP2    = "mp2"
-	ACodecMP3    = "mp3"
-	ACodecOpus   = "opus"
-	ACodecPCM    = "pcm"
-	ACodecTrueHD = "truehd"
-	ACodecVorbis = "vorbis"
-	ACodecWAV    = "wav"
-)
+// BlockedFFmpegOptions contains FFmpeg options that users shouldn't use.
+var BlockedFFmpegOptions = map[string]struct{}{
+	"-attach":             {},
+	"-dump_attachment":    {},
+	"-passlogfile":        {},
+	"-print_graphs_file":  {},
+	"-protocol-blacklist": {},
+	"-protocol-whitelist": {},
+	"-report":             {},
+	"-sdp_file":           {},
+	"-vstats_file":        {},
+}
+
+// BlockedFFmpegNoValueOptions are blocked FFmpeg options which receive no values.
+var BlockedFFmpegNoValueOptions = map[string]struct{}{
+	"-report": {},
+}
+
+// BlockedYtdlpOptions contains YT-DLP options that users shouldn't use.
+var BlockedYtdlpOptions = map[string]struct{}{
+	"--alias":            {},
+	"--config-locations": {},
+	"--exec":             {},
+	"--netrc-cmd":        {},
+	"--plugin-dirs":      {},
+}
+
+// BlockedYtdlpNoValueOptions are blocked YT-DLP options which receive no values.
+var BlockedYtdlpNoValueOptions = map[string]struct{}{}
+
+// RemoveBlockedOptions removes disallowed options and their values.
+func RemoveBlockedOptions(args []string, blockList, noValueOptions map[string]struct{}, channelName string) (validArgs, warnings []string) {
+	blockedValue := false
+	deletedKey := ""
+	return slices.DeleteFunc(args, func(arg string) bool {
+		if blockedValue {
+			warnings = append(warnings, fmt.Sprintf("Deleted disallowed option %q and value %q from command for channel %q", deletedKey, arg, channelName))
+			blockedValue = false
+			deletedKey = ""
+			return true
+		}
+
+		if _, blocked := blockList[arg]; blocked {
+			if _, takesNoValue := noValueOptions[arg]; !takesNoValue {
+				blockedValue = true
+				deletedKey = arg
+			} else {
+				warnings = append(warnings, fmt.Sprintf("Deleted disallowed option %q from command for channel %q", arg, channelName))
+			}
+			return true
+		}
+
+		return false
+	}), warnings
+}
 
 // GPU acceleration type constants.
 const (

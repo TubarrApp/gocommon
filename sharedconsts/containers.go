@@ -1,5 +1,34 @@
 package sharedconsts
 
+// Video codec constants.
+const (
+	VCodecCopy  = "copy"
+	VCodecAV1   = "av1"
+	VCodecH264  = "h264"
+	VCodecHEVC  = "hevc"
+	VCodecMPEG2 = "mpeg2"
+	VCodecVP8   = "vp8"
+	VCodecVP9   = "vp9"
+)
+
+// Audio codec constants.
+const (
+	ACodecCopy   = "copy"
+	ACodecAAC    = "aac"
+	ACodecAC3    = "ac3"
+	ACodecALAC   = "alac"
+	ACodecDTS    = "dts"
+	ACodecEAC3   = "eac3"
+	ACodecFLAC   = "flac"
+	ACodecMP2    = "mp2"
+	ACodecMP3    = "mp3"
+	ACodecOpus   = "opus"
+	ACodecPCM    = "pcm"
+	ACodecTrueHD = "truehd"
+	ACodecVorbis = "vorbis"
+	ACodecWAV    = "wav"
+)
+
 // The codecs ffmpeg can write into each video container, found by encoding a test clip into every container with the
 // encoder Metarr uses for each codec and reading it back with ffprobe (Metarr's TestContainerCodecsWithFFmpeg, ffmpeg
 // 9.0.2; DTS and TrueHD with -strict experimental, as Metarr runs them).
