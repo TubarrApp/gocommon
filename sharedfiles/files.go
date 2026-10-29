@@ -7,12 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
-
 	"github.com/TubarrApp/gocommon/sharedconsts"
-	_ "golang.org/x/image/webp"
 )
 
 // OpenRegularInRoot opens a regular file relative to the given path's parent directory.
