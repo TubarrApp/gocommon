@@ -7,22 +7,20 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
-	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // SanitizeUploadedImage decodes, validates, and re-encodes an image as GIF, JPEG or PNG.
-func SanitizeUploadedImage(data []byte, format string) ([]byte, error) {
+func SanitizeUploadedImage(data []byte, formatExt string) ([]byte, error) {
 	const (
 		maxImageBytes  = 20 << 20 // 20 MiB.
 		maxImagePixels = 40_000_000
 	)
 
 	// Check the output format.
-	format = strings.TrimPrefix(strings.ToLower(format), ".")
-	if !sharedconsts.ImageUploadTypes[format] {
-		return nil, fmt.Errorf("unsupported output image format %q", format)
+	if !sharedconsts.ImageUploadTypes[formatExt] {
+		return nil, fmt.Errorf("unsupported image format %q", formatExt)
 	}
 
 	// Check the image size.
@@ -41,9 +39,17 @@ func SanitizeUploadedImage(data []byte, format string) ([]byte, error) {
 	}
 
 	// Decode the complete image.
-	img, _, err := image.Decode(bytes.NewReader(data))
+	img, format, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode image: %w", err)
+	}
+
+	// Check format match.
+	if format == sharedconsts.IUploadJPEG && formatExt == sharedconsts.IUploadJPG {
+		formatExt = sharedconsts.IUploadJPEG
+	}
+	if format != formatExt {
+		return nil, fmt.Errorf("image content is %q, but filename indicates %q", format, formatExt)
 	}
 
 	// Re-encode the image into the selected format.
