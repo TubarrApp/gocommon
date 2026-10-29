@@ -45,11 +45,6 @@ func EnsureVideoExt(s string) (isValid bool) {
 	return isValid
 }
 
-const (
-	maxImageBytes  = 20 << 20 // 20 MiB
-	maxImagePixels = 40_000_000
-)
-
 // getRootDirAndFile returns the root directory and file from a given string.
 func getRootDirAndFile(p string) (rootDir, fileBase string) {
 	// '/etc/myapp/../file.txt' -> '/etc/file.txt'

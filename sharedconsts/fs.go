@@ -51,16 +51,22 @@ var RenameAlias = map[string]string{
 
 // Accepted uploaded image extensions.
 const (
-	IUploadGIF  = "gif"
-	IUploadJPG  = "jpg"
-	IUploadJPEG = "jpeg"
-	IUploadPNG  = "png"
+	ITypeGIF  = "gif"
+	ITypeJPG  = "jpg"
+	ITypeJPEG = "jpeg"
+	ITypePNG  = "png"
 )
 
-// ImageUploadTypes holds a lookup map for accepted image types.
+// ImageTypes holds a lookup map for accepted image types.
 var ImageUploadTypes = map[string]bool{
-	IUploadGIF:  true,
-	IUploadJPG:  true,
-	IUploadJPEG: true,
-	IUploadPNG:  true,
+	ITypeGIF:  true,
+	ITypeJPG:  true,
+	ITypeJPEG: true,
+	ITypePNG:  true,
 }
+
+// Maximums for uploaded images.
+const (
+	ImageUploadMaxBytes  = 10 << 20 // 10 MiB.
+	ImageUploadMaxPixels = 40_000_000
+)
