@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	_ "golang.org/x/image/webp"
@@ -17,7 +18,8 @@ import (
 
 // TestSanitizePNGFile performs a live test on a local test file.
 func TestSanitizePNGFile(t *testing.T) {
-	src := "testimages/1.png"
+	_, file, _, _ := runtime.Caller(0)
+	src := filepath.Join(filepath.Dir(file), "testimages", "2.png")
 
 	if err := SanitizeUploadedImage(src); err != nil {
 		t.Fatalf("SanitizeImage() error = %v", err)
@@ -42,7 +44,8 @@ func TestSanitizePNGFile(t *testing.T) {
 
 // TestSanitizeJPGFile performs a live test on a local test file.
 func TestSanitizeJPGFile(t *testing.T) {
-	src := "testimages/1.jpg"
+	_, file, _, _ := runtime.Caller(0)
+	src := filepath.Join(filepath.Dir(file), "testimages", "1.jpg")
 
 	if err := SanitizeUploadedImage(src); err != nil {
 		t.Fatalf("SanitizeImage() error = %v", err)
@@ -67,7 +70,8 @@ func TestSanitizeJPGFile(t *testing.T) {
 
 // TestSanitizeGIFFile performs a live test on a local test file.
 func TestSanitizeGIFFile(t *testing.T) {
-	src := "testimages/3.gif"
+	_, file, _, _ := runtime.Caller(0)
+	src := filepath.Join(filepath.Dir(file), "testimages", "3.gif")
 
 	if err := SanitizeUploadedImage(src); err != nil {
 		t.Fatalf("SanitizeImage() error = %v", err)
