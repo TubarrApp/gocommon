@@ -74,6 +74,7 @@ type logType int
 
 const (
 	logError logType = iota
+	logDevError
 	logWarn
 	logInfo
 	logDebug
@@ -176,17 +177,27 @@ func GetRecentLogsForProgram(program string) [][]byte {
 func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 	var b strings.Builder
 
+	// Branch with caller info.
 	if caller != nil {
-		b.Grow(len(prefix) + len(msg) +
+		endsNewline := strings.HasSuffix(msg, "\n")
+
+		// Calc size.
+		size := len(prefix) + 1 + len(msg) +
 			len(tagFunc) + len(caller.funcName) +
 			len(tagFile) + len(caller.file) +
 			len(tagLine) + len(caller.lineStr) +
-			len(tagEnd) + 1)
+			len(tagEnd)
+		if !endsNewline {
+			size++
+		}
+		b.Grow(size)
 
+		// Write message.
 		b.WriteString(prefix)
+		b.WriteByte(' ')
 		b.WriteString(msg)
 
-		if !strings.HasSuffix(msg, "\n") {
+		if !endsNewline {
 			b.WriteByte(' ')
 		}
 
@@ -197,7 +208,8 @@ func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 		b.WriteString(tagLine)
 		b.WriteString(caller.lineStr)
 		b.WriteString(tagEnd)
-	} else {
+	} else { // No caller info.
+		// Calc size and write message.
 		b.Grow(len(prefix) + len(msg) + 1)
 		b.WriteString(prefix)
 		b.WriteString(msg)
@@ -311,6 +323,12 @@ func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 }
 
 // ---- OUTER PROGRAM LOG CALLS ----
+
+// DevE logs developer error messages for this program.
+func (pl *ProgramLogger) DevE(msg string, args ...any) {
+	msg += "\nPlease let us know about this error and how you encountered it at: " + sharedconsts.GithubIssues
+	pl.log(logDevError, sharedconsts.LogTagDevError, msg, true, args...)
+}
 
 // D logs debug messages for this program.
 func (pl *ProgramLogger) D(l int, msg string, args ...any) {

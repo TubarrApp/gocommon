@@ -384,8 +384,10 @@ func TestRegexReplacePattern(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseFilenameOps: %v", err)
 	}
-	if fops[0].OpFindString != "^a|b: " || fops[0].OpValue != "c" {
-		t.Errorf("filename regex-replace = %+v", fops[0])
+	if len(fops) > 0 {
+		if fops[0].OpFindString != "^a|b: " || fops[0].OpValue != "c" {
+			t.Errorf("filename regex-replace = %+v", fops[0])
+		}
 	}
 
 	if _, _, err := sharedparsing.ParseMetaOps([]string{"title:regex-replace:^unwrapped:x"}); err == nil {

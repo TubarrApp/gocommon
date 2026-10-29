@@ -18,11 +18,12 @@ const (
 
 // Log message prefixes with colors.
 const (
-	LogTagError   string = ColorRed + "[ERROR] " + ColorReset
-	LogTagSuccess string = ColorGreen + "[Success] " + ColorReset
-	LogTagDebug   string = ColorYellow + "[Debug] " + ColorReset
-	LogTagWarning string = ColorYellow + "[Warning] " + ColorReset
-	LogTagInfo    string = ColorCyan + "[Info] " + ColorReset
+	LogTagError    string = ColorRed + "[Error]" + ColorReset
+	LogTagDevError string = ColorRed + "[Dev Error]" + ColorReset
+	LogTagSuccess  string = ColorGreen + "[Success]" + ColorReset
+	LogTagDebug    string = ColorYellow + "[Debug]" + ColorReset
+	LogTagWarning  string = ColorYellow + "[Warning]" + ColorReset
+	LogTagInfo     string = ColorCyan + "[Info]" + ColorReset
 )
 
 // Clear line.
