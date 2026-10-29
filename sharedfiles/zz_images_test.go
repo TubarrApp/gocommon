@@ -19,22 +19,26 @@ func TestSanitizePNGFile(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	src := filepath.Join(filepath.Dir(file), "testimages", "2.png")
 
-	if err := SanitizeUploadedImage(src); err != nil {
-		t.Fatalf("SanitizeImage() error = %v", err)
-	}
-
-	f, err := os.Open(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
-		t.Fatalf("failed to open output PNG: %v", err)
+		t.Fatal(err)
 	}
-	defer f.Close()
 
-	_, format, err := image.Decode(f)
+	got, err := SanitizeUploadedImage(data, "png")
+	if err != nil {
+		t.Fatalf("SanitizeUploadedImage() error = %v", err)
+	}
+
+	_, format, err := image.Decode(bytes.NewReader(got))
 	if err != nil {
 		t.Fatalf("output is not a valid image: %v", err)
 	}
 	if format != "png" {
 		t.Fatalf("output format = %q, want %q", format, "png")
+	}
+
+	if err := os.WriteFile(src, got, 0600); err != nil {
+		t.Fatalf("Failed to write sanitized image: %v", err)
 	}
 
 	t.Logf("Successfully sanitized PNG: %s", src)
@@ -45,22 +49,26 @@ func TestSanitizeJPGFile(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	src := filepath.Join(filepath.Dir(file), "testimages", "1.jpg")
 
-	if err := SanitizeUploadedImage(src); err != nil {
-		t.Fatalf("SanitizeImage() error = %v", err)
-	}
-
-	f, err := os.Open(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
-		t.Fatalf("failed to open output JPG: %v", err)
+		t.Fatal(err)
 	}
-	defer f.Close()
 
-	_, format, err := image.Decode(f)
+	got, err := SanitizeUploadedImage(data, "jpg")
+	if err != nil {
+		t.Fatalf("SanitizeUploadedImage() error = %v", err)
+	}
+
+	_, format, err := image.Decode(bytes.NewReader(got))
 	if err != nil {
 		t.Fatalf("output is not a valid image: %v", err)
 	}
 	if format != "jpeg" {
 		t.Fatalf("output format = %q, want %q", format, "jpeg")
+	}
+
+	if err := os.WriteFile(src, got, 0600); err != nil {
+		t.Fatalf("Failed to write sanitized image: %v", err)
 	}
 
 	t.Logf("Successfully sanitized JPG: %s", src)
@@ -71,17 +79,17 @@ func TestSanitizeGIFFile(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	src := filepath.Join(filepath.Dir(file), "testimages", "3.gif")
 
-	if err := SanitizeUploadedImage(src); err != nil {
-		t.Fatalf("SanitizeImage() error = %v", err)
-	}
-
-	f, err := os.Open(src)
+	data, err := os.ReadFile(src)
 	if err != nil {
-		t.Fatalf("failed to open output JPG: %v", err)
+		t.Fatal(err)
 	}
-	defer f.Close()
 
-	_, format, err := image.Decode(f)
+	got, err := SanitizeUploadedImage(data, "gif")
+	if err != nil {
+		t.Fatalf("SanitizeUploadedImage() error = %v", err)
+	}
+
+	_, format, err := image.Decode(bytes.NewReader(got))
 	if err != nil {
 		t.Fatalf("output is not a valid image: %v", err)
 	}
@@ -89,7 +97,11 @@ func TestSanitizeGIFFile(t *testing.T) {
 		t.Fatalf("output format = %q, want %q", format, "gif")
 	}
 
-	t.Logf("Successfully sanitized JPG: %s", src)
+	if err := os.WriteFile(src, got, 0600); err != nil {
+		t.Fatalf("Failed to write sanitized image: %v", err)
+	}
+
+	t.Logf("Successfully sanitized GIF: %s", src)
 }
 
 // TestSanitizeImage checks that supported input formats can be sanitized while preserving their format.
@@ -98,18 +110,11 @@ func TestSanitizeImage(t *testing.T) {
 
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "input."+format)
-			if err := os.WriteFile(path, encodeTestImage(t, format), 0o600); err != nil {
-				t.Fatal(err)
-			}
+			data := encodeTestImage(t, format)
 
-			if err := SanitizeUploadedImage(path); err != nil {
-				t.Fatalf("SanitizeUploadedImage() error = %v", err)
-			}
-
-			got, err := os.ReadFile(path)
+			got, err := SanitizeUploadedImage(data, format)
 			if err != nil {
-				t.Fatalf("failed to read sanitized image: %v", err)
+				t.Fatalf("SanitizeUploadedImage() error = %v", err)
 			}
 
 			_, gotFormat, err := image.Decode(bytes.NewReader(got))
