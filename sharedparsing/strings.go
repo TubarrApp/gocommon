@@ -16,6 +16,8 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+
+	"github.com/mattn/go-shellwords"
 )
 
 const (
@@ -251,4 +253,9 @@ func JoinNonEmptyWithHyphens(parts []string) string {
 		return ""
 	}
 	return strings.Join(nonEmpty, "-")
+}
+
+// ShellSplit splits the input string in shell fashion.
+func ShellSplit(s string) ([]string, error) {
+	return shellwords.Parse(s)
 }

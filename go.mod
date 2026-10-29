@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
+	github.com/mattn/go-shellwords v1.0.16
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.21.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
