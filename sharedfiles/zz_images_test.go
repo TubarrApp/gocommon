@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-
-	_ "golang.org/x/image/webp"
 )
 
 // TestSanitizePNGFile performs a live test on a local test file.
