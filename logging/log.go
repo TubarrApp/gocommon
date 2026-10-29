@@ -210,8 +210,9 @@ func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 		b.WriteString(tagEnd)
 	} else { // No caller info.
 		// Calc size and write message.
-		b.Grow(len(prefix) + len(msg) + 1)
+		b.Grow(len(prefix) + 1 + len(msg) + 1)
 		b.WriteString(prefix)
+		b.WriteByte(' ')
 		b.WriteString(msg)
 		b.WriteByte('\n')
 	}
@@ -311,6 +312,8 @@ func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 		return pl.FileLogger.Debug()
 	case logError:
 		return pl.FileLogger.Error()
+	case logDevError:
+		return pl.FileLogger.Error()
 	case logInfo:
 		return pl.FileLogger.Info()
 	case logSuccess:
@@ -366,7 +369,7 @@ func (pl *ProgramLogger) W(msg string, args ...any) {
 // TestLogger checks that an externally sent in ProgramLogger is accepted.
 func TestLogger(pl *ProgramLogger) {
 	if pl == nil {
-		log.Fatalf("dev error: program logger sent in nil")
+		log.Fatalf("%s program logger sent in nil", sharedconsts.LogTagDevError)
 	}
 	pl.S("%s logger is set up correctly.", pl.Program)
 }
