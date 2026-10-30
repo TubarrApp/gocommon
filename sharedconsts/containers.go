@@ -1,5 +1,10 @@
 package sharedconsts
 
+// Copy.
+const (
+	CodecCopy = "copy"
+)
+
 // Video codec constants.
 const (
 	VCodecCopy  = "copy"

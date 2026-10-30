@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedtemplates"
 )
 
@@ -196,17 +197,17 @@ func TestParseCodecMappings(t *testing.T) {
 	tests := []struct {
 		in        []string
 		wantAll   string
-		wantPairs map[string]string
+		wantPairs map[sharedmodels.FromCodec]string
 		ok        bool
 	}{
 		// Pass states.
-		{[]string{"hevc", "vp9:h264"}, "hevc", map[string]string{"vp9": "h264"}, true},
-		{[]string{"vp9:h264", "hevc"}, "hevc", map[string]string{"vp9": "h264"}, true},
-		{[]string{"x264"}, "h264", map[string]string{}, true},
-		{[]string{"hevc", "libx265"}, "hevc", map[string]string{}, true},
-		{[]string{"vp9:h264", "vp09:x264"}, "", map[string]string{"vp9": "h264"}, true},
-		{[]string{"", "av1:hevc"}, "", map[string]string{"av1": "hevc"}, true},
-		{nil, "", map[string]string{}, true},
+		{[]string{"hevc", "vp9:h264"}, "hevc", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
+		{[]string{"vp9:h264", "hevc"}, "hevc", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
+		{[]string{"x264"}, "h264", map[sharedmodels.FromCodec]string{}, true},
+		{[]string{"hevc", "libx265"}, "hevc", map[sharedmodels.FromCodec]string{}, true},
+		{[]string{"vp9:h264", "vp09:x264"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
+		{[]string{"", "av1:hevc"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("av1", ""): "hevc"}, true},
+		{nil, "", map[sharedmodels.FromCodec]string{}, true},
 
 		// Fail states.
 		{[]string{"hevc", "h264"}, "", nil, false},
