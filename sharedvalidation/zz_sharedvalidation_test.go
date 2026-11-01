@@ -394,6 +394,30 @@ func TestGetRenameFlag(t *testing.T) {
 
 // Media -------------------------------------------------------------------------------------
 
+func TestValidateMaxResolution(t *testing.T) {
+	tests := []struct {
+		in, want string
+		wantErr  bool
+	}{
+		{"", "", false},
+		{"1080", "1080", false},
+		{" 720P ", "720", false},
+		{"4K", "2160", false},
+		{"8k", "4320", false},
+		{"0144", "144", false},
+		{"0", "", true},
+		{"-720", "", true},
+		{"hd", "", true},
+		{"1080i", "", true},
+	}
+	for _, tt := range tests {
+		got, err := ValidateMaxResolution(tt.in)
+		if (err != nil) != tt.wantErr || got != tt.want {
+			t.Errorf("ValidateMaxResolution(%q) = %q, %v; want %q, error %v", tt.in, got, err, tt.want, tt.wantErr)
+		}
+	}
+}
+
 func TestValidateTranscodeQuality(t *testing.T) {
 	tests := []struct {
 		codec, in, expect string

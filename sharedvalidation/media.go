@@ -8,6 +8,24 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
+// ValidateMaxResolution returns a maximum resolution as its shorter side in pixels, e.g. "1080" from "1080p" or "2160" from "4k".
+func ValidateMaxResolution(r string) (string, error) {
+	r = strings.ToLower(strings.TrimSpace(r))
+	if r == "" {
+		return "", nil
+	}
+	if pixels, ok := sharedconsts.ResolutionAlias[r]; ok {
+		return pixels, nil
+	}
+
+	// A number of pixels, with or without a trailing 'p'.
+	pixels, err := strconv.Atoi(strings.TrimSuffix(r, "p"))
+	if err != nil || pixels <= 0 {
+		return "", fmt.Errorf("max resolution should be a size like 1080, 1080p, 4k or 8k, got %q", r)
+	}
+	return strconv.Itoa(pixels), nil
+}
+
 // ValidateTranscodeQuality validates a quality for a target codec, clamped to its encoder's range (0-63 for AV1, VP8 and VP9, otherwise 0-51).
 func ValidateTranscodeQuality(codec, q string) (string, error) {
 	if q == "" {
