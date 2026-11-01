@@ -10,60 +10,6 @@ import (
 	"github.com/TubarrApp/gocommon/sharedmodels"
 )
 
-// validateFromCodec returns a valid FromCodec model if valid.
-//
-// Pass in [ValidateVideoCodec] or [ValidateAudioCodec].
-func validateFromCodec(c string, validate func(string) (string, error)) (sharedmodels.FromCodec, error) {
-	blankModel := sharedmodels.NewFromCodec(sharedconsts.CodecCopy, sharedconsts.CompressionBlank)
-
-	// Check if codec string is empty.
-	if c == "" {
-		return blankModel, nil
-	}
-
-	// Get codec and compression level.
-	validCodec, compressionLevel, err := parseFromCodec(c, validate)
-	if err != nil {
-		return blankModel, err
-	}
-
-	// Return validated FromCodec.
-	return sharedmodels.NewFromCodec(validCodec, compressionLevel), nil
-}
-
-// parseFromCodec retrieves the valid compression level and codec.
-//
-// Pass in [ValidateVideoCodec] or [ValidateAudioCodec].
-func parseFromCodec(c string, validate func(string) (string, error)) (codec string, compressionLevel sharedconsts.CompressionLevel, err error) {
-	// Normalize string.
-	c = strings.ToLower(c)
-	c = strings.TrimSpace(c)
-	c = strings.ReplaceAll(c, ".", "")
-	// Don't remove "_", is delimiter (e.g. 'mc_hevc')
-
-	// Check compression level component.
-	compressionLevel = sharedconsts.CompressionBlank
-	compression, codec, found := strings.Cut(c, "_")
-	if found {
-		c = codec // Extracted codec portion (e.g. 'h264' from 'lc_h264').
-
-		// Get compression level.
-		validCompressionLevel := false
-		if compressionLevel, validCompressionLevel = sharedconsts.ValidCompressionLevels[compression]; !validCompressionLevel {
-			return c, "", fmt.Errorf("compression level %s not valid in codec %s", compression, c)
-		}
-	}
-
-	// Validate codec component.
-	validCodec, err := validate(c)
-	if err != nil {
-		return "", compressionLevel, err
-	}
-
-	// Return retrieved codec and compression level.
-	return validCodec, compressionLevel, nil
-}
-
 // ValidateVideoCodec validates a video codec string and returns the normalized codec name.
 //
 // Handles common aliases and synonyms (e.g., "x264" -> "h264", "libx265" -> "hevc").
@@ -196,6 +142,42 @@ func ParseCodecMappings(entries []string, validate func(string) (string, error))
 	return allTo, pairs, nil
 }
 
+// ParseCodecValueLines splits "codec:value" lines into values per target codec.
+func ParseCodecValueLines(lines []string) (byCodec map[string]string, err error) {
+	byCodec = make(map[string]string, len(lines))
+
+	// Check lines.
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Every line names its codec.
+		codec, value, found := strings.Cut(line, ":")
+		if !found {
+			return nil, fmt.Errorf("line %q needs a codec first, e.g. av1:%s", line, line)
+		}
+
+		// Each codec named once.
+		if codec, err = ValidateVideoCodec(codec); err != nil {
+			return nil, err
+		}
+		if codec == "" {
+			return nil, fmt.Errorf("line %q has no codec before ':'", line)
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return nil, fmt.Errorf("line %q has no value after ':'", line)
+		}
+		if _, ok := byCodec[codec]; ok {
+			return nil, fmt.Errorf("codec %q is named more than once, keep only one", codec)
+		}
+		byCodec[codec] = value
+	}
+	return byCodec, nil
+}
+
 // ValidateGPUAccelType validates a GPU acceleration type string.
 func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 	// Normalize input.
@@ -254,4 +236,58 @@ func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err 
 	}
 
 	return nodePath, nil
+}
+
+// validateFromCodec returns a valid FromCodec model if valid.
+//
+// Pass in [ValidateVideoCodec] or [ValidateAudioCodec].
+func validateFromCodec(c string, validate func(string) (string, error)) (sharedmodels.FromCodec, error) {
+	blankModel := sharedmodels.NewFromCodec(sharedconsts.CodecCopy, sharedconsts.CompressionBlank)
+
+	// Check if codec string is empty.
+	if c == "" {
+		return blankModel, nil
+	}
+
+	// Get codec and compression level.
+	validCodec, compressionLevel, err := parseFromCodec(c, validate)
+	if err != nil {
+		return blankModel, err
+	}
+
+	// Return validated FromCodec.
+	return sharedmodels.NewFromCodec(validCodec, compressionLevel), nil
+}
+
+// parseFromCodec retrieves the valid compression level and codec.
+//
+// Pass in [ValidateVideoCodec] or [ValidateAudioCodec].
+func parseFromCodec(c string, validate func(string) (string, error)) (codec string, compressionLevel sharedconsts.CompressionLevel, err error) {
+	// Normalize string.
+	c = strings.ToLower(c)
+	c = strings.TrimSpace(c)
+	c = strings.ReplaceAll(c, ".", "")
+	// Don't remove "_", is delimiter (e.g. 'mc_hevc')
+
+	// Check compression level component.
+	compressionLevel = sharedconsts.CompressionBlank
+	compression, codec, found := strings.Cut(c, "_")
+	if found {
+		c = codec // Extracted codec portion (e.g. 'h264' from 'lc_h264').
+
+		// Get compression level.
+		validCompressionLevel := false
+		if compressionLevel, validCompressionLevel = sharedconsts.ValidCompressionLevels[compression]; !validCompressionLevel {
+			return c, "", fmt.Errorf("compression level %s not valid in codec %s", compression, c)
+		}
+	}
+
+	// Validate codec component.
+	validCodec, err := validate(c)
+	if err != nil {
+		return "", compressionLevel, err
+	}
+
+	// Return retrieved codec and compression level.
+	return validCodec, compressionLevel, nil
 }

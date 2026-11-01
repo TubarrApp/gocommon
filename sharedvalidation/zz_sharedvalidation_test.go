@@ -395,14 +395,57 @@ func TestGetRenameFlag(t *testing.T) {
 // Media -------------------------------------------------------------------------------------
 
 func TestValidateTranscodeQuality(t *testing.T) {
-	out, err := ValidateTranscodeQuality("25")
-	if err != nil || out != "25" {
-		t.Errorf("unexpected result")
+	tests := []struct {
+		codec, in, expect string
+		wantErr           bool
+	}{
+		{sharedconsts.VCodecH264, "25", "25", false},
+		{sharedconsts.VCodecHEVC, "60", "51", false},
+		{sharedconsts.VCodecAV1, "60", "60", false},
+		{sharedconsts.VCodecAV1, "100", "63", false},
+		{sharedconsts.VCodecH264, "-5", "0", false},
+		{sharedconsts.VCodecH264, "abc", "", true},
+		{sharedconsts.VCodecMPEG2, "20", "", true},
+		{sharedconsts.VCodecMPEG2, "", "", false},
 	}
 
-	out, err = ValidateTranscodeQuality("100")
-	if err != nil || out != "51" {
-		t.Errorf("clamp failed")
+	for _, tt := range tests {
+		out, err := ValidateTranscodeQuality(tt.codec, tt.in)
+		if (err != nil) != tt.wantErr || out != tt.expect {
+			t.Errorf("ValidateTranscodeQuality(%q, %q) = %q, %v; want %q, error %v", tt.codec, tt.in, out, err, tt.expect, tt.wantErr)
+		}
+	}
+}
+
+func TestParseCodecValueLines(t *testing.T) {
+	tests := []struct {
+		name        string
+		lines       []string
+		wantByCodec map[string]string
+		wantErr     bool
+	}{
+		{"codec lines", []string{" av1: -crf 35 ", "", "hevc:-preset slow"}, map[string]string{"av1": "-crf 35", "hevc": "-preset slow"}, false},
+		{"alias normalized", []string{"x265:-crf 24"}, map[string]string{"hevc": "-crf 24"}, false},
+		{"args keep inner colons", []string{"av1:-svtav1-params tune=0:film-grain=8"}, map[string]string{"av1": "-svtav1-params tune=0:film-grain=8"}, false},
+		{"no codec", []string{"-preset 6"}, nil, true},
+		{"args with colon but no codec", []string{"-vf scale=1280:-2"}, nil, true},
+		{"codec named twice", []string{"av1:-crf 30", "av1:-crf 35"}, nil, true},
+		{"empty codec", []string{":-crf 35"}, nil, true},
+		{"empty value", []string{"av1:"}, nil, true},
+	}
+
+	for _, tt := range tests {
+		byCodec, err := ParseCodecValueLines(tt.lines)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
+			continue
+		}
+		if tt.wantErr {
+			continue
+		}
+		if !maps.Equal(byCodec, tt.wantByCodec) {
+			t.Errorf("%s: got %v, want %v", tt.name, byCodec, tt.wantByCodec)
+		}
 	}
 }
 
