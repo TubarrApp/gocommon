@@ -153,7 +153,7 @@ func ParseCodecValueLines(lines []string) (byCodec map[string]string, err error)
 			continue
 		}
 
-		// Every line names its codec.
+		// Every line names its codec first.
 		codec, value, found := strings.Cut(line, ":")
 		if !found {
 			return nil, fmt.Errorf("line %q needs a codec first, e.g. av1:%s", line, line)

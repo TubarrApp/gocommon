@@ -14,6 +14,7 @@ type EncoderArgs struct {
 	Quality     string   // From -crf.
 	PixFmt      string   // From -pix_fmt.
 	VideoFilter string   // From -vf or -filter:v.
+	Passes      int      // From -pass, 0 for one pass.
 	Args        []string // The rest, as typed.
 }
 

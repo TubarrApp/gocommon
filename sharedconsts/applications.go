@@ -84,6 +84,24 @@ var ValidVideoCodecs = map[string]struct{}{
 	VCodecVP9:   {},
 }
 
+// VideoCodecMaxPasses maps video codecs to the most encoding passes their encoder uses.
+var VideoCodecMaxPasses = map[string]int{
+	VCodecAV1:   2,
+	VCodecH264:  3,
+	VCodecHEVC:  3,
+	VCodecMPEG2: 3,
+	VCodecVP8:   2,
+	VCodecVP9:   2,
+}
+
+// MultiPassNeedsBitrate holds video codecs whose encoder needs a target bitrate, not a quality, for more than one pass.
+var MultiPassNeedsBitrate = map[string]struct{}{
+	VCodecAV1:   {},
+	VCodecH264:  {},
+	VCodecHEVC:  {},
+	VCodecMPEG2: {},
+}
+
 // ValidAudioCodecs maps valid audio codec names.
 var ValidAudioCodecs = map[string]struct{}{
 	ACodecCopy:   {},

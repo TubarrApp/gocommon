@@ -51,6 +51,31 @@ func TestParseVideoEncoderArgs(t *testing.T) {
 			map[string]sharedmodels.EncoderArgs{"av1": {Quality: "63"}, "h264": {Quality: "51"}},
 			false,
 		},
+		{
+			"passes with a bitrate",
+			[]string{"h264:-b:v 3M -pass 3", "av1:-b:v 2M -pass 3", "vp9:-crf 31 -b:v 0 -pass 2", "hevc:-b:v 4M -pass 1"},
+			map[string]sharedmodels.EncoderArgs{
+				"h264": {Passes: 3, Args: []string{"-b:v", "3M"}},
+				"av1":  {Passes: 2, Args: []string{"-b:v", "2M"}},
+				"vp9":  {Quality: "31", Passes: 2, Args: []string{"-b:v", "0"}},
+				"hevc": {Passes: 1, Args: []string{"-b:v", "4M"}},
+			},
+			false,
+		},
+		{
+			"passes clamped",
+			[]string{"mpeg2:-b:v 8M -pass 9", "vp8:-crf 10 -b:v 1M -pass 0"},
+			map[string]sharedmodels.EncoderArgs{
+				"mpeg2": {Passes: 3, Args: []string{"-b:v", "8M"}},
+				"vp8":   {Quality: "10", Passes: 1, Args: []string{"-b:v", "1M"}},
+			},
+			false,
+		},
+		{"crf with two passes on h264", []string{"h264:-crf 23 -b:v 3M -pass 2"}, nil, true},
+		{"two passes without a bitrate on hevc", []string{"hevc:-preset slow -pass 2"}, nil, true},
+		{"audio bitrate isn't a target bitrate", []string{"av1:-b:a 128k -pass 2"}, nil, true},
+		{"pass not a number", []string{"h264:-b:v 3M -pass two"}, nil, true},
+		{"pass twice", []string{"h264:-b:v 3M -pass 2 -pass 3"}, nil, true},
 		{"crf twice", []string{"av1:-crf 30 -crf 35"}, nil, true},
 		{"two video filters", []string{"av1:-vf scale=1280:-2 -filter:v fps=30"}, nil, true},
 		{"pixel format twice", []string{"av1:-pix_fmt yuv420p -pix_fmt yuv420p10le"}, nil, true},
@@ -88,6 +113,7 @@ func TestEncoderOnlyOption(t *testing.T) {
 		{[]string{"-pix_fmt:v:0", "yuv420p10le"}, "-pix_fmt:v:0", true},
 		{[]string{"-vf", "scale=1280:-2"}, "-vf", true},
 		{[]string{"-filter:v", "fps=30"}, "-filter:v", true},
+		{[]string{"-b:v", "3M", "-pass", "2"}, "-pass", true},
 		{[]string{"-filter:a", "volume=2", "-filter_complex", "[0:v]null"}, "", false},
 	}
 

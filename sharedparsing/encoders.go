@@ -1,7 +1,10 @@
 package sharedparsing
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -10,13 +13,15 @@ import (
 )
 
 const (
-	crfOption    = "-crf"
-	pixFmtOption = "-pix_fmt"
-	vfOption     = "-vf"
-	filterOption = "-filter"
+	crfOption     = "-crf"
+	pixFmtOption  = "-pix_fmt"
+	vfOption      = "-vf"
+	filterOption  = "-filter"
+	passOption    = "-pass"
+	bitrateOption = "-b"
 )
 
-// EncoderOnlyOption reports the first option in args that Metarr only sets when encoding (-crf, -pix_fmt, -vf or -filter:v).
+// EncoderOnlyOption reports the first option in args that Metarr only sets when encoding (-crf, -pix_fmt, -vf, -filter:v or -pass).
 func EncoderOnlyOption(args []string) (option string, found bool) {
 	for _, arg := range args {
 		if encoderOnly(videoOption(arg)) {
@@ -43,7 +48,7 @@ func ParseVideoEncoderArgs(lines []string) (map[string]sharedmodels.EncoderArgs,
 	return parsed, nil
 }
 
-// parseEncoderArgs splits a codec's args, taking out -crf, -pix_fmt and -vf for Metarr to convert per encoder.
+// parseEncoderArgs splits a codec's args, taking out -crf, -pix_fmt, -vf and -pass for Metarr to convert per encoder.
 func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 	var parsed sharedmodels.EncoderArgs
 
@@ -87,11 +92,30 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 				return sharedmodels.EncoderArgs{}, fmt.Errorf("-pix_fmt is set more than once in %s encoder args, keep only one", codec)
 			}
 			parsed.PixFmt = strings.ToLower(value)
+		case passOption:
+			if parsed.Passes != 0 {
+				return sharedmodels.EncoderArgs{}, fmt.Errorf("-pass is set more than once in %s encoder args, keep only one", codec)
+			}
+			passes, atoiErr := strconv.Atoi(value)
+			if atoiErr != nil {
+				return sharedmodels.EncoderArgs{}, fmt.Errorf("-pass in %s encoder args should be a number of passes, got %q", codec, value)
+			}
+			parsed.Passes = min(max(passes, 1), cmp.Or(sharedconsts.VideoCodecMaxPasses[codec], 1))
 		default: // vfOption, filterOption
 			if parsed.VideoFilter != "" {
 				return sharedmodels.EncoderArgs{}, fmt.Errorf("more than one video filter in %s encoder args, join them with ',' in one -vf", codec)
 			}
 			parsed.VideoFilter = value
+		}
+	}
+
+	// Some encoders need a target bitrate, not a quality, for more than one pass.
+	if _, needsBitrate := sharedconsts.MultiPassNeedsBitrate[codec]; needsBitrate && parsed.Passes > 1 {
+		if parsed.Quality != "" {
+			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with more than one pass, give a target bitrate with -b:v instead", codec)
+		}
+		if !slices.ContainsFunc(parsed.Args, func(arg string) bool { return videoOption(arg) == bitrateOption }) {
+			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s needs a target bitrate (-b:v) for more than one pass", codec)
 		}
 	}
 	return parsed, nil
@@ -100,7 +124,7 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 // encoderOnly reports whether Metarr sets the option itself, converted for the encoder that runs.
 func encoderOnly(option string) bool {
 	switch option {
-	case crfOption, pixFmtOption, vfOption, filterOption:
+	case crfOption, pixFmtOption, vfOption, filterOption, passOption:
 		return true
 	}
 	return false
