@@ -18,8 +18,8 @@ var BlockedFFmpegOptions = map[string]struct{}{
 	"-dump_attachment":    {},
 	"-passlogfile":        {},
 	"-print_graphs_file":  {},
-	"-protocol-blacklist": {},
-	"-protocol-whitelist": {},
+	"-protocol_blacklist": {},
+	"-protocol_whitelist": {},
 	"-report":             {},
 	"-sdp_file":           {},
 	"-vstats_file":        {},
@@ -34,10 +34,11 @@ var BlockedYtdlpOptions = map[string]struct{}{
 	"--plugin-dirs":      {},
 }
 
-// HasBlockedOptions reports whether args contains any disallowed options.
+// HasBlockedOptions reports whether args contains any disallowed options, also when given a value or stream specifier (e.g. "-passlogfile:v:0").
 func HasBlockedOptions(args []string, blockList map[string]struct{}) (disallowed bool, option string) {
 	for _, arg := range args {
 		option, _, _ = strings.Cut(arg, "=")
+		option, _, _ = strings.Cut(option, ":")
 		if _, blocked := blockList[option]; blocked {
 			return true, option
 		}
