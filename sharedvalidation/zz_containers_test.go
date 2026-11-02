@@ -42,11 +42,11 @@ func TestFittingCodecs(t *testing.T) {
 		name      string
 		got, want []string
 	}{
-		{"webm video", FittingCodecs(sharedconsts.Video, ".webm"), []string{sharedconsts.VCodecVP9, sharedconsts.VCodecVP8, sharedconsts.VCodecAV1}},
-		{"webm audio", FittingCodecs(sharedconsts.Audio, ".webm"), []string{sharedconsts.ACodecOpus, sharedconsts.ACodecVorbis}},
-		{"mp4 video", FittingCodecs(sharedconsts.Video, ".mp4"), []string{sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecAV1}},
-		{"ogm video", FittingCodecs(sharedconsts.Video, ".ogm"), []string{sharedconsts.VCodecVP8}},
-		{"rm video", FittingCodecs(sharedconsts.Video, ".rm"), nil},
+		{"webm video", FittingVideoCodecs(".webm"), []string{sharedconsts.VCodecVP9, sharedconsts.VCodecVP8, sharedconsts.VCodecAV1}},
+		{"webm audio", FittingAudioCodecs(".webm"), []string{sharedconsts.ACodecOpus, sharedconsts.ACodecVorbis}},
+		{"mp4 video", FittingVideoCodecs(".mp4"), []string{sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecAV1}},
+		{"ogm video", FittingVideoCodecs(".ogm"), []string{sharedconsts.VCodecVP8}},
+		{"rm video", FittingVideoCodecs(".rm"), nil},
 	} {
 		if !slices.Equal(c.got, c.want) {
 			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)

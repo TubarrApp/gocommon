@@ -19,27 +19,25 @@ func AudioCodecFits(ext, codec string) bool {
 	return codecFits(sharedconsts.ContainerCompatibleAudioCodecs, ext, codec)
 }
 
-// FittingVideoCodecs returns the video codecs ext can hold, in sharedconsts.IncompatibleVideoCodecPreference order.
-func FittingCodecs(kind sharedconsts.MediaType, ext string) []string {
-	// Use the longer of the two preference lists, to avoid reallocations.
-	fits := make([]string, 0, len(sharedconsts.IncompatibleAudioCodecPreference))
-
-	// Check compatibility table based on preference.
-	switch kind {
-	case sharedconsts.Video:
-		for _, c := range sharedconsts.IncompatibleVideoCodecPreference {
-			if codecFits(sharedconsts.ContainerCompatibleVideoCodecs, ext, c) {
-				fits = append(fits, c)
-			}
-		}
-	case sharedconsts.Audio:
-		for _, c := range sharedconsts.IncompatibleAudioCodecPreference {
-			if codecFits(sharedconsts.ContainerCompatibleAudioCodecs, ext, c) {
-				fits = append(fits, c)
-			}
+// FittingVideoCodecs returns the video codecs ext can hold.
+func FittingVideoCodecs(ext string) []string {
+	fits := make([]string, 0, len(sharedconsts.IncompatibleVideoCodecPreference))
+	for _, c := range sharedconsts.IncompatibleVideoCodecPreference {
+		if codecFits(sharedconsts.ContainerCompatibleVideoCodecs, ext, c) {
+			fits = append(fits, c)
 		}
 	}
+	return fits
+}
 
+// FittingAudioCodecs returns the audio codecs ext can hold.
+func FittingAudioCodecs(ext string) []string {
+	fits := make([]string, 0, len(sharedconsts.IncompatibleAudioCodecPreference))
+	for _, c := range sharedconsts.IncompatibleAudioCodecPreference {
+		if codecFits(sharedconsts.ContainerCompatibleAudioCodecs, ext, c) {
+			fits = append(fits, c)
+		}
+	}
 	return fits
 }
 
@@ -89,7 +87,7 @@ func ValidateCodecsForContainer(ext string, videoCodecs, audioCodecs []string) e
 // missing from table, are taken to fit.
 func codecFits(table map[string][]string, ext, codec string) bool {
 	codecs, known := table[containerExt(ext)]
-	return !known || codec == "" || codec == sharedconsts.VCodecCopy || slices.Contains(codecs, codec)
+	return !known || codec == "" || codec == sharedconsts.CodecCopy || slices.Contains(codecs, codec)
 }
 
 // containerExt returns ext lowercased, with a leading dot.
