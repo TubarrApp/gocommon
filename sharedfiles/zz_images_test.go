@@ -2,7 +2,6 @@ package sharedfiles
 
 import (
 	"bytes"
-	"encoding/base64"
 	"image"
 	"image/color"
 	"image/gif"
@@ -17,7 +16,8 @@ import (
 // TestSanitizePNGFile performs a live test on a local test file.
 func TestSanitizePNGFile(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	src := filepath.Join(filepath.Dir(file), "testimages", "2.png")
+	src := filepath.Join(filepath.Dir(file), "testimages", "2_original.png")
+	dst := filepath.Join(filepath.Dir(file), "testimages", "2.png")
 
 	data, err := os.ReadFile(src)
 	if err != nil {
@@ -37,17 +37,18 @@ func TestSanitizePNGFile(t *testing.T) {
 		t.Fatalf("output format = %q, want %q", format, "png")
 	}
 
-	if err := os.WriteFile(src, got, 0600); err != nil {
+	if err := os.WriteFile(dst, got, 0600); err != nil {
 		t.Fatalf("Failed to write sanitized image: %v", err)
 	}
 
-	t.Logf("Successfully sanitized PNG: %s", src)
+	t.Logf("Successfully sanitized PNG: %s", dst)
 }
 
 // TestSanitizeJPGFile performs a live test on a local test file.
 func TestSanitizeJPGFile(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	src := filepath.Join(filepath.Dir(file), "testimages", "1.jpg")
+	src := filepath.Join(filepath.Dir(file), "testimages", "1_original.jpg")
+	dst := filepath.Join(filepath.Dir(file), "testimages", "1.jpg")
 
 	data, err := os.ReadFile(src)
 	if err != nil {
@@ -67,17 +68,18 @@ func TestSanitizeJPGFile(t *testing.T) {
 		t.Fatalf("output format = %q, want %q", format, "jpeg")
 	}
 
-	if err := os.WriteFile(src, got, 0600); err != nil {
+	if err := os.WriteFile(dst, got, 0600); err != nil {
 		t.Fatalf("Failed to write sanitized image: %v", err)
 	}
 
-	t.Logf("Successfully sanitized JPG: %s", src)
+	t.Logf("Successfully sanitized JPG: %s", dst)
 }
 
 // TestSanitizeGIFFile performs a live test on a local test file.
 func TestSanitizeGIFFile(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	src := filepath.Join(filepath.Dir(file), "testimages", "3.gif")
+	src := filepath.Join(filepath.Dir(file), "testimages", "3_original.gif")
+	dst := filepath.Join(filepath.Dir(file), "testimages", "3.gif")
 
 	data, err := os.ReadFile(src)
 	if err != nil {
@@ -97,11 +99,11 @@ func TestSanitizeGIFFile(t *testing.T) {
 		t.Fatalf("output format = %q, want %q", format, "gif")
 	}
 
-	if err := os.WriteFile(src, got, 0600); err != nil {
+	if err := os.WriteFile(dst, got, 0600); err != nil {
 		t.Fatalf("Failed to write sanitized image: %v", err)
 	}
 
-	t.Logf("Successfully sanitized GIF: %s", src)
+	t.Logf("Successfully sanitized GIF: %s", dst)
 }
 
 // TestSanitizeImage checks that supported input formats can be sanitized while preserving their format.
@@ -154,14 +156,4 @@ func encodeTestImage(t *testing.T, format string) []byte {
 		t.Fatal(err)
 	}
 	return buf.Bytes()
-}
-
-// mustDecodeBase64 returns the bytes represented by the base64 string sent in.
-func mustDecodeBase64(t *testing.T, value string) []byte {
-	t.Helper()
-	data, err := base64.StdEncoding.DecodeString(value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }

@@ -19,6 +19,7 @@ var BlockedFFmpegOptions = map[string]struct{}{
 	"-dump_attachment":    {},
 	"-passlogfile":        {},
 	"-print_graphs_file":  {},
+	"-progress":           {},
 	"-protocol_blacklist": {},
 	"-protocol_whitelist": {},
 	"-report":             {},
@@ -28,11 +29,12 @@ var BlockedFFmpegOptions = map[string]struct{}{
 
 // BlockedYtdlpOptions contains YT-DLP options that users shouldn't use.
 var BlockedYtdlpOptions = map[string]struct{}{
-	"--alias":            {},
-	"--config-locations": {},
-	"--exec":             {},
-	"--netrc-cmd":        {},
-	"--plugin-dirs":      {},
+	"--alias":                {},
+	"--config-locations":     {},
+	"--exec":                 {},
+	"--exec-before-download": {},
+	"--netrc-cmd":            {},
+	"--plugin-dirs":          {},
 }
 
 // HasBlockedOptions reports whether args contains any disallowed options, also when given a value or stream specifier (e.g. "-passlogfile:v:0").
@@ -43,8 +45,25 @@ func HasBlockedOptions(args []string, blockList map[string]struct{}) (disallowed
 		if _, blocked := blockList[option]; blocked {
 			return true, option
 		}
+		if abbreviatesBlockedOption(option, blockList) {
+			return true, option
+		}
 	}
 	return false, ""
+}
+
+// abbreviatesBlockedOption reports whether option shortens a blocked one, as yt-dlp expands a long option from any
+// unique start (e.g. "--exec-b"). "--netrc" is its own option, not a short "--netrc-cmd".
+func abbreviatesBlockedOption(option string, blockList map[string]struct{}) bool {
+	if len(option) <= 2 || !strings.HasPrefix(option, "--") || option == "--netrc" {
+		return false
+	}
+	for blocked := range blockList {
+		if strings.HasPrefix(blocked, option) {
+			return true
+		}
+	}
+	return false
 }
 
 // GPU acceleration type constants.
@@ -203,8 +222,16 @@ var AudioCodecAlias = map[string]string{
 	"pcm":      ACodecPCM,
 	"pcm16":    ACodecPCM,
 	"pcmcodec": ACodecPCM,
+	"pcmf32be": ACodecPCM,
+	"pcmf32le": ACodecPCM,
+	"pcmf64le": ACodecPCM,
+	"pcms16be": ACodecPCM,
 	"pcms16le": ACodecPCM,
+	"pcms24be": ACodecPCM,
 	"pcms24le": ACodecPCM,
+	"pcms32be": ACodecPCM,
+	"pcms32le": ACodecPCM,
+	"pcmu8":    ACodecPCM,
 	"rawpcm":   ACodecPCM,
 	"wavpcm":   ACodecPCM,
 

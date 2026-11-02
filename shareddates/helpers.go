@@ -12,10 +12,8 @@ import (
 
 // Month values.
 var (
-	monthNumSlice       = [12]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
 	monthNumStringSlice = [12]string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"}
 	monthWordFullSlice  = [12]string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
-	monthWordShortSlice = [12]string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
 )
 
 // ************ Public **************************************************************************************
@@ -23,9 +21,10 @@ var (
 
 // ParseDateComponents extracts and validates year, month, and day from the date string.
 func ParseDateComponents(date string, dateFmt sharedenums.DateFormat, pl *logging.ProgramLogger) (year, month, day string, err error) {
-	// Remove hyphens and spaces.
-	date = strings.ReplaceAll(date, "-", "")
+	// Remove spaces, any time and hyphens.
 	date = strings.TrimSpace(date)
+	date, _, _ = strings.Cut(date, "T")
+	date = removeDateHyphens(date)
 
 	// Grab year, month, day string.
 	year, month, day, err = getYearMonthDay(date, dateFmt, pl)
@@ -47,6 +46,9 @@ func addDaySuffixes(day string, pl *logging.ProgramLogger) (daySuffixed string) 
 		pl.W("Failed to suffix day string %q", day)
 		return day
 	}
+
+	// '01' -> '1'.
+	day = strconv.Itoa(num)
 
 	// 11 and all 'teens.
 	if num > 10 && num < 20 {
@@ -103,14 +105,19 @@ func getYearMonthDay(d string, dateFmt sharedenums.DateFormat, pl *logging.Progr
 
 // validateDateComponents attempts to fix faulty date arrangements.
 func validateDateComponents(year, month, day string, pl *logging.ProgramLogger) (y, m, d string, err error) {
+	// Year alone, guessed from 'yyyy'.
+	if month == "" && day == "" && year != "" {
+		return year, "", "", nil
+	}
+
 	if isValidMonthNum(month) && isValidDayNum(day, month, year) {
-		pl.D(1, "Detected 'mmdd' format from %s%s%s")
+		pl.D(1, "Detected 'mmdd' format from %s%s%s", year, month, day)
 		return year, month, day, nil
 	}
 
 	// Attempt swapping day and month.
 	if isValidMonthNum(day) && isValidDayNum(month, day, year) {
-		pl.D(1, "Detected 'ddmm' format from %s%s%s")
+		pl.D(1, "Detected 'ddmm' format from %s%s%s", year, month, day)
 		return year, day, month, nil
 	}
 
@@ -204,7 +211,7 @@ func guessYearDayMonth(d string, dateFmt sharedenums.DateFormat, pl *logging.Pro
 	// Last guess, ancient year (e.g. "Passage de Vénus", "View from the Window at Le Gras", ancient audio)
 	// or possible near-future years.
 	if full >= 1826 && full <= currentYear+5 {
-		pl.I("Guessing date string %q as day-month", d)
+		pl.I("Guessing date string %q as year", d)
 		return guessedYear(d, dateFmt), "", "", nil
 	}
 
@@ -221,19 +228,13 @@ func guessedYear(d string, dateFmt sharedenums.DateFormat) string {
 	}
 }
 
-// maxDaysInMonth returns the number of days in a given month. If year is entred zero, allows 29 for February.
-func maxDaysInMonth(month, yearOrZero int) int {
-	switch month {
-	case 2: // February
-		if yearOrZero == 0 || yearOrZero%400 == 0 || (yearOrZero%4 == 0 && yearOrZero%100 != 0) {
-			return 29
+// removeDateHyphens joins a date's parts, padding single digits so the others can't shift ('2025-1-2' -> '20250102').
+func removeDateHyphens(date string) string {
+	parts := strings.Split(date, "-")
+	for i, part := range parts {
+		if len(part) == 1 {
+			parts[i] = "0" + part
 		}
-		return 28
-
-	case 4, 6, 9, 11: // Apr, Jun, Sep, Nov
-		return 30
-
-	default: // All other months
-		return 31
 	}
+	return strings.Join(parts, "")
 }

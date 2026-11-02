@@ -2,14 +2,13 @@ package sharedvalidation
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
-	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedtemplates"
 )
 
@@ -192,41 +191,37 @@ func FuzzValidateAudioCodec(f *testing.F) {
 	})
 }
 
-// TestParseCodecMappings tests splitting codec entries into a plain codec and per-source pairs, in any order.
-func TestParseCodecMappings(t *testing.T) {
-	tests := []struct {
-		in        []string
-		wantAll   string
-		wantPairs map[sharedmodels.FromCodec]string
-		ok        bool
-	}{
-		// Pass states.
-		{[]string{"hevc", "vp9:h264"}, "hevc", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
-		{[]string{"vp9:h264", "hevc"}, "hevc", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
-		{[]string{"x264"}, "h264", map[sharedmodels.FromCodec]string{}, true},
-		{[]string{"hevc", "libx265"}, "hevc", map[sharedmodels.FromCodec]string{}, true},
-		{[]string{"vp9:h264", "vp09:x264"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
-		{[]string{"", "av1:hevc"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("av1", ""): "hevc"}, true},
-		{nil, "", map[sharedmodels.FromCodec]string{}, true},
-
-		// Fail states.
-		{[]string{"hevc", "h264"}, "", nil, false},
-		{[]string{"vp9:h264", "libvpxvp9:hevc"}, "", nil, false},
-		{[]string{":h264"}, "", nil, false},
-		{[]string{"vp9:bad"}, "", nil, false},
-		{[]string{"vp9:h264:av1"}, "", nil, false},
-		{[]string{"bad"}, "", nil, false},
+// TestPCMAliases tests PCM's sample formats normalize to one codec, however they're written.
+func TestPCMAliases(t *testing.T) {
+	for _, a := range []string{"pcm_s16le", "pcm_s24le", "pcm_f32le", "pcm_s16be", "pcm_u8", "pcms16le", "pcm-f32le"} {
+		if got, err := ValidateAudioCodec(a); err != nil || got != sharedconsts.ACodecPCM {
+			t.Errorf("ValidateAudioCodec(%q) = %q, %v, want %q", a, got, err, sharedconsts.ACodecPCM)
+		}
 	}
+}
 
-	for _, tt := range tests {
-		all, pairs, err := ParseCodecMappings(tt.in, ValidateVideoCodec)
-		if tt.ok != (err == nil) {
-			t.Errorf("ParseCodecMappings(%q) error = %v, want ok %v", tt.in, err, tt.ok)
-			continue
+// TestNoCodecAliases tests aliases for no codec give a blank codec rather than an error.
+func TestNoCodecAliases(t *testing.T) {
+	for _, c := range []string{"", " ", "auto", "none", "Automatic", "automated"} {
+		if got, err := ValidateVideoCodec(c); err != nil || got != "" {
+			t.Errorf("ValidateVideoCodec(%q) = %q, %v, want blank", c, got, err)
 		}
-		if all != tt.wantAll || !maps.Equal(pairs, tt.wantPairs) {
-			t.Errorf("ParseCodecMappings(%q) = (%q, %v), want (%q, %v)", tt.in, all, pairs, tt.wantAll, tt.wantPairs)
+		if got, err := ValidateAudioCodec(c); err != nil || got != "" {
+			t.Errorf("ValidateAudioCodec(%q) = %q, %v, want blank", c, got, err)
 		}
+	}
+	if _, err := ValidateVideoCodecWithAccel("none", sharedconsts.AccelTypeCuda); err == nil {
+		t.Error("a GPU should still require a codec")
+	}
+}
+
+// TestOSSupportsAccelType tests VideoToolbox only counts as supported on Mac, and "auto" everywhere.
+func TestOSSupportsAccelType(t *testing.T) {
+	if got, want := OSSupportsAccelType(sharedconsts.AccelTypeVideoToolbox), runtime.GOOS == "darwin"; got != want {
+		t.Errorf("videotoolbox supported = %v, want %v", got, want)
+	}
+	if !OSSupportsAccelType(sharedconsts.AccelTypeAuto) {
+		t.Error("auto should be supported on every OS")
 	}
 }
 
@@ -461,6 +456,9 @@ func TestValidateMinFreeMem(t *testing.T) {
 		{"200K", "200K", true},
 		{"2000", "2000", true},
 		{"x1", "", false},
+		{"-5G", "", false},
+		{"-2000", "", false},
+		{"+1K", "", false},
 	}
 
 	for _, tt := range tests {

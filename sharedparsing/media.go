@@ -3,6 +3,7 @@ package sharedparsing
 import (
 	"cmp"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -81,6 +82,117 @@ func parseCodecArgLines(lines []string) (byCodec map[string]string, err error) {
 		byCodec[codec] = value
 	}
 	return byCodec, nil
+}
+
+// ParseCodecMappings splits codec entries into one plain codec for everything else and per-source "from:to" pairs.
+//
+// Names are normalized by validate, and order doesn't matter: pairs always override the plain codec.
+//
+// Pass in [sharedvalidation.ValidateVideoCodec] or [sharedvalidation.ValidateAudioCodec].
+func ParseCodecMappings(entries []string, validate func(string) (string, error)) (allTo string, pairs map[sharedmodels.FromCodec]string, err error) {
+	pairs = make(map[sharedmodels.FromCodec]string, len(entries))
+
+	for _, e := range entries {
+		if e == "" {
+			continue
+		}
+
+		// Split on ':' to separate 'from' and 'to' codec portion.
+		from, to, isPair := strings.Cut(e, ":")
+		if from == "" {
+			if !isPair {
+				return "", nil, fmt.Errorf("codec sent in empty (%q)", e)
+			}
+			return "", nil, fmt.Errorf("'from' codec sent in empty in string %s:%s", from, to)
+		}
+
+		// Grab 'FromCodec' model.
+		fromCodec, err := validateFromCodec(from, validate)
+		if err != nil {
+			return "", nil, err
+		}
+
+		// Passed in validation function (video or audio codec name validator).
+		if fromCodec.Codec, err = validate(fromCodec.Codec); err != nil {
+			return "", nil, err
+		}
+
+		// Plain codec, only one allowed.
+		if !isPair {
+			if fromCodec.Compression != sharedconsts.CompressionBlank {
+				return "", nil, fmt.Errorf("%q has a compression level but nothing to transcode to, e.g. %s:hevc", e, e)
+			}
+			if allTo != "" && fromCodec.Codec != "" && fromCodec.Codec != allTo {
+				return "", nil, fmt.Errorf("more than one plain codec (%q and %q), keep only one", allTo, fromCodec.Codec)
+			}
+			if fromCodec.Codec != "" {
+				allTo = fromCodec.Codec
+			}
+			continue
+		}
+
+		// Pair, each source named once.
+		if fromCodec.Codec == "" {
+			return "", nil, fmt.Errorf("codec pair %q has no source codec", e)
+		}
+		if to, err = validate(to); err != nil {
+			return "", nil, err
+		}
+		if prev, ok := pairs[fromCodec]; ok && prev != to {
+			return "", nil, fmt.Errorf("source codec %q is named more than once (%q and %q), keep only one", from, prev, to)
+		}
+		pairs[fromCodec] = to
+	}
+	return allTo, pairs, nil
+}
+
+// validateFromCodec returns a valid FromCodec model if valid.
+//
+// Pass in [sharedvalidation.ValidateVideoCodec] or [sharedvalidation.ValidateAudioCodec].
+func validateFromCodec(c string, validate func(string) (string, error)) (sharedmodels.FromCodec, error) {
+	blankModel := sharedmodels.NewFromCodec(sharedconsts.CodecCopy, sharedconsts.CompressionBlank)
+
+	// Check if codec string is empty.
+	if c == "" {
+		return blankModel, nil
+	}
+
+	// Get codec and compression level.
+	validCodec, compressionLevel, err := parseFromCodec(c, validate)
+	if err != nil {
+		return blankModel, err
+	}
+
+	// Return validated FromCodec.
+	return sharedmodels.NewFromCodec(validCodec, compressionLevel), nil
+}
+
+// parseFromCodec retrieves the valid compression level and codec.
+//
+// Pass in [sharedvalidation.ValidateVideoCodec] or [sharedvalidation.ValidateAudioCodec].
+func parseFromCodec(c string, validate func(string) (string, error)) (codec string, compressionLevel sharedconsts.CompressionLevel, err error) {
+	// Normalize string.
+	c = strings.ToLower(c)
+	c = strings.TrimSpace(c)
+	c = strings.ReplaceAll(c, ".", "")
+	// Don't remove "_", is delimiter (e.g. 'mc_hevc')
+
+	// Check compression level component. Any other "_" is part of the codec's name (e.g. 'pcm_s16le').
+	compressionLevel = sharedconsts.CompressionBlank
+	compression, rest, found := strings.Cut(c, "_")
+	if level, isLevel := sharedconsts.ValidCompressionLevels[compression]; found && isLevel {
+		c = rest // Extracted codec portion (e.g. 'h264' from 'lc_h264').
+		compressionLevel = level
+	}
+
+	// Validate codec component.
+	validCodec, err := validate(c)
+	if err != nil {
+		return "", compressionLevel, err
+	}
+
+	// Return retrieved codec and compression level.
+	return validCodec, compressionLevel, nil
 }
 
 // parseEncoderArgs splits a codec's args, taking out -crf, -pix_fmt, -vf, -pass and -b:v for Metarr to convert per encoder.
@@ -221,7 +333,7 @@ func parseBitrate(s string) (int64, error) {
 		}
 	}
 	n, err := strconv.ParseFloat(number, 64)
-	if err != nil || n < 0 {
+	if err != nil || math.IsNaN(n) || n < 0 || n*multiplier >= math.MaxInt64 {
 		return 0, fmt.Errorf("bitrate should be a number with k, M or G, e.g. 3M or 1500k, got %q", s)
 	}
 	return int64(n * multiplier), nil

@@ -19,15 +19,17 @@ func SanitizePathComponent(s string, maxBytes int) string {
 		return r
 	}, pathSeparatorReplacer.Replace(s))
 	s = strings.TrimSpace(s)
+	if len(s) > maxBytes {
+		cut := maxBytes
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		s = strings.TrimSpace(s[:cut])
+	}
+
+	// Checked last, as cutting can leave only dots.
 	if s == "." || s == ".." {
 		s = strings.ReplaceAll(s, ".", "-")
 	}
-	if len(s) <= maxBytes {
-		return s
-	}
-	cut := maxBytes
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
-	}
-	return strings.TrimSpace(s[:cut])
+	return s
 }

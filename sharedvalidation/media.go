@@ -8,7 +8,7 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
-// ValidateMaxResolution returns a maximum resolution in pixel width, e.g. "1080" from "1080p" or "2160" from "4k".
+// ValidateMaxResolution returns a maximum resolution's shorter side in pixels, e.g. "1080" from "1080p" or "2160" from "4k".
 func ValidateMaxResolution(r string) (string, error) {
 	// Normalize string.
 	r = strings.ToLower(r)

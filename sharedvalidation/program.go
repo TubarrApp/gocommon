@@ -41,9 +41,13 @@ func OSSupportsAccelType(a string) bool {
 	if a == sharedconsts.AccelTypeVAAPI {
 		return OS == "linux" // Only supported on Linux.
 	}
-	// Mac and not videotoolbox.
+	// VideoToolbox.
+	if a == sharedconsts.AccelTypeVideoToolbox {
+		return OS == "darwin" // Only supported on Mac.
+	}
+	// Mac has nothing else, though "auto" can still pick VideoToolbox.
 	if OS == "darwin" {
-		return a == sharedconsts.AccelTypeVideoToolbox
+		return a == sharedconsts.AccelTypeAuto
 	}
 
 	// Return true by default.
@@ -103,7 +107,7 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 		}
 
 		numPart := s[:len(s)-1]
-		if _, err := strconv.Atoi(numPart); err != nil {
+		if _, err := strconv.ParseUint(numPart, 10, 64); err != nil {
 			return "", fmt.Errorf("invalid number %q in minimum free memory argument", input)
 		}
 
@@ -111,7 +115,7 @@ func ValidateMinFreeMem(input string) (num string, err error) {
 	}
 
 	// No unit: must be a raw integer e.g. "2000".
-	if _, err := strconv.Atoi(s); err != nil {
+	if _, err := strconv.ParseUint(s, 10, 64); err != nil {
 		return "", fmt.Errorf("invalid min free memory argument %q, must end with G, GB, M, MB, K, KB, or be an integer", input)
 	}
 

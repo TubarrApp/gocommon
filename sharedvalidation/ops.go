@@ -141,13 +141,13 @@ func validateDateSet(opType, field, value string, i int) error {
 		return nil
 	}
 	if _, err := time.Parse(layout, value); err != nil {
-		return fmt.Errorf("set on %q at position %d: %q is not a valid date, must be formatted like %q (YYYY-MM-DD).", field, i, value, layout)
+		return fmt.Errorf("set on %q at position %d: %q is not a valid date, must be formatted like %q", field, i, value, layout)
 	}
 	return nil
 }
 
-// validateTextOp checks the pattern of a regex-replace and the delimiter of a keep-before or keep-after,
-// and is a no-op for every other operation type.
+// validateTextOp checks the pattern of a regex-replace, the find text of a replace, and the delimiter of a keep-before
+// or keep-after, and is a no-op for every other operation type.
 func validateTextOp(opType, find, value string, i int) error {
 	switch opType {
 	case sharedconsts.OpRegexReplace:
@@ -162,6 +162,10 @@ func validateTextOp(opType, find, value string, i int) error {
 		}
 		if _, err := regexp.Compile(find); err != nil {
 			return fmt.Errorf("%s at position %d: invalid pattern: %w", opType, i, err)
+		}
+	case sharedconsts.OpReplace, sharedconsts.OpReplacePrefix, sharedconsts.OpReplaceSuffix:
+		if find == "" {
+			return fmt.Errorf("%s at position %d has no text to find", opType, i)
 		}
 	case sharedconsts.OpKeepAfter, sharedconsts.OpKeepBefore:
 		if value == "" {

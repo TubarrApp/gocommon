@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // OpenRegularInRoot opens a regular file relative to the given path's parent directory.
 func OpenRegularInRoot(p string) (*os.File, error) {
+	// Refuse a FIFO before opening, as opening one blocks until something writes to it.
+	if info, err := os.Stat(p); err == nil && !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%s is not a regular file", p)
+	}
+
 	rootDir, fileBase := getRootDirAndFile(p)
 
 	// Open in root directory (disallow '..' type traversal).
@@ -31,18 +34,6 @@ func OpenRegularInRoot(p string) (*os.File, error) {
 		return nil, err
 	}
 	return f, nil
-}
-
-// EnsureMetadataExt checks that the file is a valid metadata extension.
-func EnsureMetadataExt(s string) (isValid bool) {
-	_, isValid = sharedconsts.AllMetaExtensions[filepath.Ext(s)]
-	return isValid
-}
-
-// EnsureVideoExt checks that the file is a valid video extension.
-func EnsureVideoExt(s string) (isValid bool) {
-	_, isValid = sharedconsts.AllVidExtensions[filepath.Ext(s)]
-	return isValid
 }
 
 // getRootDirAndFile returns the root directory and file from a given string.

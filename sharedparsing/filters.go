@@ -140,7 +140,7 @@ func FormatFilters(filters []sharedmodels.Filters) string {
 	return strings.Join(parts, sharedconsts.FilterJoiner)
 }
 
-// escapeFilterValue escapes '\', and any '|' or '&' that could run into a [sharedcosnts.FilterSeparator] or [sharedconsts.FilterJoiner].
+// escapeFilterValue escapes '\', and any '|' or '&' that could run into a [sharedconsts.FilterSeparator] or [sharedconsts.FilterJoiner].
 func escapeFilterValue(v string) string {
 	var buf strings.Builder
 	for i := range len(v) {

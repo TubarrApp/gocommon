@@ -28,6 +28,8 @@ const (
 
 	openSquareBrackets  = "[["
 	closeSquareBrackets = "]]"
+
+	shellOperators = ";&|<>()`" // Plain text to ShellSplit.
 )
 
 // rawSpanEnd returns the index just past the "]]" closing a raw span opening at the
@@ -255,7 +257,33 @@ func JoinNonEmptyWithHyphens(parts []string) string {
 	return strings.Join(nonEmpty, "-")
 }
 
-// ShellSplit splits the input string in shell fashion.
+// ShellSplit splits the input string in shell fashion, with shell syntax as plain text as no shell runs these args.
 func ShellSplit(s string) ([]string, error) {
-	return shellwords.Parse(s)
+	return shellwords.Parse(escapeShellOperators(s))
+}
+
+// escapeShellOperators backslash-escapes unquoted shell syntax, which the parser would refuse or stop at, dropping the rest of s.
+func escapeShellOperators(s string) string {
+	var buf strings.Builder
+	escaped := false
+	singleQuoted := false
+	doubleQuoted := false
+
+	for i := range len(s) {
+		c := s[i]
+		switch {
+		case escaped:
+			escaped = false
+		case c == escapeByte && !singleQuoted:
+			escaped = true
+		case c == '\'' && !doubleQuoted:
+			singleQuoted = !singleQuoted
+		case c == '"' && !singleQuoted:
+			doubleQuoted = !doubleQuoted
+		case !singleQuoted && !doubleQuoted && strings.IndexByte(shellOperators, c) >= 0:
+			buf.WriteByte(escapeByte)
+		}
+		buf.WriteByte(c)
+	}
+	return buf.String()
 }

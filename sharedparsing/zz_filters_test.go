@@ -167,7 +167,7 @@ func FuzzFilterRoundTrip(f *testing.F) {
 			mustAny = "any"
 		}
 		want := sharedmodels.Filters{Field: field, FilterType: filterType, Value: value, MustAny: mustAny}
-		if field == "" || strings.ToLower(value) != value || (filterType != "contains" && filterType != "omits" && filterType != "equals") {
+		if slices.Contains(sharedparsing.SplitMultiField(field), "") || strings.ToLower(value) != value || (filterType != "contains" && filterType != "omits" && filterType != "equals") {
 			t.Skip()
 		}
 

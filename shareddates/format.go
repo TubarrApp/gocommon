@@ -58,7 +58,7 @@ func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate boo
 	}
 
 	// Remove hyphens ('yy-mm-dd' -> 'yymmdd').
-	beforeT = strings.ReplaceAll(beforeT, "-", "")
+	beforeT = removeDateHyphens(beforeT)
 
 	// Return formatted date, or original if malformed.
 	switch len(beforeT) {

@@ -25,6 +25,8 @@ func TestSanitizePathComponent(t *testing.T) {
 		{"trimmed", "  title  ", "title", 255},
 		{"cut", "abcdef", "abc", 3},
 		{"cut keeps runes whole", "aé", "a", 2},
+		{"cut leaves parent", ".." + strings.Repeat(" ", 300) + "x", "--", 255},
+		{"cut leaves current", "." + strings.Repeat(" ", 300) + "x", "-", 255},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

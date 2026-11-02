@@ -42,9 +42,20 @@ func ParseDuration(s string) (int, error) {
 
 	// Two or three part time (e.g. 'mm:ss', 'hh:mm:ss').
 	total := 0
-	for _, p := range parts {
+	for i, p := range parts {
+		p = strings.TrimSpace(p)
+
+		// Seconds may hold a fraction, dropped as in the other forms (e.g. '00:47:35.120').
+		if i == len(parts)-1 {
+			whole, fraction, _ := strings.Cut(p, ".")
+			if strings.Trim(fraction, "0123456789") != "" {
+				return 0, fmt.Errorf("invalid part %q in duration %q", p, s)
+			}
+			p = whole
+		}
+
 		// Grab component number (i.e. 'hh', 'mm', or 'ss').
-		n, err := strconv.Atoi(strings.TrimSpace(p))
+		n, err := strconv.Atoi(p)
 		if err != nil || n < 0 {
 			return 0, fmt.Errorf("invalid part %q in duration %q", p, s)
 		}

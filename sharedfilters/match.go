@@ -36,7 +36,7 @@ func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped b
 	for _, field := range sharedparsing.SplitMultiField(filter.Field) {
 		// Get metadata field value.
 		raw, metaExists := meta[field]
-		metaText = fmt.Sprint(raw)
+		metaText = metaString(raw)
 		if !metaExists {
 			metaText = ""
 		}
@@ -75,6 +75,14 @@ func Match(meta map[string]any, filter sharedmodels.Filters) (matched, skipped b
 	}
 
 	return matchAll, false, metaText, nil
+}
+
+// metaString renders a metadata value, writing JSON numbers in full rather than like 1.234567e+06.
+func metaString(raw any) string {
+	if f, ok := raw.(float64); ok {
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	return fmt.Sprint(raw)
 }
 
 // matchField is [Match] for a filter on a single field.

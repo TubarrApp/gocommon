@@ -32,6 +32,12 @@ func TestParseDuration(t *testing.T) {
 		"1:60:00":       7200,
 		" 1 : 02 : 03 ": 3723,
 
+		// Colon-separated durations with fractional seconds.
+		"00:47:35.120":       2855,
+		"1:02:03.5":          3723,
+		"62:03.9":            3723,
+		"01:23:45.678000000": 5025,
+
 		// ISO 8601 hours, minutes, and seconds.
 		"PT1H2M3S":    3723,
 		"pt47m":       2820,
@@ -74,6 +80,13 @@ func TestParseDuration(t *testing.T) {
 		"1:",
 		":1",
 		"1::2",
+
+		// A fraction only on the seconds, and only of digits.
+		"1:02:03.x",
+		"1:02:03.5.5",
+		"1:02:.5",
+		"1.5:02:03",
+		"1:02.5:03",
 
 		// Unsupported ISO 8601 years and months.
 		"P",

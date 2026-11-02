@@ -1,7 +1,9 @@
 package shareddates
 
 import (
+	"bytes"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/TubarrApp/gocommon/logging"
@@ -15,6 +17,7 @@ func TestMain(m *testing.M) {
 	testPl = &logging.ProgramLogger{
 		Console: io.Discard,
 	}
+	m.Run()
 }
 
 // TestParseWordDate verifies parsing of natural language and standard word date strings.
@@ -53,47 +56,58 @@ func TestParseWordDate(t *testing.T) {
 	}
 }
 
-// TestMaxDaysInMonth tests regular months, leap years, and non-leap years.
-func TestMaxDaysInMonth(t *testing.T) {
-	tests := []struct {
-		name        string
-		month       int
-		yearOrZero  int
-		wantMaxDays int
-	}{
-		{
-			name:        "January (31 days)",
-			month:       1,
-			yearOrZero:  2026,
-			wantMaxDays: 31,
-		},
-		{
-			name:        "February in leap year",
-			month:       2,
-			yearOrZero:  2024,
-			wantMaxDays: 29,
-		},
-		{
-			name:        "February in non-leap year",
-			month:       2,
-			yearOrZero:  2026,
-			wantMaxDays: 28,
-		},
-		{
-			name:        "February with zero year (defaults to 29)",
-			month:       2,
-			yearOrZero:  0,
-			wantMaxDays: 29,
-		},
+// TestUnpaddedDates tests single digit months and days are padded, not shifted when the hyphens are removed.
+func TestUnpaddedDates(t *testing.T) {
+	for in, want := range map[string]string{
+		"2025-1-2":            "2025-01-02",
+		"2025-10-5":           "2025-10-05",
+		"2025-1-15":           "2025-01-15",
+		"2025-1-2T10:00:00Z":  "2025-01-02",
+		"2025-01-02T10:00:00": "2025-01-02",
+	} {
+		y, m, d, err := ParseDateComponents(in, sharedenums.DateYyyyMmDd, testPl)
+		if err != nil {
+			t.Errorf("ParseDateComponents(%q): %v", in, err)
+			continue
+		}
+		if got := FormatDateString(y, m, d, sharedenums.DateYyyyMmDd); got != want {
+			t.Errorf("ParseDateComponents(%q) formats to %q, want %q", in, got, want)
+		}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := maxDaysInMonth(tt.month, tt.yearOrZero)
-			if got != tt.wantMaxDays {
-				t.Errorf("maxDaysInMonth() = %v, want %v", got, tt.wantMaxDays)
-			}
-		})
+	if got, made := YmdFromMeta("2025-1-2T10:00:00Z", testPl); !made || got != "2025-01-02T10:00:00Z" {
+		t.Errorf("YmdFromMeta = %q, %v, want it padded", got, made)
+	}
+}
+
+// TestParseNumDate tests days are written without a leading zero.
+func TestParseNumDate(t *testing.T) {
+	for in, want := range map[string]string{
+		"2025-01-01": "January 1st, 2025",
+		"2025-03-02": "March 2nd, 2025",
+		"2025-04-13": "April 13th, 2025",
+		"2025-11-21": "November 21st, 2025",
+	} {
+		if got, err := ParseNumDate(in, testPl); err != nil || got != want {
+			t.Errorf("ParseNumDate(%q) = %q, %v, want %q", in, got, err, want)
+		}
+	}
+}
+
+// TestDetectedFormatLog tests the detected date format is logged with its date filled in.
+func TestDetectedFormatLog(t *testing.T) {
+	var buf bytes.Buffer
+	pl := &logging.ProgramLogger{Console: &buf}
+	logging.SetLevel(1)
+	defer logging.SetLevel(-1)
+
+	for _, date := range []string{"20260110", "20262810"} {
+		if _, _, _, err := ParseDateComponents(date, sharedenums.DateYyyyMmDd, pl); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if strings.Contains(buf.String(), "%s") {
+		t.Errorf("log holds an unfilled placeholder: %q", buf.String())
 	}
 }
 
@@ -144,6 +158,24 @@ func TestParseDateComponents_Guesses(t *testing.T) {
 			input:     "1889",
 			dateFmt:   sharedenums.DateYyyyMmDd,
 			wantYear:  "1889",
+			wantMonth: "",
+			wantDay:   "",
+			wantErr:   false,
+		},
+		{
+			name:      "Recent year guess (2025)",
+			input:     "2025",
+			dateFmt:   sharedenums.DateYyyyMmDd,
+			wantYear:  "2025",
+			wantMonth: "",
+			wantDay:   "",
+			wantErr:   false,
+		},
+		{
+			name:      "Year guess in a two digit year format",
+			input:     "2025",
+			dateFmt:   sharedenums.DateYyMmDd,
+			wantYear:  "25",
 			wantMonth: "",
 			wantDay:   "",
 			wantErr:   false,

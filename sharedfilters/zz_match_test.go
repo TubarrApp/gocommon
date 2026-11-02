@@ -15,6 +15,11 @@ func TestMatch(t *testing.T) {
 		"duration_string": "7:24:44",
 		"length":          "PT07H24M44S",
 		"views":           "500",
+		"null_field":      nil,
+		"null_text":       "null",
+		"view_count":      1234567.0,
+		"timestamp":       1700000000.0,
+		"rating":          4.75,
 	}
 
 	tests := []struct {
@@ -38,6 +43,23 @@ func TestMatch(t *testing.T) {
 		{"presence omits missing field", sharedmodels.Filters{Field: "absent", FilterType: "omits"}, true, false, false},
 		{"presence omits present field", sharedmodels.Filters{Field: "title", FilterType: "omits"}, false, false, false},
 
+		// Presence is whether the key exists, even holding null or "". Not-equals with no value tests it holds something.
+		{"presence contains JSON null", sharedmodels.Filters{Field: "null_field", FilterType: "contains"}, true, false, false},
+		{"presence omits JSON null", sharedmodels.Filters{Field: "null_field", FilterType: "omits"}, false, false, false},
+		{"presence contains empty field", sharedmodels.Filters{Field: "description", FilterType: "contains"}, true, false, false},
+		{"presence omits empty field", sharedmodels.Filters{Field: "description", FilterType: "omits"}, false, false, false},
+		{"presence contains text null", sharedmodels.Filters{Field: "null_text", FilterType: "contains"}, true, false, false},
+		{"presence omits text null", sharedmodels.Filters{Field: "null_text", FilterType: "omits"}, false, false, false},
+		{"not-equals empty on JSON null", sharedmodels.Filters{Field: "null_field", FilterType: "not-equals"}, false, false, false},
+		{"not-equals empty on empty field", sharedmodels.Filters{Field: "description", FilterType: "not-equals"}, false, false, false},
+		{"not-equals empty on text null", sharedmodels.Filters{Field: "null_text", FilterType: "not-equals"}, true, false, false},
+
+		// A JSON null compares as empty, unlike the text "null".
+		{"equals empty on JSON null", sharedmodels.Filters{Field: "null_field", FilterType: "equals"}, true, false, false},
+		{"contains text on JSON null", sharedmodels.Filters{Field: "null_field", FilterType: "contains", Value: "null"}, false, false, false},
+		{"numeric on JSON null skips", sharedmodels.Filters{Field: "null_field", FilterType: "more-than", Value: "1"}, false, true, false},
+		{"contains on text null", sharedmodels.Filters{Field: "null_text", FilterType: "contains", Value: "null"}, true, false, false},
+
 		// Equals and not-equals with no value compare against "".
 		{"equals empty on empty field", sharedmodels.Filters{Field: "description", FilterType: "equals"}, true, false, false},
 		{"equals empty on missing field", sharedmodels.Filters{Field: "absent", FilterType: "equals"}, true, false, false},
@@ -55,6 +77,15 @@ func TestMatch(t *testing.T) {
 		{"more-than duration string", sharedmodels.Filters{Field: "duration_string", FilterType: "more-than", Value: "3600"}, true, false, false},
 		{"less-than duration string", sharedmodels.Filters{Field: "duration_string", FilterType: "less-than", Value: "3600"}, false, false, false},
 		{"more-than iso duration", sharedmodels.Filters{Field: "length", FilterType: "more-than", Value: "26000"}, true, false, false},
+
+		// JSON numbers compare as written in full, not in exponent form.
+		{"equals large number", sharedmodels.Filters{Field: "view_count", FilterType: "equals", Value: "1234567"}, true, false, false},
+		{"not-equals large number", sharedmodels.Filters{Field: "view_count", FilterType: "not-equals", Value: "1234567"}, false, false, false},
+		{"contains in large number", sharedmodels.Filters{Field: "timestamp", FilterType: "contains", Value: "1700"}, true, false, false},
+		{"omits in large number", sharedmodels.Filters{Field: "timestamp", FilterType: "omits", Value: "1700"}, false, false, false},
+		{"more-than large number", sharedmodels.Filters{Field: "view_count", FilterType: "more-than", Value: "1000000"}, true, false, false},
+		{"less-than large number", sharedmodels.Filters{Field: "view_count", FilterType: "less-than", Value: "1000000"}, false, false, false},
+		{"equals fraction", sharedmodels.Filters{Field: "rating", FilterType: "equals", Value: "4.75"}, true, false, false},
 
 		// Regex, which keeps case unless the pattern sets (?i).
 		{"regex hit", sharedmodels.Filters{Field: "title", FilterType: "regex-contains", Value: `^Cat \w+$`}, true, false, false},

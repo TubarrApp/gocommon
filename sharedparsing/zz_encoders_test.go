@@ -5,8 +5,79 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
+
+// TestParseCodecMappings tests splitting codec entries into a plain codec and per-source pairs, in any order.
+func TestParseCodecMappings(t *testing.T) {
+	tests := []struct {
+		in        []string
+		wantAll   string
+		wantPairs map[sharedmodels.FromCodec]string
+		ok        bool
+	}{
+		// Pass states.
+		{[]string{"hevc", "vp9:h264"}, "hevc", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
+		{[]string{"vp9:h264", "hevc"}, "hevc", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
+		{[]string{"x264"}, "h264", map[sharedmodels.FromCodec]string{}, true},
+		{[]string{"hevc", "libx265"}, "hevc", map[sharedmodels.FromCodec]string{}, true},
+		{[]string{"vp9:h264", "vp09:x264"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("vp9", ""): "h264"}, true},
+		{[]string{"", "av1:hevc"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("av1", ""): "hevc"}, true},
+		{nil, "", map[sharedmodels.FromCodec]string{}, true},
+		{[]string{"lc_h264:hevc"}, "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec("h264", sharedconsts.CompressionLow): "hevc"}, true},
+		{[]string{"none"}, "", map[sharedmodels.FromCodec]string{}, true},
+
+		// Fail states.
+		{[]string{"lc_h264"}, "", nil, false},
+		{[]string{"hevc", "h264"}, "", nil, false},
+		{[]string{"vp9:h264", "libvpxvp9:hevc"}, "", nil, false},
+		{[]string{":h264"}, "", nil, false},
+		{[]string{"vp9:bad"}, "", nil, false},
+		{[]string{"vp9:h264:av1"}, "", nil, false},
+		{[]string{"bad"}, "", nil, false},
+		{[]string{"zz_h264:hevc"}, "", nil, false},
+	}
+
+	for _, tt := range tests {
+		all, pairs, err := ParseCodecMappings(tt.in, sharedvalidation.ValidateVideoCodec)
+		if tt.ok != (err == nil) {
+			t.Errorf("ParseCodecMappings(%q) error = %v, want ok %v", tt.in, err, tt.ok)
+			continue
+		}
+		if all != tt.wantAll || !maps.Equal(pairs, tt.wantPairs) {
+			t.Errorf("ParseCodecMappings(%q) = (%q, %v), want (%q, %v)", tt.in, all, pairs, tt.wantAll, tt.wantPairs)
+		}
+	}
+}
+
+// TestParseAudioCodecMappings tests a "_" splits off a known compression level, and is otherwise part of the codec's name.
+func TestParseAudioCodecMappings(t *testing.T) {
+	low := sharedconsts.CompressionLow
+	tests := []struct {
+		in        string
+		wantAll   string
+		wantPairs map[sharedmodels.FromCodec]string
+	}{
+		{"pcm_s16le", sharedconsts.ACodecPCM, map[sharedmodels.FromCodec]string{}},
+		{"pcm_s16le:aac", "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.ACodecPCM, ""): sharedconsts.ACodecAAC}},
+		{"aac:pcm_s16le", "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, ""): sharedconsts.ACodecPCM}},
+		{"lc_pcm_s16le:aac", "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.ACodecPCM, low): sharedconsts.ACodecAAC}},
+		{"lc_aac:opus", "", map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, low): sharedconsts.ACodecOpus}},
+	}
+
+	for _, tt := range tests {
+		all, pairs, err := ParseCodecMappings([]string{tt.in}, sharedvalidation.ValidateAudioCodec)
+		if err != nil {
+			t.Errorf("ParseCodecMappings(%q) error = %v", tt.in, err)
+			continue
+		}
+		if all != tt.wantAll || !maps.Equal(pairs, tt.wantPairs) {
+			t.Errorf("ParseCodecMappings(%q) = (%q, %v), want (%q, %v)", tt.in, all, pairs, tt.wantAll, tt.wantPairs)
+		}
+	}
+}
 
 func TestParseCodecValueLines(t *testing.T) {
 	tests := []struct {
@@ -112,6 +183,17 @@ func TestParseVideoEncoderArgs(t *testing.T) {
 			},
 			false,
 		},
+		{
+			"shell characters stay in the args",
+			[]string{"av1:-svtav1-params a=1;b=2 -crf 30"},
+			map[string]sharedmodels.EncoderArgs{"av1": {Quality: "30", Args: []string{"-svtav1-params", "a=1;b=2"}}},
+			false,
+		},
+		{"bitrate nan", []string{"av1:-b:v nan"}, nil, true},
+		{"bitrate infinity", []string{"av1:-b:v inf"}, nil, true},
+		{"bitrate infinity with unit", []string{"av1:-b:v InfM"}, nil, true},
+		{"bitrate too large", []string{"av1:-b:v 1e30"}, nil, true},
+		{"bitrate too large with unit", []string{"av1:-b:v 1e16G"}, nil, true},
 		{"resolution named twice", []string{"av1:-b:v 1080=3M,1080p=4M"}, nil, true},
 		{"entry without a resolution", []string{"av1:-b:v 1080=3M,2M"}, nil, true},
 		{"bitrate not a number", []string{"av1:-b:v 1080=fast"}, nil, true},

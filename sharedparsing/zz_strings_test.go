@@ -134,6 +134,39 @@ func TestNaiveJoinLosesSeparators(t *testing.T) {
 	}
 }
 
+// TestShellSplit tests shell syntax stays plain text, as no shell runs these args, while quoting works as usual.
+func TestShellSplit(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    []string
+		wantErr bool
+	}{
+		{"--referer https://x/?a=1&b=2 --no-playlist", []string{"--referer", "https://x/?a=1&b=2", "--no-playlist"}, false},
+		{"--match-filter duration>60 --no-playlist", []string{"--match-filter", "duration>60", "--no-playlist"}, false},
+		{"-filter_complex [0:v]split[a][b];[a]hflip[c] -c:a aac", []string{"-filter_complex", "[0:v]split[a][b];[a]hflip[c]", "-c:a", "aac"}, false},
+		{"-o %(title)s.%(ext)s --no-part", []string{"-o", "%(title)s.%(ext)s", "--no-part"}, false},
+		{"-vf select=eq(n,0) -an", []string{"-vf", "select=eq(n,0)", "-an"}, false},
+		{"2>file x", []string{"2>file", "x"}, false},
+		{"`echo hi` x", []string{"`echo", "hi`", "x"}, false},
+		{"ok ; --exec rm", []string{"ok", ";", "--exec", "rm"}, false},
+		{`--title 'a;b' c\;d "e|f"`, []string{"--title", "a;b", "c;d", "e|f"}, false},
+		{`--add-headers "Referer: a b"`, []string{"--add-headers", "Referer: a b"}, false},
+		{`unterminated "quote`, nil, true},
+		{`trailing\`, nil, true},
+	}
+
+	for _, tt := range tests {
+		got, err := sharedparsing.ShellSplit(tt.in)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("ShellSplit(%q) error = %v, want error %v", tt.in, err, tt.wantErr)
+			continue
+		}
+		if !tt.wantErr && !slices.Equal(got, tt.want) {
+			t.Errorf("ShellSplit(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
 func TestDeduplicate(t *testing.T) {
 	in := []string{"a", "b", "a", "c", "b"}
 

@@ -3,6 +3,8 @@ package sharedenums
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
@@ -50,13 +52,7 @@ var dateFormatStrings = func() map[DateFormat]string {
 }()
 
 // ValidDateFormats lists every accepted date format directive.
-var ValidDateFormats = func() []string {
-	s := make([]string, 0, len(dateFormats))
-	for k := range dateFormats {
-		s = append(s, k)
-	}
-	return s
-}()
+var ValidDateFormats = slices.Sorted(maps.Keys(dateFormats))
 
 // ParseDateFormat returns the enum for a date format directive such as "ymd" or "dmY".
 func ParseDateFormat(dateFmt string) (DateFormat, error) {
