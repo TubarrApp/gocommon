@@ -8,18 +8,26 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
-// ValidateMaxResolution returns a maximum resolution as its shorter side in pixels, e.g. "1080" from "1080p" or "2160" from "4k".
+// ValidateMaxResolution returns a maximum resolution in pixel width, e.g. "1080" from "1080p" or "2160" from "4k".
 func ValidateMaxResolution(r string) (string, error) {
-	r = strings.ToLower(strings.TrimSpace(r))
+	// Normalize string.
+	r = strings.ToLower(r)
+	r = strings.ReplaceAll(r, " ", "")
+	r = strings.TrimSuffix(r, "p")
+	r = strings.TrimSuffix(r, "i")
+
+	// Check blank.
 	if r == "" {
 		return "", nil
 	}
+
+	// Grab value from alias mapping, e.g. "4k" -> "2160".
 	if pixels, ok := sharedconsts.ResolutionAlias[r]; ok {
 		return pixels, nil
 	}
 
-	// A number of pixels, with or without a trailing 'p'.
-	pixels, err := strconv.Atoi(strings.TrimSuffix(r, "p"))
+	// Get pixel width.
+	pixels, err := strconv.Atoi(r)
 	if err != nil || pixels <= 0 {
 		return "", fmt.Errorf("max resolution should be a size like 1080, 1080p, 4k or 8k, got %q", r)
 	}

@@ -9,22 +9,6 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
-// containerExt returns ext lowercased, with a leading dot.
-func containerExt(ext string) string {
-	ext = strings.ToLower(strings.TrimSpace(ext))
-	if ext != "" && !strings.HasPrefix(ext, ".") {
-		ext = "." + ext
-	}
-	return ext
-}
-
-// codecFits reports whether table lets codec go in a file of extension ext. Blank and "copy" codecs, and containers
-// missing from table, are taken to fit.
-func codecFits(table map[string][]string, ext, codec string) bool {
-	codecs, known := table[containerExt(ext)]
-	return !known || codec == "" || codec == sharedconsts.VCodecCopy || slices.Contains(codecs, codec)
-}
-
 // VideoCodecFits reports whether ffmpeg can write the (normalized) video codec into a file of extension ext.
 func VideoCodecFits(ext, codec string) bool {
 	return codecFits(sharedconsts.ContainerCompatibleVideoCodecs, ext, codec)
@@ -36,31 +20,33 @@ func AudioCodecFits(ext, codec string) bool {
 }
 
 // FittingVideoCodecs returns the video codecs ext can hold, in sharedconsts.IncompatibleVideoCodecPreference order.
-func FittingVideoCodecs(ext string) []string {
-	var fits []string
-	for _, c := range sharedconsts.IncompatibleVideoCodecPreference {
-		if VideoCodecFits(ext, c) {
-			fits = append(fits, c)
-		}
-	}
-	return fits
-}
+func FittingCodecs(kind sharedconsts.MediaType, ext string) []string {
+	// Use the longer of the two preference lists, to avoid reallocations.
+	fits := make([]string, 0, len(sharedconsts.IncompatibleAudioCodecPreference))
 
-// FittingAudioCodecs returns the audio codecs ext can hold, in sharedconsts.IncompatibleAudioCodecPreference order.
-func FittingAudioCodecs(ext string) []string {
-	var fits []string
-	for _, c := range sharedconsts.IncompatibleAudioCodecPreference {
-		if AudioCodecFits(ext, c) {
-			fits = append(fits, c)
+	// Check compatibility table based on preference.
+	switch kind {
+	case sharedconsts.Video:
+		for _, c := range sharedconsts.IncompatibleVideoCodecPreference {
+			if codecFits(sharedconsts.ContainerCompatibleVideoCodecs, ext, c) {
+				fits = append(fits, c)
+			}
+		}
+	case sharedconsts.Audio:
+		for _, c := range sharedconsts.IncompatibleAudioCodecPreference {
+			if codecFits(sharedconsts.ContainerCompatibleAudioCodecs, ext, c) {
+				fits = append(fits, c)
+			}
 		}
 	}
+
 	return fits
 }
 
 // CodecMismatchError describes a codec that can't go in a container, naming the containers it fits.
-func CodecMismatchError(kind, codec, ext string) error {
+func CodecMismatchError(kind sharedconsts.MediaType, codec, ext string) error {
 	table := sharedconsts.ContainerCompatibleVideoCodecs
-	if kind == "audio" {
+	if kind == sharedconsts.Audio {
 		table = sharedconsts.ContainerCompatibleAudioCodecs
 	}
 	var fits []string
@@ -83,8 +69,8 @@ func ValidateCodecsForContainer(ext string, videoCodecs, audioCodecs []string) e
 		if err != nil {
 			return err
 		}
-		if !VideoCodecFits(ext, c) {
-			return CodecMismatchError("video", c, ext)
+		if !codecFits(sharedconsts.ContainerCompatibleVideoCodecs, ext, c) {
+			return CodecMismatchError(sharedconsts.Video, c, ext)
 		}
 	}
 	for _, pair := range audioCodecs {
@@ -92,11 +78,27 @@ func ValidateCodecsForContainer(ext string, videoCodecs, audioCodecs []string) e
 		if err != nil {
 			return err
 		}
-		if !AudioCodecFits(ext, c) {
-			return CodecMismatchError("audio", c, ext)
+		if !codecFits(sharedconsts.ContainerCompatibleAudioCodecs, ext, c) {
+			return CodecMismatchError(sharedconsts.Audio, c, ext)
 		}
 	}
 	return nil
+}
+
+// codecFits reports whether table lets codec go in a file of extension ext. Blank and "copy" codecs, and containers
+// missing from table, are taken to fit.
+func codecFits(table map[string][]string, ext, codec string) bool {
+	codecs, known := table[containerExt(ext)]
+	return !known || codec == "" || codec == sharedconsts.VCodecCopy || slices.Contains(codecs, codec)
+}
+
+// containerExt returns ext lowercased, with a leading dot.
+func containerExt(ext string) string {
+	ext = strings.ToLower(strings.TrimSpace(ext))
+	if ext != "" && !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+	return ext
 }
 
 // outputCodec returns the codec a transcode entry outputs: the last of its ":"-separated parts.

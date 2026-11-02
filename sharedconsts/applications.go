@@ -4,6 +4,15 @@ import (
 	"strings"
 )
 
+// Simple string type for media forms, used in sharedvalidation/containers.go (etc.)
+// to distinguish between video and audio.
+type MediaType string
+
+const (
+	Video MediaType = "video"
+	Audio MediaType = "audio"
+)
+
 // BlockedFFmpegOptions contains FFmpeg options that users shouldn't use.
 var BlockedFFmpegOptions = map[string]struct{}{
 	"-attach":             {},

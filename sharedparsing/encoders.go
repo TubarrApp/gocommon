@@ -32,7 +32,7 @@ func EncoderOnlyOption(args []string) (option string, found bool) {
 
 // ParseVideoEncoderArgs parses "codec:args" lines into encoder args per target codec.
 func ParseVideoEncoderArgs(lines []string) (map[string]sharedmodels.EncoderArgs, error) {
-	byCodec, err := sharedvalidation.ParseCodecValueLines(lines)
+	byCodec, err := parseCodecArgLines(lines)
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +45,42 @@ func ParseVideoEncoderArgs(lines []string) (map[string]sharedmodels.EncoderArgs,
 		}
 	}
 	return parsed, nil
+}
+
+// parseCodecArgLines splits "codec:value" lines into values per target codec.
+func parseCodecArgLines(lines []string) (byCodec map[string]string, err error) {
+	byCodec = make(map[string]string, len(lines))
+
+	// Check lines.
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Every line names its codec first.
+		codec, value, found := strings.Cut(line, ":")
+		if !found {
+			return nil, fmt.Errorf("line %q needs a codec first, e.g. av1:%s", line, line)
+		}
+
+		// Each codec named once.
+		if codec, err = sharedvalidation.ValidateVideoCodec(codec); err != nil {
+			return nil, err
+		}
+		if codec == "" {
+			return nil, fmt.Errorf("line %q has no codec before ':'", line)
+		}
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return nil, fmt.Errorf("line %q has no value after ':'", line)
+		}
+		if _, ok := byCodec[codec]; ok {
+			return nil, fmt.Errorf("codec %q is named more than once, keep only one", codec)
+		}
+		byCodec[codec] = value
+	}
+	return byCodec, nil
 }
 
 // parseEncoderArgs splits a codec's args, taking out -crf, -pix_fmt, -vf, -pass and -b:v for Metarr to convert per encoder.
@@ -174,7 +210,7 @@ func parseBitrate(s string) (int64, error) {
 	if s != "" {
 		switch strings.ToLower(s[len(s)-1:]) {
 		case "k":
-			multiplier = 1e3
+			multiplier = 1e3 // e means number of zeros, not scientific notation, so 1e3 = 1000.
 		case "m":
 			multiplier = 1e6
 		case "g":
@@ -194,10 +230,18 @@ func parseBitrate(s string) (int64, error) {
 // encoderOnly reports whether Metarr sets the option itself, converted for the encoder that runs.
 func encoderOnly(option string) bool {
 	switch option {
-	case crfOption, pixFmtOption, vfOption, filterOption, passOption, bitrateOption:
+	case crfOption,
+		pixFmtOption,
+		vfOption,
+		filterOption,
+		passOption,
+		bitrateOption:
+
 		return true
+
+	default:
+		return false
 	}
-	return false
 }
 
 // videoOption returns an option's name without a video stream specifier, e.g. "-crf" from "-crf:v:0".

@@ -1,12 +1,44 @@
-package sharedparsing_test
+package sharedparsing
 
 import (
+	"maps"
 	"reflect"
 	"testing"
 
 	"github.com/TubarrApp/gocommon/sharedmodels"
-	"github.com/TubarrApp/gocommon/sharedparsing"
 )
+
+func TestParseCodecValueLines(t *testing.T) {
+	tests := []struct {
+		name        string
+		lines       []string
+		wantByCodec map[string]string
+		wantErr     bool
+	}{
+		{"codec lines", []string{" av1: -crf 35 ", "", "hevc:-preset slow"}, map[string]string{"av1": "-crf 35", "hevc": "-preset slow"}, false},
+		{"alias normalized", []string{"x265:-crf 24"}, map[string]string{"hevc": "-crf 24"}, false},
+		{"args keep inner colons", []string{"av1:-svtav1-params tune=0:film-grain=8"}, map[string]string{"av1": "-svtav1-params tune=0:film-grain=8"}, false},
+		{"no codec", []string{"-preset 6"}, nil, true},
+		{"args with colon but no codec", []string{"-vf scale=1280:-2"}, nil, true},
+		{"codec named twice", []string{"av1:-crf 30", "av1:-crf 35"}, nil, true},
+		{"empty codec", []string{":-crf 35"}, nil, true},
+		{"empty value", []string{"av1:"}, nil, true},
+	}
+
+	for _, tt := range tests {
+		byCodec, err := parseCodecArgLines(tt.lines)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
+			continue
+		}
+		if tt.wantErr {
+			continue
+		}
+		if !maps.Equal(byCodec, tt.wantByCodec) {
+			t.Errorf("%s: got %v, want %v", tt.name, byCodec, tt.wantByCodec)
+		}
+	}
+}
 
 func TestParseVideoEncoderArgs(t *testing.T) {
 	tests := []struct {
@@ -102,7 +134,7 @@ func TestParseVideoEncoderArgs(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := sharedparsing.ParseVideoEncoderArgs(tt.lines)
+		got, err := ParseVideoEncoderArgs(tt.lines)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
 			continue
@@ -133,7 +165,7 @@ func TestEncoderOnlyOption(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, found := sharedparsing.EncoderOnlyOption(tt.args)
+		got, found := EncoderOnlyOption(tt.args)
 		if got != tt.want || found != tt.wantFound {
 			t.Errorf("EncoderOnlyOption(%q) = %q, %v; want %q, %v", tt.args, got, found, tt.want, tt.wantFound)
 		}

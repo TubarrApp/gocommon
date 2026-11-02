@@ -2,11 +2,73 @@ package sharedvalidation
 
 import (
 	"fmt"
+	"os"
+	"runtime"
 	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
+
+// ValidateGPUAccelType validates a GPU acceleration type string.
+func ValidateGPUAccelType(a string) (validAccelType string, err error) {
+	// Normalize input.
+	a = strings.ToLower(strings.TrimSpace(a))
+
+	// Synonym and alias mapping.
+	if mapped, ok := sharedconsts.AccelAlias[a]; ok {
+		a = mapped
+	}
+
+	// Check against valid acceleration type map.
+	if _, ok := sharedconsts.ValidGPUAccelTypes[a]; ok {
+		return a, nil
+	}
+
+	// Return error on map check failure.
+	return "", fmt.Errorf("GPU acceleration type %q is not valid. Supported: %v", a, sortedKeys(sharedconsts.ValidGPUAccelTypes))
+}
+
+// OSSupportsAccelType verified OS support for this acceleration type.
+func OSSupportsAccelType(a string) bool {
+	OS := runtime.GOOS
+
+	// AMD.
+	if a == sharedconsts.AccelTypeAMF {
+		return OS == "windows" // Only supported on Windows.
+	}
+	// VAAPI.
+	if a == sharedconsts.AccelTypeVAAPI {
+		return OS == "linux" // Only supported on Linux.
+	}
+	// Mac and not videotoolbox.
+	if OS == "darwin" {
+		return a == sharedconsts.AccelTypeVideoToolbox
+	}
+
+	// Return true by default.
+	return true
+}
+
+// ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
+func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
+	// Ensure device node exists if required.
+	if nodePath == "" {
+		switch g {
+		case sharedconsts.AccelTypeVAAPI:
+			return "", fmt.Errorf("acceleration type %q requires a device directory on Linux systems", g)
+		default: // Sent in empty.
+			return nodePath, nil
+		}
+	}
+
+	// Check device node.
+	if _, err := os.Stat(nodePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("driver node path %q does not appear to exist?", nodePath)
+	}
+
+	return nodePath, nil
+}
 
 // ValidateConcurrencyLimit validates a concurrency limit, returning at least 1.
 func ValidateConcurrencyLimit(c int) int {

@@ -2,8 +2,6 @@ package sharedvalidation
 
 import (
 	"fmt"
-	"os"
-	"runtime"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -40,7 +38,8 @@ func ValidateVideoCodec(c string) (string, error) {
 
 // ValidateVideoCodecWithAccel validates a video codec string with GPU acceleration context.
 //
-// Returns an error if auto/none codec is used with specific GPU acceleration.
+// Returns an error if a non-auto or blank acceleration type is provided without a valid codec.
+// (GPU acceleration uses flags like nvenc_h264).
 func ValidateVideoCodecWithAccel(c, accelType string) (validVideoCodec string, err error) {
 	// Ensure valid codec.
 	if c, err = ValidateVideoCodec(c); err != nil {
@@ -140,102 +139,6 @@ func ParseCodecMappings(entries []string, validate func(string) (string, error))
 		pairs[fromCodec] = to
 	}
 	return allTo, pairs, nil
-}
-
-// ParseCodecValueLines splits "codec:value" lines into values per target codec.
-func ParseCodecValueLines(lines []string) (byCodec map[string]string, err error) {
-	byCodec = make(map[string]string, len(lines))
-
-	// Check lines.
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		// Every line names its codec first.
-		codec, value, found := strings.Cut(line, ":")
-		if !found {
-			return nil, fmt.Errorf("line %q needs a codec first, e.g. av1:%s", line, line)
-		}
-
-		// Each codec named once.
-		if codec, err = ValidateVideoCodec(codec); err != nil {
-			return nil, err
-		}
-		if codec == "" {
-			return nil, fmt.Errorf("line %q has no codec before ':'", line)
-		}
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return nil, fmt.Errorf("line %q has no value after ':'", line)
-		}
-		if _, ok := byCodec[codec]; ok {
-			return nil, fmt.Errorf("codec %q is named more than once, keep only one", codec)
-		}
-		byCodec[codec] = value
-	}
-	return byCodec, nil
-}
-
-// ValidateGPUAccelType validates a GPU acceleration type string.
-func ValidateGPUAccelType(a string) (validAccelType string, err error) {
-	// Normalize input.
-	a = strings.ToLower(strings.TrimSpace(a))
-
-	// Synonym and alias mapping.
-	if mapped, ok := sharedconsts.AccelAlias[a]; ok {
-		a = mapped
-	}
-
-	// Check against valid acceleration type map.
-	if _, ok := sharedconsts.ValidGPUAccelTypes[a]; ok {
-		return a, nil
-	}
-
-	// Return error on map check failure.
-	return "", fmt.Errorf("GPU acceleration type %q is not valid. Supported: %v", a, sortedKeys(sharedconsts.ValidGPUAccelTypes))
-}
-
-// OSSupportsAccelType verified OS support for this acceleration type.
-func OSSupportsAccelType(a string) bool {
-	OS := runtime.GOOS
-
-	// AMD.
-	if a == sharedconsts.AccelTypeAMF {
-		return OS == "windows" // Only supported on Windows.
-	}
-	// VAAPI.
-	if a == sharedconsts.AccelTypeVAAPI {
-		return OS == "linux" // Only supported on Linux.
-	}
-	// Mac and not videotoolbox.
-	if OS == "darwin" {
-		return a == sharedconsts.AccelTypeVideoToolbox
-	}
-
-	// Return true by default.
-	return true
-}
-
-// ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).
-func ValidateAccelTypeDeviceNode(g, nodePath string) (validNodePath string, err error) {
-	// Ensure device node exists if required.
-	if nodePath == "" {
-		switch g {
-		case sharedconsts.AccelTypeVAAPI:
-			return "", fmt.Errorf("acceleration type %q requires a device directory on Linux systems", g)
-		default: // Sent in empty.
-			return nodePath, nil
-		}
-	}
-
-	// Check device node.
-	if _, err := os.Stat(nodePath); os.IsNotExist(err) {
-		return "", fmt.Errorf("driver node path %q does not appear to exist?", nodePath)
-	}
-
-	return nodePath, nil
 }
 
 // validateFromCodec returns a valid FromCodec model if valid.
