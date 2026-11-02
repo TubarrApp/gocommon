@@ -37,17 +37,15 @@ func OSSupportsAccelType(a string) bool {
 	if a == sharedconsts.AccelTypeAMF {
 		return OS == "windows" // Only supported on Windows.
 	}
+
 	// VAAPI.
 	if a == sharedconsts.AccelTypeVAAPI {
 		return OS == "linux" // Only supported on Linux.
 	}
-	// VideoToolbox.
-	if a == sharedconsts.AccelTypeVideoToolbox {
-		return OS == "darwin" // Only supported on Mac.
-	}
+
 	// Mac has nothing else, though "auto" can still pick VideoToolbox.
 	if OS == "darwin" {
-		return a == sharedconsts.AccelTypeAuto
+		return a == sharedconsts.AccelTypeAuto || a == sharedconsts.AccelTypeVideoToolbox
 	}
 
 	// Return true by default.
