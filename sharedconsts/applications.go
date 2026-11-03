@@ -6,7 +6,11 @@ import (
 
 // BlockedFFmpegOptions contains FFmpeg options that users shouldn't use.
 var BlockedFFmpegOptions = map[string]struct{}{
+	"-acodec":             {},
 	"-attach":             {},
+	"-c":                  {},
+	"-codec":              {},
+	"-dcodec":             {},
 	"-dump_attachment":    {},
 	"-f":                  {},
 	"-filter_complex":     {},
@@ -17,7 +21,9 @@ var BlockedFFmpegOptions = map[string]struct{}{
 	"-protocol_blacklist": {},
 	"-protocol_whitelist": {},
 	"-report":             {},
+	"-scodec":             {},
 	"-sdp_file":           {},
+	"-vcodec":             {},
 	"-vn":                 {},
 	"-vstats_file":        {},
 }

@@ -26,7 +26,14 @@ func TestHasBlockedOptions(t *testing.T) {
 		{[]string{"--plugin-d", "x"}, BlockedYtdlpOptions, "--plugin-d"},
 		{[]string{"--alia", "a", "b"}, BlockedYtdlpOptions, "--alia"},
 		{[]string{"--netrc", "--netrc-location", "x", "--", "https://example.com"}, BlockedYtdlpOptions, ""},
-		{[]string{"-c:v", "libx264", "-b:v", "3M", "-map", "0:v", "-metadata:s:a:0", "language=eng", "-vf", "scale=1280:-2"}, BlockedFFmpegOptions, ""},
+		{[]string{"-c:v", "libx264"}, BlockedFFmpegOptions, "-c"},
+		{[]string{"-c:a", "aac"}, BlockedFFmpegOptions, "-c"},
+		{[]string{"-c", "copy"}, BlockedFFmpegOptions, "-c"},
+		{[]string{"-codec:v", "libx264"}, BlockedFFmpegOptions, "-codec"},
+		{[]string{"-vcodec", "libx264"}, BlockedFFmpegOptions, "-vcodec"},
+		{[]string{"-acodec", "aac"}, BlockedFFmpegOptions, "-acodec"},
+		{[]string{"-b:v", "3M", "-map", "0:v", "-metadata:s:a:0", "language=eng", "-vf", "scale=1280:-2"}, BlockedFFmpegOptions, ""},
+		{[]string{"-cpu-used", "8", "-coder", "0", "-color_primaries", "bt709"}, BlockedFFmpegOptions, ""},
 		{[]string{"-f", "bestvideo[height<=720]+bestaudio", "-o", "%(title)s:%(id)s.%(ext)s", "https://example.com/watch?v=1"}, BlockedYtdlpOptions, ""},
 	}
 	for _, tt := range tests {

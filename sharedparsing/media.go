@@ -281,9 +281,12 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 		}
 	}
 
-	// The AV1 encoder won't start given both a quality and a target bitrate.
-	if codec == sharedconsts.VCodecAV1 && parsed.Quality != "" && hasBitrate {
-		return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with a target bitrate (-b:v), keep only one", codec)
+	// These encoders use a quality or a target bitrate, not both: AV1's won't start, H.264's and HEVC's ignore the bitrate.
+	switch codec {
+	case sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC:
+		if parsed.Quality != "" && hasBitrate {
+			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with a target bitrate (-b:v), keep only one", codec)
+		}
 	}
 	return parsed, nil
 }
