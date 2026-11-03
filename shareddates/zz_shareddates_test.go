@@ -44,7 +44,7 @@ func TestParseWordDate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseWordDate(tt.input) // Called directly since we are in the same package
+			got, err := ParseWordDate(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseWordDate() error = %v, wantErr %v", err, tt.wantErr)
 				return
