@@ -31,6 +31,10 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 
 // OSSupportsAccelType verifies OS support for this acceleration type.
 func OSSupportsAccelType(a string) bool {
+	// FFmpeg can handle 'auto' internally for any OS.
+	if a == sharedconsts.AccelTypeAuto {
+		return true
+	}
 	return sharedconsts.OSSupportedAccelTypes[runtime.GOOS][a]
 }
 

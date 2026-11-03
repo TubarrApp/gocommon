@@ -7,11 +7,11 @@ import (
 
 // TestOSSupportedAccelTypes tests each main OS lists exactly the acceleration types it has.
 func TestOSSupportedAccelTypes(t *testing.T) {
-	all := []string{AccelTypeAuto, AccelTypeAMF, AccelTypeCuda, AccelTypeQSV, AccelTypeVAAPI, AccelTypeVideoToolbox}
+	all := []string{AccelTypeAMF, AccelTypeCuda, AccelTypeQSV, AccelTypeVAAPI, AccelTypeVideoToolbox}
 	for os, want := range map[string][]string{
-		OSDarwin:  {AccelTypeAuto, AccelTypeVideoToolbox},
-		OSLinux:   {AccelTypeAuto, AccelTypeCuda, AccelTypeQSV, AccelTypeVAAPI},
-		OSWindows: {AccelTypeAuto, AccelTypeAMF, AccelTypeCuda, AccelTypeQSV},
+		OSDarwin:  {AccelTypeVideoToolbox},
+		OSLinux:   {AccelTypeCuda, AccelTypeQSV, AccelTypeVAAPI},
+		OSWindows: {AccelTypeAMF, AccelTypeCuda, AccelTypeQSV},
 	} {
 		for _, accel := range all {
 			if got := OSSupportedAccelTypes[os][accel]; got != slices.Contains(want, accel) {
