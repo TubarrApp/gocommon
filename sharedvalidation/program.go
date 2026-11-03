@@ -29,27 +29,9 @@ func ValidateGPUAccelType(a string) (validAccelType string, err error) {
 	return "", fmt.Errorf("GPU acceleration type %q is not valid. Supported: %v", a, sortedKeys(sharedconsts.ValidGPUAccelTypes))
 }
 
-// OSSupportsAccelType verified OS support for this acceleration type.
+// OSSupportsAccelType verifies OS support for this acceleration type.
 func OSSupportsAccelType(a string) bool {
-	OS := runtime.GOOS
-
-	// AMD.
-	if a == sharedconsts.AccelTypeAMF {
-		return OS == "windows" // Only supported on Windows.
-	}
-
-	// VAAPI.
-	if a == sharedconsts.AccelTypeVAAPI {
-		return OS == "linux" // Only supported on Linux.
-	}
-
-	// Mac has nothing else, though "auto" can still pick VideoToolbox.
-	if OS == "darwin" {
-		return a == sharedconsts.AccelTypeAuto || a == sharedconsts.AccelTypeVideoToolbox
-	}
-
-	// Return true by default.
-	return true
+	return sharedconsts.OSSupportedAccelTypes[runtime.GOOS][a]
 }
 
 // ValidateAccelTypeDeviceNode checks the entered driver directory is valid for the acceleration type (will NOT show as dir, do not use IsDir check).

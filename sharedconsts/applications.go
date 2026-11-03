@@ -4,6 +4,33 @@ import (
 	"strings"
 )
 
+// OS constants.
+const (
+	OSDarwin  = "darwin" // macOS
+	OSLinux   = "linux"
+	OSWindows = "windows"
+)
+
+// OSSupportedAccelTypes maps OS names to the GPU acceleration types they support.
+var OSSupportedAccelTypes = map[string]map[string]bool{
+	OSDarwin: {
+		AccelTypeAuto:         true,
+		AccelTypeVideoToolbox: true,
+	},
+	OSLinux: {
+		AccelTypeAuto:  true,
+		AccelTypeVAAPI: true,
+		AccelTypeCuda:  true,
+		AccelTypeQSV:   true,
+	},
+	OSWindows: {
+		AccelTypeAuto: true,
+		AccelTypeAMF:  true,
+		AccelTypeCuda: true,
+		AccelTypeQSV:  true,
+	},
+}
+
 // BlockedFFmpegOptions contains FFmpeg options that users shouldn't use.
 var BlockedFFmpegOptions = map[string]struct{}{
 	"-acodec":             {},
@@ -23,6 +50,7 @@ var BlockedFFmpegOptions = map[string]struct{}{
 	"-report":             {},
 	"-scodec":             {},
 	"-sdp_file":           {},
+	"-shortest":           {},
 	"-vcodec":             {},
 	"-vn":                 {},
 	"-vstats_file":        {},

@@ -1,6 +1,25 @@
 package sharedconsts
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
+
+// TestOSSupportedAccelTypes tests each main OS lists exactly the acceleration types it has.
+func TestOSSupportedAccelTypes(t *testing.T) {
+	all := []string{AccelTypeAuto, AccelTypeAMF, AccelTypeCuda, AccelTypeQSV, AccelTypeVAAPI, AccelTypeVideoToolbox}
+	for os, want := range map[string][]string{
+		OSDarwin:  {AccelTypeAuto, AccelTypeVideoToolbox},
+		OSLinux:   {AccelTypeAuto, AccelTypeCuda, AccelTypeQSV, AccelTypeVAAPI},
+		OSWindows: {AccelTypeAuto, AccelTypeAMF, AccelTypeCuda, AccelTypeQSV},
+	} {
+		for _, accel := range all {
+			if got := OSSupportedAccelTypes[os][accel]; got != slices.Contains(want, accel) {
+				t.Errorf("%s supports %s = %t, want %t", os, accel, got, !got)
+			}
+		}
+	}
+}
 
 // TestHasBlockedOptions tests blocked options are caught with a value or stream specifier, and normal args pass.
 func TestHasBlockedOptions(t *testing.T) {
@@ -18,6 +37,7 @@ func TestHasBlockedOptions(t *testing.T) {
 		{[]string{"-f", "matroska"}, BlockedFFmpegOptions, "-f"},
 		{[]string{"-filter_complex", "anullsrc"}, BlockedFFmpegOptions, "-filter_complex"},
 		{[]string{"-lavfi", "anullsrc"}, BlockedFFmpegOptions, "-lavfi"},
+		{[]string{"-shortest"}, BlockedFFmpegOptions, "-shortest"},
 		{[]string{"-fflags", "+bitexact", "-filter:a", "volume=2"}, BlockedFFmpegOptions, ""},
 		{[]string{"--exec-before-download", "x"}, BlockedYtdlpOptions, "--exec-before-download"},
 		{[]string{"--exec-b=x"}, BlockedYtdlpOptions, "--exec-b"},
