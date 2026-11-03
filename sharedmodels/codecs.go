@@ -19,6 +19,16 @@ type EncoderArgs struct {
 	Args        []string      // The rest, as typed.
 }
 
+// EncoderSettings holds the settings encoder args are judged with, as a video will get them.
+type EncoderSettings struct {
+	VideoArgs   []string // "codec:args" lines.
+	VideoCodecs []string // Video codec entries.
+	AudioCodecs []string // Audio codec entries.
+	ExtraArgs   string   // Extra FFmpeg args.
+	OutputExt   string   // Blank or "same" keeps the video's container.
+	Software    bool     // Whether software encoders run, as GPU encoders take other values.
+}
+
 // NewFromCodec returns a 'FromCodec' model.
 func NewFromCodec(codec string, compression sharedconsts.CompressionLevel) FromCodec {
 	return FromCodec{
