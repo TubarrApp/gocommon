@@ -4,6 +4,14 @@ import (
 	"strings"
 )
 
+// Programs.
+const (
+	ProgramFFmpeg  = "ffmpeg"
+	ProgramFFprobe = "ffprobe"
+	ProgramYTDLP   = "yt-dlp"
+	ProgramMetarr  = "metarr"
+)
+
 // OS constants.
 const (
 	OSDarwin  = "darwin" // macOS
