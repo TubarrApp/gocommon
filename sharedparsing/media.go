@@ -21,6 +21,9 @@ const (
 	bitrateOption = "-b"
 )
 
+// minBitrate is the lowest target bitrate taken, in bits per second, as encoders can write no frames at all below it.
+const minBitrate = 1000
+
 // EncoderOnlyOption reports the first option in args that Metarr only sets when encoding (-crf, -pix_fmt, -vf, -filter:v, -pass or -b:v).
 func EncoderOnlyOption(args []string) (option string, found bool) {
 	for _, arg := range args {
@@ -263,18 +266,24 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 		}
 	}
 
+	hasBitrate := false
+	for _, bitrate := range parsed.Bitrates {
+		hasBitrate = hasBitrate || bitrate > 0
+	}
+
 	// Some encoders need a target bitrate, not a quality, for more than one pass.
 	if _, needsBitrate := sharedconsts.MultiPassNeedsBitrate[codec]; needsBitrate && parsed.Passes > 1 {
 		if parsed.Quality != "" {
 			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with more than one pass, give a target bitrate with -b:v instead", codec)
 		}
-		hasBitrate := false
-		for _, bitrate := range parsed.Bitrates {
-			hasBitrate = hasBitrate || bitrate > 0
-		}
 		if !hasBitrate {
 			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s needs a target bitrate (-b:v) for more than one pass", codec)
 		}
+	}
+
+	// The AV1 encoder won't start given both a quality and a target bitrate.
+	if codec == sharedconsts.VCodecAV1 && parsed.Quality != "" && hasBitrate {
+		return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with a target bitrate (-b:v), keep only one", codec)
 	}
 	return parsed, nil
 }
@@ -336,7 +345,13 @@ func parseBitrate(s string) (int64, error) {
 	if err != nil || math.IsNaN(n) || n < 0 || n*multiplier >= math.MaxInt64 {
 		return 0, fmt.Errorf("bitrate should be a number with k, M or G, e.g. 3M or 1500k, got %q", s)
 	}
-	return int64(n * multiplier), nil
+	bitrate := int64(n * multiplier)
+
+	// 0 is no target, which some encoders use with a quality.
+	if bitrate > 0 && bitrate < minBitrate {
+		return 0, fmt.Errorf("bitrate %q is too low to encode a video, use at least 1k, or 0 for no target", s)
+	}
+	return bitrate, nil
 }
 
 // encoderOnly reports whether Metarr sets the option itself, converted for the encoder that runs.

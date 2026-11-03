@@ -1,5 +1,14 @@
 package sharedconsts
 
+// Simple string type for media forms, used in sharedvalidation/containers.go (etc.)
+// to distinguish between video and audio.
+type MediaType string
+
+const (
+	Video MediaType = "video"
+	Audio MediaType = "audio"
+)
+
 // Compression thresholds.
 const (
 	BPPPFHighCompressionThreshold        = 0.04

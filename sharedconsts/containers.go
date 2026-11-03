@@ -39,6 +39,8 @@ const (
 // 9.0.2; DTS and TrueHD with -strict experimental, as Metarr runs them).
 // .ogm files are written by the .ogv muxer, so they share its lists. .rm and .rmvb list nothing, which refuses them as
 // output: ffmpeg's RealMedia muxer only holds RealVideo, and even a copied stream comes out undecodable.
+// .avi leaves out DTS, E-AC-3, FLAC and Vorbis, though ffmpeg writes them without error: their timestamps come out wrong
+// (Metarr's TestTranscodeSweep), and a 10 second clip can claim to last for hours.
 
 // ContainerCompatibleVideoCodecs lists the video codecs each container can hold.
 var ContainerCompatibleVideoCodecs = map[string][]string{
@@ -70,7 +72,7 @@ var ContainerCompatibleAudioCodecs = map[string][]string{
 	Ext3GP:  {ACodecAAC},
 	Ext3G2:  {ACodecAAC},
 	ExtASF:  {ACodecAAC, ACodecAC3, ACodecDTS, ACodecEAC3, ACodecFLAC, ACodecMP2, ACodecMP3, ACodecPCM, ACodecVorbis, ACodecWAV},
-	ExtAVI:  {ACodecAAC, ACodecAC3, ACodecDTS, ACodecEAC3, ACodecFLAC, ACodecMP2, ACodecMP3, ACodecPCM, ACodecVorbis, ACodecWAV},
+	ExtAVI:  {ACodecAAC, ACodecAC3, ACodecMP2, ACodecMP3, ACodecPCM, ACodecWAV},
 	ExtF4V:  {ACodecAAC, ACodecMP3},
 	ExtFLV:  {ACodecAAC, ACodecAC3, ACodecEAC3, ACodecFLAC, ACodecMP3, ACodecOpus},
 	ExtOGM:  {ACodecFLAC, ACodecOpus, ACodecVorbis},

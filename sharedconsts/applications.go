@@ -4,19 +4,13 @@ import (
 	"strings"
 )
 
-// Simple string type for media forms, used in sharedvalidation/containers.go (etc.)
-// to distinguish between video and audio.
-type MediaType string
-
-const (
-	Video MediaType = "video"
-	Audio MediaType = "audio"
-)
-
 // BlockedFFmpegOptions contains FFmpeg options that users shouldn't use.
 var BlockedFFmpegOptions = map[string]struct{}{
 	"-attach":             {},
 	"-dump_attachment":    {},
+	"-f":                  {},
+	"-filter_complex":     {},
+	"-lavfi":              {},
 	"-passlogfile":        {},
 	"-print_graphs_file":  {},
 	"-progress":           {},
@@ -24,6 +18,7 @@ var BlockedFFmpegOptions = map[string]struct{}{
 	"-protocol_whitelist": {},
 	"-report":             {},
 	"-sdp_file":           {},
+	"-vn":                 {},
 	"-vstats_file":        {},
 }
 
@@ -213,6 +208,7 @@ var AudioCodecAlias = map[string]string{
 	"mpg3":       ACodecMP3,
 
 	// Opus
+	"libopus":   ACodecOpus,
 	"oggopus":   ACodecOpus,
 	"opus":      ACodecOpus,
 	"opuscodec": ACodecOpus,
@@ -242,6 +238,7 @@ var AudioCodecAlias = map[string]string{
 	"truehdcodec": ACodecTrueHD,
 
 	// Vorbis
+	"libvorbis":   ACodecVorbis,
 	"oggvorbis":   ACodecVorbis,
 	"vorb":        ACodecVorbis,
 	"vorbis":      ACodecVorbis,

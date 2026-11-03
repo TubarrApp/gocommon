@@ -142,6 +142,8 @@ func TestValidateAudioCodec(t *testing.T) {
 		// Pass states.
 		{sharedconsts.ACodecMP3, sharedconsts.ACodecMP3, true},
 		{"libmp3lame", sharedconsts.ACodecMP3, true},
+		{"libopus", sharedconsts.ACodecOpus, true},
+		{"libvorbis", sharedconsts.ACodecVorbis, true},
 		{"wave", sharedconsts.ACodecWAV, true},
 		{"", "", true},
 
@@ -423,6 +425,11 @@ func TestValidateTranscodeQuality(t *testing.T) {
 		{sharedconsts.VCodecAV1, "60", "60", false},
 		{sharedconsts.VCodecAV1, "100", "63", false},
 		{sharedconsts.VCodecH264, "-5", "0", false},
+		{sharedconsts.VCodecVP8, "0", "4", false},
+		{sharedconsts.VCodecVP8, "3", "4", false},
+		{sharedconsts.VCodecVP8, "4", "4", false},
+		{sharedconsts.VCodecVP8, "99", "63", false},
+		{sharedconsts.VCodecVP9, "0", "0", false},
 		{sharedconsts.VCodecH264, "abc", "", true},
 		{sharedconsts.VCodecMPEG2, "20", "", true},
 		{sharedconsts.VCodecMPEG2, "", "", false},

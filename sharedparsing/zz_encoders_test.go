@@ -166,6 +166,16 @@ func TestParseVideoEncoderArgs(t *testing.T) {
 			false,
 		},
 		{
+			"quality with a bitrate where that's fine, or no target",
+			[]string{"vp9:-crf 31 -b:v 2M", "av1:-crf 30 -b:v 0", "h264:-b:v 1k"},
+			map[string]sharedmodels.EncoderArgs{
+				"vp9":  {Quality: "31", Bitrates: map[int]int64{0: 2_000_000}},
+				"av1":  {Quality: "30", Bitrates: map[int]int64{0: 0}},
+				"h264": {Bitrates: map[int]int64{0: 1000}},
+			},
+			false,
+		},
+		{
 			"passes clamped",
 			[]string{"mpeg2:-b:v 8M -pass 9", "vp8:-crf 10 -b:v 1M -pass 0"},
 			map[string]sharedmodels.EncoderArgs{
@@ -200,6 +210,10 @@ func TestParseVideoEncoderArgs(t *testing.T) {
 		{"bitrate twice", []string{"av1:-b:v 3M -b:v 4M"}, nil, true},
 		{"zero bitrate with two passes on h264", []string{"h264:-b:v 0 -pass 2"}, nil, true},
 		{"crf with two passes on h264", []string{"h264:-crf 23 -b:v 3M -pass 2"}, nil, true},
+		{"crf with a bitrate on av1", []string{"av1:-crf 30 -b:v 3M"}, nil, true},
+		{"crf with per-resolution bitrates on av1", []string{"av1:-crf 30 -b:v 720=1M,1080=3M"}, nil, true},
+		{"bitrate too low", []string{"vp8:-b:v 100"}, nil, true},
+		{"per-resolution bitrate too low", []string{"vp8:-b:v 720=1M,1080=999"}, nil, true},
 		{"two passes without a bitrate on hevc", []string{"hevc:-preset slow -pass 2"}, nil, true},
 		{"audio bitrate isn't a target bitrate", []string{"av1:-b:a 128k -pass 2"}, nil, true},
 		{"pass not a number", []string{"h264:-b:v 3M -pass two"}, nil, true},

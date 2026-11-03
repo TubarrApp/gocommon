@@ -47,6 +47,8 @@ func TestFittingCodecs(t *testing.T) {
 		{"mp4 video", FittingVideoCodecs(".mp4"), []string{sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecAV1}},
 		{"ogm video", FittingVideoCodecs(".ogm"), []string{sharedconsts.VCodecVP8}},
 		{"rm video", FittingVideoCodecs(".rm"), nil},
+		{"avi audio", FittingAudioCodecs(".avi"), []string{sharedconsts.ACodecAAC, sharedconsts.ACodecMP3, sharedconsts.ACodecAC3,
+			sharedconsts.ACodecMP2, sharedconsts.ACodecPCM}},
 	} {
 		if !slices.Equal(c.got, c.want) {
 			t.Errorf("%s: got %v, want %v", c.name, c.got, c.want)

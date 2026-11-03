@@ -34,7 +34,7 @@ func ValidateMaxResolution(r string) (string, error) {
 	return strconv.Itoa(pixels), nil
 }
 
-// ValidateTranscodeQuality validates a quality for a target codec, clamped to its encoder's range (0-63 for AV1, VP8 and VP9, otherwise 0-51).
+// ValidateTranscodeQuality validates a quality for a target codec, clamped to its encoder's range (0-63 for AV1 and VP9, 4-63 for VP8, otherwise 0-51).
 func ValidateTranscodeQuality(codec, q string) (string, error) {
 	if q == "" {
 		return "", nil
@@ -59,7 +59,11 @@ func ValidateTranscodeQuality(codec, q string) (string, error) {
 		codec == sharedconsts.VCodecVP9 {
 		upperVal = 63
 	}
-	qNum = min(max(qNum, 0), upperVal)
+	var lowerVal int64
+	if codec == sharedconsts.VCodecVP8 {
+		lowerVal = 4 // The VP8 encoder won't start below its default lowest quantizer.
+	}
+	qNum = min(max(qNum, lowerVal), upperVal)
 
 	return strconv.FormatInt(qNum, 10), nil
 }
