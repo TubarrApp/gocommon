@@ -128,25 +128,6 @@ var TubarrTemplateTags = map[string]struct{}{
 	ChannelURLName: {},
 }
 
-// TubarrChannelOutputDirectoryTemplateTags contains the Tubarr templates plus the channel's output directory tag.
-var TubarrChannelOutputDirectoryTemplateTags = map[string]struct{}{
-	ChannelID:              {},
-	ChannelName:            {},
-	ChannelURL:             {},
-	ChannelURLName:         {},
-	ChannelOutputDirectory: {},
-}
-
-// TubarrOutputDirectoryTemplateTags contains the Tubarr templates plus both output directory tags.
-var TubarrOutputDirectoryTemplateTags = map[string]struct{}{
-	ChannelID:                 {},
-	ChannelName:               {},
-	ChannelURL:                {},
-	ChannelURLName:            {},
-	ChannelOutputDirectory:    {},
-	ChannelURLOutputDirectory: {},
-}
-
 // MetarrTemplateTags contains templating tags which are fillable by Metarr.
 var MetarrTemplateTags = map[string]struct{}{
 	MetVideoTitle: {},
