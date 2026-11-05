@@ -7,19 +7,21 @@ import (
 	"strings"
 )
 
-// init initializes the MoveOpTemplateTags map.
+// init initializes the OutputDirectoryTemplateTags map (all templates plus 'output directory' tags).
 func init() {
-	maps.Copy(MoveOpTemplateTags, AllTemplatesMap)
-	MoveOpTemplateTags[OutputDirectory] = struct{}{}
+	maps.Copy(OutputDirectoryTemplateTags, AllTemplatesMap)
+	OutputDirectoryTemplateTags[OutputDirectory] = struct{}{}
+	OutputDirectoryTemplateTags[ChannelOutputDirectory] = struct{}{}
 }
 
 // Template tags for channel elements.
 const (
-	ChannelID       = "channel_id"
-	ChannelName     = "channel_name"
-	ChannelURL      = "channel_url"
-	ChannelURLName  = "channel_url_name"
-	OutputDirectory = "output_directory"
+	ChannelID              = "channel_id"
+	ChannelName            = "channel_name"
+	ChannelURL             = "channel_url"
+	ChannelURLName         = "channel_url_name"
+	ChannelOutputDirectory = "channel_output_directory"
+	OutputDirectory        = "output_directory"
 )
 
 // Template tags for individual video elements.
@@ -93,8 +95,8 @@ const (
 	MetDomain = "domain"
 )
 
-// MoveOpTemplateTags contains the regular templates plus the special output_directory tag.
-var MoveOpTemplateTags = make(map[string]struct{}, len(AllTemplatesMap)+1)
+// OutputDirectoryTemplateTags contains the regular templates plus the special output_directory tag.
+var OutputDirectoryTemplateTags = make(map[string]struct{}, len(AllTemplatesMap)+2)
 
 // AllTemplatesMap contains the different template tags available across both Tubarr and Metarr.
 var AllTemplatesMap = map[string]struct{}{
