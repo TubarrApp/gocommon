@@ -7,11 +7,14 @@ import (
 	"strings"
 )
 
-// init initializes the OutputDirectoryTemplateTags map (all templates plus 'output directory' tags).
+// init initializes the maps of all templates plus 'output directory' tags.
 func init() {
 	maps.Copy(OutputDirectoryTemplateTags, AllTemplatesMap)
 	OutputDirectoryTemplateTags[ChannelURLOutputDirectory] = struct{}{}
 	OutputDirectoryTemplateTags[ChannelOutputDirectory] = struct{}{}
+
+	maps.Copy(ChannelOutputDirectoryTemplateTags, AllTemplatesMap)
+	ChannelOutputDirectoryTemplateTags[ChannelOutputDirectory] = struct{}{}
 }
 
 // Template tags for channel elements.
@@ -95,8 +98,11 @@ const (
 	MetDomain = "domain"
 )
 
-// OutputDirectoryTemplateTags contains the regular templates plus the special output_directory tag.
+// OutputDirectoryTemplateTags contains the regular templates plus both output directory tags.
 var OutputDirectoryTemplateTags = make(map[string]struct{}, len(AllTemplatesMap)+2)
+
+// ChannelOutputDirectoryTemplateTags contains the regular templates plus the channel's output directory tag.
+var ChannelOutputDirectoryTemplateTags = make(map[string]struct{}, len(AllTemplatesMap)+1)
 
 // AllTemplatesMap contains the different template tags available across both Tubarr and Metarr.
 var AllTemplatesMap = map[string]struct{}{
@@ -120,6 +126,25 @@ var TubarrTemplateTags = map[string]struct{}{
 	ChannelName:    {},
 	ChannelURL:     {},
 	ChannelURLName: {},
+}
+
+// TubarrChannelOutputDirectoryTemplateTags contains the Tubarr templates plus the channel's output directory tag.
+var TubarrChannelOutputDirectoryTemplateTags = map[string]struct{}{
+	ChannelID:              {},
+	ChannelName:            {},
+	ChannelURL:             {},
+	ChannelURLName:         {},
+	ChannelOutputDirectory: {},
+}
+
+// TubarrOutputDirectoryTemplateTags contains the Tubarr templates plus both output directory tags.
+var TubarrOutputDirectoryTemplateTags = map[string]struct{}{
+	ChannelID:                 {},
+	ChannelName:               {},
+	ChannelURL:                {},
+	ChannelURLName:            {},
+	ChannelOutputDirectory:    {},
+	ChannelURLOutputDirectory: {},
 }
 
 // MetarrTemplateTags contains templating tags which are fillable by Metarr.
