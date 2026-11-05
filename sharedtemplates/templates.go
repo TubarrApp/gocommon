@@ -10,18 +10,18 @@ import (
 // init initializes the OutputDirectoryTemplateTags map (all templates plus 'output directory' tags).
 func init() {
 	maps.Copy(OutputDirectoryTemplateTags, AllTemplatesMap)
-	OutputDirectoryTemplateTags[OutputDirectory] = struct{}{}
+	OutputDirectoryTemplateTags[ChannelURLOutputDirectory] = struct{}{}
 	OutputDirectoryTemplateTags[ChannelOutputDirectory] = struct{}{}
 }
 
 // Template tags for channel elements.
 const (
-	ChannelID              = "channel_id"
-	ChannelName            = "channel_name"
-	ChannelURL             = "channel_url"
-	ChannelURLName         = "channel_url_name"
-	ChannelOutputDirectory = "channel_output_directory"
-	OutputDirectory        = "output_directory"
+	ChannelID                 = "channel_id"
+	ChannelName               = "channel_name"
+	ChannelURL                = "channel_url"
+	ChannelURLName            = "channel_url_name"
+	ChannelOutputDirectory    = "channel_output_directory"
+	ChannelURLOutputDirectory = "channel_url_output_directory"
 )
 
 // Template tags for individual video elements.
