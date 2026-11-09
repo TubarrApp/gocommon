@@ -52,13 +52,13 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 	var invalid []string
 
 	for _, op := range filenameOps {
-		opType, rest, ok := nextField(op)
+		opType, rest, ok := nextOpType(op)
 		if !ok {
 			invalid = append(invalid, invalidEntry(op, "expected 'prefix:[COOL CATEGORY] ' or 'date-tag:prefix:ymd'"))
 			continue
 		}
 
-		newOp := sharedmodels.FilenameOps{OpType: strings.ToLower(opType)}
+		newOp := sharedmodels.FilenameOps{OpType: opType}
 		args, argErr := parseOpArgs(newOp.OpType, rest)
 		if argErr != nil {
 			invalid = append(invalid, invalidEntry(op, argErr.Error()))
@@ -67,7 +67,7 @@ func ParseFilenameOps(filenameOps []string) (parsed []sharedmodels.FilenameOps, 
 		newOp.OpFindString, newOp.OpValue, newOp.OpLoc, newOp.DateFormat = args.find, args.value, args.loc, args.dateFormat
 
 		key := FormatFilenameOp(newOp)
-		if isDateTagOp(newOp.OpType) {
+		if newOp.OpType == sharedconsts.OpDateTag {
 			key = newOp.OpType
 		}
 
@@ -118,14 +118,13 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 		field, rest, ok := nextField(op)
 		var opType string
 		if ok {
-			opType, rest, ok = nextField(rest)
+			opType, rest, ok = nextOpType(rest)
 		}
 		if !ok {
 			invalid = append(invalid, invalidEntry(op, "expected 'director:set:Spielberg' or 'title:date-tag:suffix:ymd'"))
 			continue
 		}
 
-		opType = strings.ToLower(opType)
 		args, argErr := parseOpArgs(opType, rest)
 		if argErr != nil {
 			invalid = append(invalid, invalidEntry(op, argErr.Error()))
@@ -144,7 +143,7 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 			}
 
 			key := FormatMetaOp(newOp)
-			if isDateTagOp(newOp.OpType) {
+			if newOp.OpType == sharedconsts.OpDateTag {
 				key = newOp.Field + string(fieldSeparator) + newOp.OpType
 			}
 
@@ -174,6 +173,9 @@ func ParseMetaOps(metaOps []string) (parsed []sharedmodels.MetaOps, warnings []W
 // FormatFilenameOp renders a filename operation back to its string form, the inverse
 // of [ParseFilenameOps].
 func FormatFilenameOp(f sharedmodels.FilenameOps) string {
+	if f.OpType == sharedconsts.OpDeleteDateTag {
+		return f.OpType
+	}
 	args := opArgs{find: f.OpFindString, value: f.OpValue, loc: f.OpLoc, dateFormat: f.DateFormat}
 	return Escape(f.OpType) + string(fieldSeparator) + formatOpArgs(f.OpType, args)
 }
@@ -181,8 +183,11 @@ func FormatFilenameOp(f sharedmodels.FilenameOps) string {
 // FormatMetaOp renders a meta operation back to its string form, the inverse of
 // [ParseMetaOps].
 func FormatMetaOp(m sharedmodels.MetaOps) string {
-	args := opArgs{find: m.OpFindString, value: m.OpValue, loc: m.OpLoc, dateFormat: m.DateFormat}
 	lead := JoinEscaped([]string{m.Field, m.OpType}, fieldSeparator)
+	if m.OpType == sharedconsts.OpDeleteDateTag {
+		return lead
+	}
+	args := opArgs{find: m.OpFindString, value: m.OpValue, loc: m.OpLoc, dateFormat: m.DateFormat}
 	return lead + string(fieldSeparator) + formatOpArgs(m.OpType, args)
 }
 
@@ -209,9 +214,14 @@ type opArgs struct {
 	find, value, loc, dateFormat string
 }
 
-// isDateTagOp reports whether opType takes a location and date format.
-func isDateTagOp(opType string) bool {
-	return opType == sharedconsts.OpDateTag || opType == sharedconsts.OpDeleteDateTag
+// nextOpType reads a lowercased operation type and the rest after it. delete-date-tag
+// takes nothing, so it may stand alone with no ':' after it.
+func nextOpType(s string) (opType, rest string, ok bool) {
+	if strings.EqualFold(strings.TrimSpace(s), sharedconsts.OpDeleteDateTag) {
+		return sharedconsts.OpDeleteDateTag, "", true
+	}
+	opType, rest, ok = nextField(s)
+	return strings.ToLower(opType), rest, ok
 }
 
 // isFindReplaceOp reports whether opType takes find text and a replacement.
@@ -227,12 +237,17 @@ func isFindReplaceOp(opType string) bool {
 // whole remainder, so it may hold ':' unescaped.
 func parseOpArgs(opType, rest string) (a opArgs, err error) {
 	switch {
-	case isDateTagOp(opType):
+	case opType == sharedconsts.OpDateTag:
 		loc, format, ok := nextField(rest)
 		if !ok {
 			return a, fmt.Errorf("%s expects a location and date format, e.g. '%s:prefix:ymd'", opType, opType)
 		}
 		a.loc, a.dateFormat = strings.ToLower(loc), Unescape(format)
+
+	case opType == sharedconsts.OpDeleteDateTag:
+		if strings.TrimSpace(rest) != "" {
+			return a, fmt.Errorf("%s takes no location or date format, it removes every date tag", opType)
+		}
 
 	case opType == sharedconsts.OpRegexReplace:
 		end := rawSpanEnd(rest)
@@ -261,7 +276,7 @@ func parseOpArgs(opType, rest string) (a opArgs, err error) {
 // [parseOpArgs].
 func formatOpArgs(opType string, a opArgs) string {
 	switch {
-	case isDateTagOp(opType):
+	case opType == sharedconsts.OpDateTag:
 		return Escape(a.loc) + string(fieldSeparator) + escapeLast(a.dateFormat)
 	case opType == sharedconsts.OpRegexReplace:
 		return openSquareBrackets + a.find + closeSquareBrackets + string(fieldSeparator) + escapeLast(a.value)

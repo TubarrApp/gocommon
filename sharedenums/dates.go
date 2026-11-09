@@ -74,28 +74,16 @@ type DateTagLocation int
 const (
 	DateTagLocPrefix DateTagLocation = iota
 	DateTagLocSuffix
-	DateTagLocAll
 )
 
 // ParseDateTagLocation returns the enum for a date tag location.
-//
-// allowAll permits "all", which suits delete-date-tag but not date-tag, since a tag
-// can only be written to one place.
-func ParseDateTagLocation(loc string, allowAll bool) (DateTagLocation, error) {
+func ParseDateTagLocation(loc string) (DateTagLocation, error) {
 	switch loc {
 	case sharedconsts.OpLocPrefix:
 		return DateTagLocPrefix, nil
 	case sharedconsts.OpLocSuffix:
 		return DateTagLocSuffix, nil
-	case sharedconsts.OpLocAll:
-		if allowAll {
-			return DateTagLocAll, nil
-		}
-		return DateTagLocPrefix, fmt.Errorf("date tag location %q is only valid for %s", loc, sharedconsts.OpDeleteDateTag)
 	default:
-		if allowAll {
-			return DateTagLocPrefix, fmt.Errorf("invalid date tag location %q, expected %q, %q or %q", loc, sharedconsts.OpLocPrefix, sharedconsts.OpLocSuffix, sharedconsts.OpLocAll)
-		}
 		return DateTagLocPrefix, fmt.Errorf("invalid date tag location %q, expected %q or %q", loc, sharedconsts.OpLocPrefix, sharedconsts.OpLocSuffix)
 	}
 }
@@ -107,8 +95,6 @@ func (l DateTagLocation) String() string {
 		return sharedconsts.OpLocPrefix
 	case DateTagLocSuffix:
 		return sharedconsts.OpLocSuffix
-	case DateTagLocAll:
-		return sharedconsts.OpLocAll
 	default:
 		return ""
 	}

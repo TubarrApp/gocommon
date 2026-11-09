@@ -44,7 +44,6 @@ const (
 	OpDeleteDateTag = "delete-date-tag"
 
 	// Locations.
-	OpLocAll    = "all"
 	OpLocPrefix = "prefix"
 	OpLocSuffix = "suffix"
 

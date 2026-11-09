@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"strings"
 
@@ -210,7 +209,7 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 	}
 
 	// Refuse disallowed options.
-	if allowInsecureStr, allowInsecure := os.LookupEnv(sharedconsts.EnvAllowInsecureArguments); !allowInsecure || (allowInsecureStr == "" || (allowInsecureStr != "1" && allowInsecureStr != "true")) {
+	if !sharedconsts.InsecureArgumentsAllowed() {
 		if blocked, option := sharedconsts.HasBlockedOptions(split, sharedconsts.BlockedFFmpegOptions); blocked {
 			return parsed, fmt.Errorf("option %q is not allowed in %s encoder args", option, codec)
 		}

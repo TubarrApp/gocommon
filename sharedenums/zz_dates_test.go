@@ -68,29 +68,25 @@ func TestDateFormatStringRoundTrip(t *testing.T) {
 
 func TestParseDateTagLocation(t *testing.T) {
 	tests := []struct {
-		loc      string
-		allowAll bool
-		want     sharedenums.DateTagLocation
-		wantErr  bool
+		loc     string
+		want    sharedenums.DateTagLocation
+		wantErr bool
 	}{
-		{sharedconsts.OpLocPrefix, false, sharedenums.DateTagLocPrefix, false},
-		{sharedconsts.OpLocSuffix, false, sharedenums.DateTagLocSuffix, false},
-		{sharedconsts.OpLocAll, false, sharedenums.DateTagLocPrefix, true},
-		{sharedconsts.OpLocPrefix, true, sharedenums.DateTagLocPrefix, false},
-		{sharedconsts.OpLocSuffix, true, sharedenums.DateTagLocSuffix, false},
-		{sharedconsts.OpLocAll, true, sharedenums.DateTagLocAll, false},
-		{"middle", true, sharedenums.DateTagLocPrefix, true},
-		{"", false, sharedenums.DateTagLocPrefix, true},
+		{sharedconsts.OpLocPrefix, sharedenums.DateTagLocPrefix, false},
+		{sharedconsts.OpLocSuffix, sharedenums.DateTagLocSuffix, false},
+		{"all", sharedenums.DateTagLocPrefix, true},
+		{"middle", sharedenums.DateTagLocPrefix, true},
+		{"", sharedenums.DateTagLocPrefix, true},
 	}
 
 	for _, tt := range tests {
-		got, err := sharedenums.ParseDateTagLocation(tt.loc, tt.allowAll)
+		got, err := sharedenums.ParseDateTagLocation(tt.loc)
 		if (err != nil) != tt.wantErr {
-			t.Errorf("ParseDateTagLocation(%q, %v) err = %v, wantErr %v", tt.loc, tt.allowAll, err, tt.wantErr)
+			t.Errorf("ParseDateTagLocation(%q) err = %v, wantErr %v", tt.loc, err, tt.wantErr)
 			continue
 		}
 		if !tt.wantErr && got != tt.want {
-			t.Errorf("ParseDateTagLocation(%q, %v) = %d, want %d", tt.loc, tt.allowAll, got, tt.want)
+			t.Errorf("ParseDateTagLocation(%q) = %d, want %d", tt.loc, got, tt.want)
 		}
 	}
 }

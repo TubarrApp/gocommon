@@ -175,17 +175,14 @@ func validateTextOp(opType, find, value string, i int) error {
 	return nil
 }
 
-// validateDateTagOp checks the location and format of a date tag operation, and is a
-// no-op for every other operation type. Only delete-date-tag accepts "all".
+// validateDateTagOp checks the location and format of a date-tag, and is a no-op for every other
+// operation type. delete-date-tag takes neither, so a location or format stored with one is ignored.
 func validateDateTagOp(opType, opLoc, dateFormat string, i int) error {
-	switch opType {
-	case sharedconsts.OpDateTag, sharedconsts.OpDeleteDateTag:
-	default:
+	if opType != sharedconsts.OpDateTag {
 		return nil
 	}
 
-	allowAll := opType == sharedconsts.OpDeleteDateTag
-	if _, err := sharedenums.ParseDateTagLocation(opLoc, allowAll); err != nil {
+	if _, err := sharedenums.ParseDateTagLocation(opLoc); err != nil {
 		return fmt.Errorf("%s at position %d: %w", opType, i, err)
 	}
 	if _, err := sharedenums.ParseDateFormat(dateFormat); err != nil {

@@ -1,6 +1,7 @@
 package sharedconsts
 
 import (
+	"os"
 	"strings"
 )
 
@@ -72,6 +73,12 @@ var BlockedYtdlpOptions = map[string]struct{}{
 	"--exec-before-download": {},
 	"--netrc-cmd":            {},
 	"--plugin-dirs":          {},
+}
+
+// InsecureArgumentsAllowed reports whether EnvAllowInsecureArguments is "1" or "true", letting blocked options through.
+func InsecureArgumentsAllowed() bool {
+	v := os.Getenv(EnvAllowInsecureArguments)
+	return v == "1" || v == "true"
 }
 
 // HasBlockedOptions reports whether args contains any disallowed options, also when given a value or stream specifier (e.g. "-passlogfile:v:0").
