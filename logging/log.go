@@ -400,6 +400,11 @@ func (cl ChannelLogger) I(msg string, args ...any) {
 	cl.pl.log(logInfo, sharedconsts.LogTagInfo, cl.channel, msg, false, args...)
 }
 
+// P logs plain messages for the channel.
+func (cl ChannelLogger) P(msg string, args ...any) {
+	cl.pl.log(logPrint, "", cl.channel, msg, false, args...)
+}
+
 // S logs success messages for the channel.
 func (cl ChannelLogger) S(msg string, args ...any) {
 	cl.pl.log(logSuccess, sharedconsts.LogTagSuccess, cl.channel, msg, false, args...)
