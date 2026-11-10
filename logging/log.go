@@ -67,6 +67,7 @@ const (
 	jFunction = "function"
 	jFile     = "file"
 	jLine     = "line"
+	jChannel  = "channel"
 )
 
 // logLevel represents different logging levels.
@@ -274,8 +275,8 @@ func (pl *ProgramLogger) writeToConsole(msg string) {
 	_, _ = fmt.Fprintf(pl.Console, "%s%s%s %s", sharedconsts.ColorBrightBlack, timestamp, sharedconsts.ColorReset, msg) // Nowhere to report a failed console write.
 }
 
-// Log logs a message to the program-specific logger.
-func (pl *ProgramLogger) log(level logType, prefix, msg string, withCaller bool, args ...any) {
+// Log logs a message to the program-specific logger, tagged with the channel it concerns if channel isn't empty.
+func (pl *ProgramLogger) log(level logType, prefix, channel, msg string, withCaller bool, args ...any) {
 	if len(args) > 0 {
 		msg = fmt.Sprintf(msg, args...)
 	}
@@ -294,15 +295,17 @@ func (pl *ProgramLogger) log(level logType, prefix, msg string, withCaller bool,
 
 	// Call zerolog event.
 	clean := ansiStripper.ReplaceAllString(msg, "")
+	event := pl.getZerologEvent(level)
+	if channel != "" {
+		event = event.Str(jChannel, channel)
+	}
 	if caller != nil {
-		pl.getZerologEvent(level).
+		event = event.
 			Str(jFunction, caller.funcName).
 			Str(jFile, caller.file).
-			Int(jLine, caller.line).
-			Msg(clean)
-	} else {
-		pl.getZerologEvent(level).Msg(clean)
+			Int(jLine, caller.line)
 	}
+	event.Msg(clean)
 }
 
 // getZerologEvent returns the appropriate zerolog event for the level.
@@ -330,7 +333,7 @@ func (pl *ProgramLogger) getZerologEvent(level logType) *zerolog.Event {
 // DevE logs developer error messages for this program.
 func (pl *ProgramLogger) DevE(msg string, args ...any) {
 	msg += "\nPlease let us know about this error and how you encountered it at: " + sharedconsts.GithubIssues
-	pl.log(logDevError, sharedconsts.LogTagDevError, msg, true, args...)
+	pl.log(logDevError, sharedconsts.LogTagDevError, "", msg, true, args...)
 }
 
 // D logs debug messages for this program.
@@ -338,32 +341,73 @@ func (pl *ProgramLogger) D(l int, msg string, args ...any) {
 	if Level() < l {
 		return
 	}
-	pl.log(logDebug, sharedconsts.LogTagDebug, msg, true, args...)
+	pl.log(logDebug, sharedconsts.LogTagDebug, "", msg, true, args...)
 }
 
 // E logs error messages for this program.
 func (pl *ProgramLogger) E(msg string, args ...any) {
-	pl.log(logError, sharedconsts.LogTagError, msg, true, args...)
+	pl.log(logError, sharedconsts.LogTagError, "", msg, true, args...)
 }
 
 // I logs info messages for this program.
 func (pl *ProgramLogger) I(msg string, args ...any) {
-	pl.log(logInfo, sharedconsts.LogTagInfo, msg, false, args...)
+	pl.log(logInfo, sharedconsts.LogTagInfo, "", msg, false, args...)
 }
 
 // P logs plain messages for this program.
 func (pl *ProgramLogger) P(msg string, args ...any) {
-	pl.log(logPrint, "", msg, false, args...)
+	pl.log(logPrint, "", "", msg, false, args...)
 }
 
 // S logs success messages for this program.
 func (pl *ProgramLogger) S(msg string, args ...any) {
-	pl.log(logSuccess, sharedconsts.LogTagSuccess, msg, false, args...)
+	pl.log(logSuccess, sharedconsts.LogTagSuccess, "", msg, false, args...)
 }
 
 // W logs warning messages for this program.
 func (pl *ProgramLogger) W(msg string, args ...any) {
-	pl.log(logWarn, sharedconsts.LogTagWarning, msg, false, args...)
+	pl.log(logWarn, sharedconsts.LogTagWarning, "", msg, false, args...)
+}
+
+// ---- CHANNEL LOG CALLS ----
+
+// ChannelLogger logs lines tagged with the channel they concern, so one channel's lines can be shown on their own.
+type ChannelLogger struct {
+	pl      *ProgramLogger
+	channel string
+}
+
+// Channel returns a logger whose lines are tagged with a channel's name.
+func (pl *ProgramLogger) Channel(name string) ChannelLogger {
+	return ChannelLogger{pl: pl, channel: name}
+}
+
+// D logs debug messages for the channel.
+func (cl ChannelLogger) D(l int, msg string, args ...any) {
+	if Level() < l {
+		return
+	}
+	cl.pl.log(logDebug, sharedconsts.LogTagDebug, cl.channel, msg, true, args...)
+}
+
+// E logs error messages for the channel.
+func (cl ChannelLogger) E(msg string, args ...any) {
+	cl.pl.log(logError, sharedconsts.LogTagError, cl.channel, msg, true, args...)
+}
+
+// I logs info messages for the channel.
+func (cl ChannelLogger) I(msg string, args ...any) {
+	cl.pl.log(logInfo, sharedconsts.LogTagInfo, cl.channel, msg, false, args...)
+}
+
+// S logs success messages for the channel.
+func (cl ChannelLogger) S(msg string, args ...any) {
+	cl.pl.log(logSuccess, sharedconsts.LogTagSuccess, cl.channel, msg, false, args...)
+}
+
+// W logs warning messages for the channel.
+func (cl ChannelLogger) W(msg string, args ...any) {
+	cl.pl.log(logWarn, sharedconsts.LogTagWarning, cl.channel, msg, false, args...)
 }
 
 // TestLogger checks that an externally sent in ProgramLogger is accepted.

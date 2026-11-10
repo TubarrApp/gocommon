@@ -1,7 +1,11 @@
 package logging
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,4 +44,38 @@ func TestLogsSince(t *testing.T) {
 	want(lines, "6", "7", "8")
 
 	want(pl.GetRecentLogs(), "6", "7", "8")
+}
+
+// TestChannelLogger tests that a channel logger's lines carry the channel, others don't, and caller info still names
+// the function that logged.
+func TestChannelLogger(t *testing.T) {
+	pl, err := SetupLogging(Config{LogFilePath: filepath.Join(t.TempDir(), "test.log"), Console: io.Discard, Program: "ChannelTest"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, seen := pl.LogsSince(0)
+
+	pl.Channel("Cats").E("crawl failed")
+	pl.I("not about a channel")
+	lines, _ := pl.LogsSince(seen)
+	if len(lines) != 2 {
+		t.Fatalf("got %d lines, want 2", len(lines))
+	}
+
+	var tagged, plain map[string]any
+	if err := json.Unmarshal(lines[0], &tagged); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(lines[1], &plain); err != nil {
+		t.Fatal(err)
+	}
+	if tagged[jChannel] != "Cats" {
+		t.Errorf("channel = %v, want Cats", tagged[jChannel])
+	}
+	if fn, _ := tagged[jFunction].(string); !strings.HasSuffix(fn, "TestChannelLogger") {
+		t.Errorf("function = %q, want the test that logged", fn)
+	}
+	if _, ok := plain[jChannel]; ok {
+		t.Errorf("untagged line has a channel: %s", lines[1])
+	}
 }
