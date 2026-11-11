@@ -19,9 +19,18 @@ type EncoderArgs struct {
 	Args        []string      // The rest, as typed.
 }
 
+// AudioEncoderArgs holds a target audio codec's encoder args, with -af, -ac and -ar taken out as typed for Metarr to add itself.
+type AudioEncoderArgs struct {
+	Filter     string   // From -af or -filter:a.
+	Channels   string   // From -ac.
+	SampleRate string   // From -ar.
+	Args       []string // The rest, as typed.
+}
+
 // EncoderSettings holds the settings encoder args are judged with, as a video will get them.
 type EncoderSettings struct {
 	VideoArgs   []string // "codec:args" lines.
+	AudioArgs   []string // "codec:args" lines for audio.
 	VideoCodecs []string // Video codec entries.
 	AudioCodecs []string // Audio codec entries.
 	ExtraArgs   string   // Extra FFmpeg args.

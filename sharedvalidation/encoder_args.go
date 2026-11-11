@@ -28,11 +28,8 @@ var (
 		"-svtav1-params": sharedconsts.VCodecAV1,
 	}
 
-	// audioFilterOptions stop FFmpeg on audio being copied.
-	audioFilterOptions = []string{"-af", "-filter:a"}
-
-	// audioEncodingOptions are ignored by FFmpeg on audio being copied.
-	audioEncodingOptions = []string{"-ac", "-ar", "-b:a", "-q:a"}
+	// audioEncodingOptions only work on audio being encoded.
+	audioEncodingOptions = []string{"-af", "-filter:a", "-ac", "-ar", "-b:a", "-q:a"}
 )
 
 // ValidateSoftwareEncoderArgs returns an error if a codec's encoder args can't work on its software encoder.
@@ -66,41 +63,26 @@ func ValidateEncoderArgsUsed(codec string, args sharedmodels.EncoderArgs) error 
 	return nil
 }
 
-// ValidateEncoderArgsCanRun returns an error if a codec's encoder args can never run, as its videos are copied and nothing encodes to it.
+// ValidateEncoderArgsCanRun returns an error if a codec's encoder args can never run, as it's copied and nothing encodes to it.
 func ValidateEncoderArgsCanRun(codec, plainCodec string, pairs map[sharedmodels.FromCodec]string, outputExt string) error {
 	if plainCodec == codec || slices.Contains(slices.Collect(maps.Values(pairs)), codec) {
 		return nil
 	}
 
-	// With no plain codec, a container that can't hold a video could still choose this codec for it.
+	// With no plain codec, a container that can't hold a stream could still choose this codec for it.
 	ownPair := pairs[sharedmodels.NewFromCodec(codec, sharedconsts.CompressionBlank)]
-	if plainCodec == sharedconsts.VCodecCopy || (ownPair == sharedconsts.VCodecCopy && (plainCodec != "" || keepsContainer(outputExt))) {
-		return fmt.Errorf("%s encoder args do nothing, as %s video is copied and nothing is encoded to it, remove the line", codec, codec)
+	if plainCodec == sharedconsts.CodecCopy || (ownPair == sharedconsts.CodecCopy && (plainCodec != "" || keepsContainer(outputExt))) {
+		return fmt.Errorf("%s encoder args do nothing, as %s is copied and nothing is encoded to it, remove the line", codec, codec)
 	}
 	return nil
 }
 
-// AudioAlwaysCopied reports whether audio is only ever copied: with a plain "copy", or no codec named for a file that keeps its container.
-func AudioAlwaysCopied(plainCodec string, pairs map[sharedmodels.FromCodec]string, outputExt string) bool {
-	return plainCodec == sharedconsts.ACodecCopy || (plainCodec == "" && len(pairs) == 0 && keepsContainer(outputExt))
-}
-
-// ValidateCopiedAudioFilter returns an error if extra FFmpeg args filter audio, which stops FFmpeg on audio being copied.
-func ValidateCopiedAudioFilter(extraArgs []string) error {
-	return checkCopiedAudioOptions(extraArgs, audioFilterOptions)
-}
-
-// ValidateCopiedAudioOptions returns an error if extra FFmpeg args hold options FFmpeg ignores on audio being copied.
-func ValidateCopiedAudioOptions(extraArgs []string) error {
-	return checkCopiedAudioOptions(extraArgs, audioEncodingOptions)
-}
-
-// checkCopiedAudioOptions returns an error naming the first of the options found in extra FFmpeg args.
-func checkCopiedAudioOptions(extraArgs, audioOptions []string) error {
+// ValidateExtraArgsAudioOptions returns an error if extra FFmpeg args hold an option that only works on audio being encoded.
+func ValidateExtraArgsAudioOptions(extraArgs []string) error {
 	options := optionValues(extraArgs)
-	for _, option := range audioOptions {
+	for _, option := range audioEncodingOptions {
 		if _, found := options[option]; found {
-			return fmt.Errorf("%s in extra FFmpeg args only works on audio being encoded, so set an audio codec", option)
+			return fmt.Errorf("%s in extra FFmpeg args only works on audio being encoded, so it goes in audio encoder args instead, e.g. aac:%s", option, option)
 		}
 	}
 	return nil

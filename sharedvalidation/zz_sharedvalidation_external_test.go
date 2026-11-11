@@ -124,57 +124,27 @@ func TestValidateEncoderArgsCanRun(t *testing.T) {
 	}
 }
 
-// TestAudioAlwaysCopied tests when no setting could encode audio.
-func TestAudioAlwaysCopied(t *testing.T) {
+// TestValidateExtraArgsAudioOptions tests audio filters and audio encoding options are refused in extra FFmpeg args.
+func TestValidateExtraArgsAudioOptions(t *testing.T) {
 	for _, c := range []struct {
 		name  string
-		audio []string
-		ext   string
-		want  bool
+		extra []string
+		ok    bool
 	}{
-		{name: "no codec", want: true},
-		{name: "no codec with the same container", ext: sharedconsts.ExtSame, want: true},
-		{name: "plain copy", audio: []string{"copy"}, want: true},
-		{name: "plain copy with a container set", audio: []string{"copy"}, ext: ".mp4", want: true},
-		{name: "no codec when the container may force one", ext: ".mp4"},
-		{name: "a plain codec", audio: []string{"aac"}},
-		{name: "a pair, which depends on the video", audio: []string{"dts:ac3"}},
+		{name: "-af", extra: []string{"-af", "volume=0.5"}},
+		{name: "-filter:a", extra: []string{"-filter:a", "volume=0.5"}},
+		{name: "first stream's filter", extra: []string{"-filter:a:0", "volume=0.5"}},
+		{name: "-ac", extra: []string{"-ac", "1"}},
+		{name: "-ar", extra: []string{"-ar", "44100"}},
+		{name: "-b:a", extra: []string{"-b:a", "128k"}},
+		{name: "first stream's bitrate", extra: []string{"-b:a:0", "128k"}},
+		{name: "-q:a", extra: []string{"-q:a", "2"}},
+		{name: "settings that don't touch audio", extra: []string{"-movflags", "+faststart", "-threads", "1"}, ok: true},
+		{name: "a value that looks like an option's name", extra: []string{"-metadata", "title=-af"}, ok: true},
+		{name: "nothing", ok: true},
 	} {
-		plain, pairs, err := sharedparsing.ParseCodecMappings(c.audio, sharedvalidation.ValidateAudioCodec)
-		if err != nil {
-			t.Fatalf("%s: %v", c.name, err)
-		}
-		if got := sharedvalidation.AudioAlwaysCopied(plain, pairs, c.ext); got != c.want {
-			t.Errorf("%s: got %t, want %t", c.name, got, c.want)
-		}
-	}
-}
-
-// TestCopiedAudioOptions tests audio filters and audio encoding options are told apart, as only filters stop FFmpeg.
-func TestCopiedAudioOptions(t *testing.T) {
-	for _, c := range []struct {
-		name       string
-		extra      []string
-		wantFilter bool
-		wantOption bool
-	}{
-		{name: "-af", extra: []string{"-af", "volume=0.5"}, wantFilter: true},
-		{name: "-filter:a", extra: []string{"-filter:a", "volume=0.5"}, wantFilter: true},
-		{name: "first stream's filter", extra: []string{"-filter:a:0", "volume=0.5"}, wantFilter: true},
-		{name: "-ac", extra: []string{"-ac", "1"}, wantOption: true},
-		{name: "-ar", extra: []string{"-ar", "44100"}, wantOption: true},
-		{name: "-b:a", extra: []string{"-b:a", "128k"}, wantOption: true},
-		{name: "first stream's bitrate", extra: []string{"-b:a:0", "128k"}, wantOption: true},
-		{name: "-q:a", extra: []string{"-q:a", "2"}, wantOption: true},
-		{name: "settings that don't touch audio", extra: []string{"-movflags", "+faststart", "-threads", "1"}},
-		{name: "a value that looks like an option's name", extra: []string{"-metadata", "title=-af"}},
-		{name: "nothing"},
-	} {
-		if err := sharedvalidation.ValidateCopiedAudioFilter(c.extra); (err != nil) != c.wantFilter {
-			t.Errorf("%s filter: got %v, want %t", c.name, err, c.wantFilter)
-		}
-		if err := sharedvalidation.ValidateCopiedAudioOptions(c.extra); (err != nil) != c.wantOption {
-			t.Errorf("%s option: got %v, want %t", c.name, err, c.wantOption)
+		if err := sharedvalidation.ValidateExtraArgsAudioOptions(c.extra); (err == nil) != c.ok {
+			t.Errorf("%s: got %v, want ok %t", c.name, err, c.ok)
 		}
 	}
 }

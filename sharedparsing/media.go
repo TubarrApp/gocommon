@@ -13,12 +13,15 @@ import (
 )
 
 const (
-	crfOption     = "-crf"
-	pixFmtOption  = "-pix_fmt"
-	vfOption      = "-vf"
-	filterOption  = "-filter"
-	passOption    = "-pass"
-	bitrateOption = "-b"
+	crfOption        = "-crf"
+	pixFmtOption     = "-pix_fmt"
+	vfOption         = "-vf"
+	afOption         = "-af"
+	filterOption     = "-filter"
+	passOption       = "-pass"
+	bitrateOption    = "-b"
+	channelsOption   = "-ac"
+	sampleRateOption = "-ar"
 )
 
 // minBitrate is the lowest target bitrate taken, in bits per second, as encoders can write no frames at all below it.
@@ -27,7 +30,7 @@ const minBitrate = 1000
 // EncoderOnlyOption reports the first option in args that Metarr only sets when encoding (-crf, -pix_fmt, -vf, -filter:v, -pass or -b:v).
 func EncoderOnlyOption(args []string) (option string, found bool) {
 	for _, arg := range args {
-		if encoderOnly(videoOption(arg)) {
+		if metarrSetsOption(videoOption(arg)) {
 			return arg, true
 		}
 	}
@@ -36,7 +39,7 @@ func EncoderOnlyOption(args []string) (option string, found bool) {
 
 // ParseVideoEncoderArgs parses "codec:args" lines into encoder args per target codec.
 func ParseVideoEncoderArgs(lines []string) (map[string]sharedmodels.EncoderArgs, error) {
-	byCodec, err := parseCodecArgLines(lines)
+	byCodec, err := parseCodecArgLines(lines, sharedvalidation.ValidateVideoCodec)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +54,30 @@ func ParseVideoEncoderArgs(lines []string) (map[string]sharedmodels.EncoderArgs,
 	return parsed, nil
 }
 
+// ParseAudioEncoderArgs parses "codec:args" lines into encoder args per target audio codec.
+func ParseAudioEncoderArgs(lines []string) (map[string]sharedmodels.AudioEncoderArgs, error) {
+	byCodec, err := parseCodecArgLines(lines, sharedvalidation.ValidateAudioCodec)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse each codec's args, refusing a "copy" line, as copied audio isn't encoded.
+	parsed := make(map[string]sharedmodels.AudioEncoderArgs, len(byCodec))
+	for codec, args := range byCodec {
+		if codec == sharedconsts.ACodecCopy {
+			return nil, fmt.Errorf("%q in audio encoder args does nothing, as copied audio isn't encoded, remove its line", codec)
+		}
+		if parsed[codec], err = parseAudioEncoderArgs(codec, args); err != nil {
+			return nil, err
+		}
+	}
+	return parsed, nil
+}
+
 // parseCodecArgLines splits "codec:value" lines into values per target codec.
-func parseCodecArgLines(lines []string) (byCodec map[string]string, err error) {
+//
+// Pass in [sharedvalidation.ValidateVideoCodec] or [sharedvalidation.ValidateAudioCodec].
+func parseCodecArgLines(lines []string, validate func(string) (string, error)) (byCodec map[string]string, err error) {
 	byCodec = make(map[string]string, len(lines))
 
 	// Check lines.
@@ -62,14 +87,14 @@ func parseCodecArgLines(lines []string) (byCodec map[string]string, err error) {
 			continue
 		}
 
-		// Every line names its codec first.
+		// Every line names its codec first, so a line starting with an option has none.
 		codec, value, found := strings.Cut(line, ":")
-		if !found {
-			return nil, fmt.Errorf("line %q needs a codec first, e.g. av1:%s", line, line)
+		if !found || strings.HasPrefix(codec, "-") {
+			return nil, fmt.Errorf("line %q needs the codec it's for first, then ':'", line)
 		}
 
 		// Each codec named once.
-		if codec, err = sharedvalidation.ValidateVideoCodec(codec); err != nil {
+		if codec, err = validate(codec); err != nil {
 			return nil, err
 		}
 		if codec == "" {
@@ -198,21 +223,28 @@ func parseFromCodec(c string, validate func(string) (string, error)) (codec stri
 	return validCodec, compressionLevel, nil
 }
 
-// parseEncoderArgs splits a codec's args, taking out -crf, -pix_fmt, -vf, -pass and -b:v for Metarr to convert per encoder.
-func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
-	var parsed sharedmodels.EncoderArgs
-
-	// Split shell style.
+// splitEncoderArgs splits a codec's args shell style, refusing disallowed options.
+func splitEncoderArgs(codec, args string) ([]string, error) {
 	split, err := ShellSplit(args)
 	if err != nil {
-		return parsed, fmt.Errorf("invalid %s encoder args %q: %w", codec, args, err)
+		return nil, fmt.Errorf("invalid %s encoder args %q: %w", codec, args, err)
 	}
 
 	// Refuse disallowed options.
 	if !sharedconsts.InsecureArgumentsAllowed() {
 		if blocked, option := sharedconsts.HasBlockedOptions(split, sharedconsts.BlockedFFmpegOptions); blocked {
-			return parsed, fmt.Errorf("option %q is not allowed in %s encoder args", option, codec)
+			return nil, fmt.Errorf("option %q is not allowed in %s encoder args", option, codec)
 		}
+	}
+	return split, nil
+}
+
+// parseEncoderArgs splits a codec's args, taking out -crf, -pix_fmt, -vf, -pass and -b:v for Metarr to convert per encoder.
+func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
+	var parsed sharedmodels.EncoderArgs
+	split, err := splitEncoderArgs(codec, args)
+	if err != nil {
+		return parsed, err
 	}
 
 	// Take out the options converted per encoder.
@@ -221,7 +253,7 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 		option := videoOption(arg)
 
 		// Pass other options through as typed.
-		if !encoderOnly(option) {
+		if !metarrSetsOption(option) {
 			parsed.Args = append(parsed.Args, arg)
 			continue
 		}
@@ -359,8 +391,53 @@ func parseBitrate(s string) (int64, error) {
 	return bitrate, nil
 }
 
-// encoderOnly reports whether Metarr sets the option itself, converted for the encoder that runs.
-func encoderOnly(option string) bool {
+// parseAudioEncoderArgs splits a codec's args, taking out -af, -ac and -ar for Metarr to add itself.
+func parseAudioEncoderArgs(codec, args string) (sharedmodels.AudioEncoderArgs, error) {
+	var parsed sharedmodels.AudioEncoderArgs
+	split, err := splitEncoderArgs(codec, args)
+	if err != nil {
+		return parsed, err
+	}
+
+	// Take out the options Metarr adds itself.
+	for i := 0; i < len(split); i++ {
+		arg := split[i]
+		option := audioOption(arg)
+
+		// Pass other options through as typed.
+		if option != afOption && option != filterOption && option != channelsOption && option != sampleRateOption {
+			parsed.Args = append(parsed.Args, arg)
+			continue
+		}
+		if i+1 == len(split) {
+			return sharedmodels.AudioEncoderArgs{}, fmt.Errorf("%s in %s encoder args has no value", arg, codec)
+		}
+		i++
+		value := split[i]
+
+		switch option {
+		case channelsOption:
+			if parsed.Channels != "" {
+				return sharedmodels.AudioEncoderArgs{}, fmt.Errorf("-ac is set more than once in %s encoder args, keep only one", codec)
+			}
+			parsed.Channels = value
+		case sampleRateOption:
+			if parsed.SampleRate != "" {
+				return sharedmodels.AudioEncoderArgs{}, fmt.Errorf("-ar is set more than once in %s encoder args, keep only one", codec)
+			}
+			parsed.SampleRate = value
+		default: // afOption, filterOption
+			if parsed.Filter != "" {
+				return sharedmodels.AudioEncoderArgs{}, fmt.Errorf("more than one audio filter in %s encoder args, join them with ',' in one -af", codec)
+			}
+			parsed.Filter = value
+		}
+	}
+	return parsed, nil
+}
+
+// metarrSetsOption reports whether Metarr takes this video option out of encoder args and adds it back in the form the running encoder needs.
+func metarrSetsOption(option string) bool {
 	switch option {
 	case crfOption,
 		pixFmtOption,
@@ -380,6 +457,15 @@ func encoderOnly(option string) bool {
 func videoOption(arg string) string {
 	name, spec, _ := strings.Cut(arg, ":")
 	if spec == "" || spec == "v" || spec == "v:0" {
+		return name
+	}
+	return arg
+}
+
+// audioOption returns an option's name without an audio stream specifier, e.g. "-filter" from "-filter:a:0".
+func audioOption(arg string) string {
+	name, spec, _ := strings.Cut(arg, ":")
+	if spec == "" || spec == "a" || spec == "a:0" {
 		return name
 	}
 	return arg

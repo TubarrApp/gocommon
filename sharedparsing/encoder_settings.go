@@ -34,20 +34,25 @@ func CheckEncoderSettings(s sharedmodels.EncoderSettings) error {
 		}
 	}
 
-	// Check extra FFmpeg args on audio that's only ever copied.
+	// Check each audio codec's line likewise.
+	audioArgs, err := ParseAudioEncoderArgs(s.AudioArgs)
+	if err != nil {
+		return err
+	}
 	plainAudio, audioPairs, err := ParseCodecMappings(s.AudioCodecs, sharedvalidation.ValidateAudioCodec)
 	if err != nil {
 		return err
 	}
-	if !sharedvalidation.AudioAlwaysCopied(plainAudio, audioPairs, s.OutputExt) {
-		return nil
+	for _, codec := range slices.Sorted(maps.Keys(audioArgs)) {
+		if err := sharedvalidation.ValidateEncoderArgsCanRun(codec, plainAudio, audioPairs, s.OutputExt); err != nil {
+			return err
+		}
 	}
+
+	// Check extra FFmpeg args hold no options for encoding audio.
 	extra, err := ShellSplit(s.ExtraArgs)
 	if err != nil {
 		return err
 	}
-	if err := sharedvalidation.ValidateCopiedAudioFilter(extra); err != nil {
-		return err
-	}
-	return sharedvalidation.ValidateCopiedAudioOptions(extra)
+	return sharedvalidation.ValidateExtraArgsAudioOptions(extra)
 }

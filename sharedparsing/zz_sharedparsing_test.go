@@ -21,13 +21,22 @@ func TestCheckEncoderSettings(t *testing.T) {
 	}{
 		{name: "nothing set", ok: true},
 		{name: "working settings", s: sharedmodels.EncoderSettings{
-			VideoArgs: []string{"av1:-preset 8", "h264:-crf 20"}, VideoCodecs: []string{"h264:av1"}, AudioCodecs: []string{"aac"}, ExtraArgs: "-b:a 128k", OutputExt: ".mkv", Software: true,
+			VideoArgs: []string{"av1:-preset 8", "h264:-crf 20"}, VideoCodecs: []string{"h264:av1"}, AudioArgs: []string{"aac:-b:a 128k -ac 2"}, AudioCodecs: []string{"aac"},
+			ExtraArgs: "-movflags +faststart", OutputExt: ".mkv", Software: true,
 		}, ok: true},
 
 		// Lines that do nothing.
 		{name: "copy line", s: sharedmodels.EncoderSettings{VideoArgs: []string{"copy:-crf 20"}}},
 		{name: "another encoder's option", s: sharedmodels.EncoderSettings{VideoArgs: []string{"h264:-x265-params log-level=error"}}},
 		{name: "line for copied video", s: sharedmodels.EncoderSettings{VideoArgs: []string{"h264:-crf 20"}, VideoCodecs: []string{"copy"}}},
+		{name: "audio copy line", s: sharedmodels.EncoderSettings{AudioArgs: []string{"copy:-b:a 128k"}}},
+		{name: "line for copied audio", s: sharedmodels.EncoderSettings{AudioArgs: []string{"aac:-b:a 128k"}, AudioCodecs: []string{"copy"}}},
+		{name: "line for audio its own pair copies", s: sharedmodels.EncoderSettings{AudioArgs: []string{"aac:-ac 2"}, AudioCodecs: []string{"aac:copy"}}},
+
+		// Audio lines that can run.
+		{name: "line for audio a pair encodes to", s: sharedmodels.EncoderSettings{AudioArgs: []string{"ac3:-b:a 448k"}, AudioCodecs: []string{"copy", "dts:ac3"}}, ok: true},
+		{name: "line for audio already in its codec", s: sharedmodels.EncoderSettings{AudioArgs: []string{"aac:-ac 2"}}, ok: true},
+		{name: "line when the container may choose its codec", s: sharedmodels.EncoderSettings{AudioArgs: []string{"aac:-af volume=0.5"}, AudioCodecs: []string{"aac:copy"}, OutputExt: ".mp4"}, ok: true},
 
 		// Values software encoders can't take, only judged when one runs.
 		{name: "AV1 preset name in software", s: sharedmodels.EncoderSettings{VideoArgs: []string{"av1:-preset medium"}, Software: true}},
@@ -38,18 +47,14 @@ func TestCheckEncoderSettings(t *testing.T) {
 		// Later lines are still judged, whichever sorts first.
 		{name: "a bad line after a good one", s: sharedmodels.EncoderSettings{VideoArgs: []string{"av1:-preset 8", "vp9:-profile:v main"}, Software: true}},
 
-		// Audio only ever copied.
-		{name: "filter with no audio codec", s: sharedmodels.EncoderSettings{ExtraArgs: "-af volume=0.5"}},
-		{name: "option with no audio codec", s: sharedmodels.EncoderSettings{ExtraArgs: "-b:a 128k"}},
-		{name: "option with plain copy", s: sharedmodels.EncoderSettings{ExtraArgs: "-ac 1", AudioCodecs: []string{"copy"}}},
-
-		// Audio that can be encoded.
-		{name: "filter with an audio codec", s: sharedmodels.EncoderSettings{ExtraArgs: "-af volume=0.5", AudioCodecs: []string{"aac"}}, ok: true},
-		{name: "filter with a pair", s: sharedmodels.EncoderSettings{ExtraArgs: "-af volume=0.5", AudioCodecs: []string{"dts:ac3"}}, ok: true},
-		{name: "filter when the container may force a codec", s: sharedmodels.EncoderSettings{ExtraArgs: "-af volume=0.5", OutputExt: ".mp4"}, ok: true},
+		// Audio encoding options in extra FFmpeg args, whether or not audio is encoded.
+		{name: "filter in extra args", s: sharedmodels.EncoderSettings{ExtraArgs: "-af volume=0.5", AudioCodecs: []string{"aac"}}},
+		{name: "bitrate in extra args", s: sharedmodels.EncoderSettings{ExtraArgs: "-b:a 128k", AudioCodecs: []string{"dts:ac3"}}},
+		{name: "channels in extra args with no audio codec", s: sharedmodels.EncoderSettings{ExtraArgs: "-ac 1"}},
 
 		// Settings that can't be read.
 		{name: "a line with no codec", s: sharedmodels.EncoderSettings{VideoArgs: []string{"-crf 20"}}},
+		{name: "an audio line with no codec", s: sharedmodels.EncoderSettings{AudioArgs: []string{"-b:a 128k"}}},
 		{name: "a bad video codec", s: sharedmodels.EncoderSettings{VideoCodecs: []string{"bad"}}},
 		{name: "a bad audio codec", s: sharedmodels.EncoderSettings{AudioCodecs: []string{"bad"}}},
 		{name: "extra args with an open quote", s: sharedmodels.EncoderSettings{ExtraArgs: `-metadata "title`}},
@@ -143,13 +148,14 @@ func TestParseCodecValueLines(t *testing.T) {
 		{"args keep inner colons", []string{"av1:-svtav1-params tune=0:film-grain=8"}, map[string]string{"av1": "-svtav1-params tune=0:film-grain=8"}, false},
 		{"no codec", []string{"-preset 6"}, nil, true},
 		{"args with colon but no codec", []string{"-vf scale=1280:-2"}, nil, true},
+		{"option with its own colon but no codec", []string{"-b:v 3M"}, nil, true},
 		{"codec named twice", []string{"av1:-crf 30", "av1:-crf 35"}, nil, true},
 		{"empty codec", []string{":-crf 35"}, nil, true},
 		{"empty value", []string{"av1:"}, nil, true},
 	}
 
 	for _, tt := range tests {
-		byCodec, err := parseCodecArgLines(tt.lines)
+		byCodec, err := parseCodecArgLines(tt.lines, sharedvalidation.ValidateVideoCodec)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
 			continue
@@ -286,6 +292,65 @@ func TestParseVideoEncoderArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		got, err := ParseVideoEncoderArgs(tt.lines)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
+			continue
+		}
+		if tt.wantErr {
+			continue
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: got %+v, want %+v", tt.name, got, tt.want)
+		}
+	}
+}
+
+// TestParseAudioEncoderArgs tests -af, -ac and -ar are taken out as typed, and other options pass through.
+func TestParseAudioEncoderArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		lines   []string
+		want    map[string]sharedmodels.AudioEncoderArgs
+		wantErr bool
+	}{
+		{
+			"filter, channels and sample rate taken out",
+			[]string{"aac:-b:a 128k -af loudnorm -ac 2 -ar 44.1k"},
+			map[string]sharedmodels.AudioEncoderArgs{"aac": {Filter: "loudnorm", Channels: "2", SampleRate: "44.1k", Args: []string{"-b:a", "128k"}}},
+			false,
+		},
+		{
+			"audio stream specifiers",
+			[]string{"opus:-filter:a:0 volume=0.5 -ac:a 6 -vbr on"},
+			map[string]sharedmodels.AudioEncoderArgs{"opus": {Filter: "volume=0.5", Channels: "6", Args: []string{"-vbr", "on"}}},
+			false,
+		},
+		{
+			"options for other streams pass through",
+			[]string{"mp3:-ac:a:1 1 -q:a 2"},
+			map[string]sharedmodels.AudioEncoderArgs{"mp3": {Args: []string{"-ac:a:1", "1", "-q:a", "2"}}},
+			false,
+		},
+		{
+			"aliases normalized",
+			[]string{"libopus:-b:a 96k", "libmp3lame:-q:a 2"},
+			map[string]sharedmodels.AudioEncoderArgs{"opus": {Args: []string{"-b:a", "96k"}}, "mp3": {Args: []string{"-q:a", "2"}}},
+			false,
+		},
+		{"copy line", []string{"copy:-b:a 128k"}, nil, true},
+		{"no codec", []string{"-b:a 128k"}, nil, true},
+		{"video codec", []string{"hevc:-b:a 128k"}, nil, true},
+		{"filter without value", []string{"aac:-b:a 128k -af"}, nil, true},
+		{"two filters", []string{"aac:-af volume=2 -filter:a loudnorm"}, nil, true},
+		{"channels twice", []string{"aac:-ac 2 -ac 1"}, nil, true},
+		{"sample rate twice", []string{"aac:-ar 48000 -ar:a 44100"}, nil, true},
+		{"codec option", []string{"aac:-c:a libopus"}, nil, true},
+		{"blocked option", []string{"aac:-report"}, nil, true},
+		{"unbalanced quote", []string{`aac:-af "volume=2`}, nil, true},
+	}
+
+	for _, tt := range tests {
+		got, err := ParseAudioEncoderArgs(tt.lines)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
 			continue
