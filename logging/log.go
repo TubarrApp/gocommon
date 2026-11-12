@@ -420,5 +420,4 @@ func TestLogger(pl *ProgramLogger) {
 	if pl == nil {
 		log.Fatalf("%s program logger sent in nil", sharedconsts.LogTagDevError)
 	}
-	pl.S("%s logger is set up correctly.", pl.Program)
 }

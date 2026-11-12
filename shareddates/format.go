@@ -47,7 +47,6 @@ func ParseNumDate(dateNum string, pl *logging.ProgramLogger) (dateStr string, er
 func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate bool) {
 	// Empty date.
 	if date == "" {
-		pl.D(3, "Date sent in empty (%q), not formatting date element.", date)
 		return date, false
 	}
 
@@ -63,13 +62,9 @@ func YmdFromMeta(date string, pl *logging.ProgramLogger) (t string, madeDate boo
 	// Return formatted date, or original if malformed.
 	switch len(beforeT) {
 	case 8:
-		formatted := beforeT[:4] + "-" + beforeT[4:6] + "-" + beforeT[6:] + t
-		pl.D(3, "Made YYYY-MM-DD date %s", formatted)
-		return formatted, true
+		return beforeT[:4] + "-" + beforeT[4:6] + "-" + beforeT[6:] + t, true
 	case 6:
-		formatted := beforeT[:2] + "-" + beforeT[2:4] + "-" + beforeT[4:] + t
-		pl.D(3, "Made YY-MM-DD date %s", formatted)
-		return formatted, true
+		return beforeT[:2] + "-" + beforeT[2:4] + "-" + beforeT[4:] + t, true
 	default:
 		pl.W("Returning malformed date element (%s) without formatting.", date)
 		return date, false

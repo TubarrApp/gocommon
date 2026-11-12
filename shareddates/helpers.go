@@ -193,25 +193,25 @@ func guessYearDayMonth(d string, dateFmt sharedenums.DateFormat, pl *logging.Pro
 
 	// Prefer a year when month and day would be impossible (whether it was 'mmdd' or 'ddmm').
 	if (i == 19 || i == 20) && j > 12 && full <= currentYear {
-		pl.I("Guessing date string %q as year", d)
+		pl.D(2, "Guessing date string %q as year", d)
 		return guessedYear(d, dateFmt), "", "", nil
 	}
 
 	// Guess 'mmdd' first (US convention), then 'ddmm'.
 	switch {
 	case isValidMonthNum(d[:2]) && isValidDayNum(d[2:4], d[:2], ""):
-		pl.I("Guessing date string %q as month-day", d)
+		pl.D(2, "Guessing date string %q as month-day", d)
 		return "", d[:2], d[2:4], nil
 
 	case isValidMonthNum(d[2:4]) && isValidDayNum(d[:2], d[2:4], ""):
-		pl.I("Guessing date string %q as day-month", d)
+		pl.D(2, "Guessing date string %q as day-month", d)
 		return "", d[2:4], d[:2], nil
 	}
 
 	// Last guess, ancient year (e.g. "Passage de Vénus", "View from the Window at Le Gras", ancient audio)
 	// or possible near-future years.
 	if full >= 1826 && full <= currentYear+5 {
-		pl.I("Guessing date string %q as year", d)
+		pl.D(2, "Guessing date string %q as year", d)
 		return guessedYear(d, dateFmt), "", "", nil
 	}
 
