@@ -382,6 +382,11 @@ func (pl *ProgramLogger) Channel(name string) ChannelLogger {
 	return ChannelLogger{pl: pl, channel: name}
 }
 
+// SetChannel tags every line the logger writes from now on with a channel's name. Call it at startup, before other goroutines log.
+func (pl *ProgramLogger) SetChannel(name string) {
+	pl.FileLogger = pl.FileLogger.With().Str(jChannel, name).Logger()
+}
+
 // D logs debug messages for the channel.
 func (cl ChannelLogger) D(l int, msg string, args ...any) {
 	if Level() < l {
