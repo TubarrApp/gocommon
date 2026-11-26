@@ -3,7 +3,9 @@ package sharedparsing
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -37,48 +39,92 @@ func EncoderOnlyOption(args []string) (option string, found bool) {
 	return "", false
 }
 
-// ParseVideoEncoderArgs parses "codec:args" lines into encoder args per target codec.
-func ParseVideoEncoderArgs(lines []string) (map[string]sharedmodels.EncoderArgs, error) {
-	byCodec, err := parseCodecArgLines(lines, sharedvalidation.ValidateVideoCodec)
+// ParseVideoEncoderArgs parses "codec:args" and "codec[size]:args" lines into encoder args per target codec, then per
+// smallest video size (shorter side) each is for, 0 for the plain "codec:" line. Size lines come laid over the plain line.
+func ParseVideoEncoderArgs(lines []string) (map[string]map[int]sharedmodels.EncoderArgs, error) {
+	byLine, err := parseCodecArgLines(lines, sharedvalidation.ValidateVideoCodec)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse each codec's args.
-	parsed := make(map[string]sharedmodels.EncoderArgs, len(byCodec))
-	for codec, args := range byCodec {
-		if parsed[codec], err = parseEncoderArgs(codec, args); err != nil {
+	// Parse each line's args.
+	parsed := make(map[string]map[int]sharedmodels.EncoderArgs, len(byLine))
+	for line, args := range byLine {
+		if parsed[line.codec] == nil {
+			parsed[line.codec] = make(map[int]sharedmodels.EncoderArgs)
+		}
+		if parsed[line.codec][line.size], err = parseEncoderArgs(line.codec, args); err != nil {
 			return nil, err
 		}
 	}
+
+	// Lay each size line over its codec's plain line, then check every set of args a video can get.
+	for _, codec := range slices.Sorted(maps.Keys(parsed)) {
+		sizes := parsed[codec]
+		for _, size := range slices.Sorted(maps.Keys(sizes)) {
+			if size == 0 {
+				if err := checkRateControl(codec, sizes[0]); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			sizes[size] = mergeSizeArgs(codec, sizes[0], sizes[size])
+			if err := checkRateControl(codec, sizes[size]); err != nil {
+				return nil, fmt.Errorf("for %s[%d], %w", codec, size, err)
+			}
+		}
+	}
 	return parsed, nil
+}
+
+// NormalizeVideoArgSizes returns "codec[size]:args" lines with each size as its shorter side in pixels, e.g. "av1[1080]:" from "av1[1080p]:".
+func NormalizeVideoArgSizes(lines []string) []string {
+	normalized := make([]string, 0, len(lines))
+	for _, line := range lines {
+		codec, args, found := strings.Cut(line, ":")
+		name, size, sized := strings.Cut(codec, "[")
+		if pixels, err := parseLineSize(size); found && sized && err == nil {
+			line = fmt.Sprintf("%s[%d]:%s", strings.TrimSpace(name), pixels, args)
+		}
+		normalized = append(normalized, line)
+	}
+	return normalized
 }
 
 // ParseAudioEncoderArgs parses "codec:args" lines into encoder args per target audio codec.
 func ParseAudioEncoderArgs(lines []string) (map[string]sharedmodels.AudioEncoderArgs, error) {
-	byCodec, err := parseCodecArgLines(lines, sharedvalidation.ValidateAudioCodec)
+	byLine, err := parseCodecArgLines(lines, sharedvalidation.ValidateAudioCodec)
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse each codec's args, refusing a "copy" line, as copied audio isn't encoded.
-	parsed := make(map[string]sharedmodels.AudioEncoderArgs, len(byCodec))
-	for codec, args := range byCodec {
-		if codec == sharedconsts.ACodecCopy {
-			return nil, fmt.Errorf("%q in audio encoder args does nothing, as copied audio isn't encoded, remove its line", codec)
+	// Parse each codec's args, refusing a "copy" line, as copied audio isn't encoded, and a size, as that's for video.
+	parsed := make(map[string]sharedmodels.AudioEncoderArgs, len(byLine))
+	for line, args := range byLine {
+		if line.codec == sharedconsts.ACodecCopy {
+			return nil, fmt.Errorf("%q in audio encoder args does nothing, as copied audio isn't encoded, remove its line", line.codec)
 		}
-		if parsed[codec], err = parseAudioEncoderArgs(codec, args); err != nil {
+		if line.size != 0 {
+			return nil, fmt.Errorf("audio encoder args can't be set per video size, remove [%d] from the %s line", line.size, line.codec)
+		}
+		if parsed[line.codec], err = parseAudioEncoderArgs(line.codec, args); err != nil {
 			return nil, err
 		}
 	}
 	return parsed, nil
 }
 
-// parseCodecArgLines splits "codec:value" lines into values per target codec.
+// codecLine names a "codec:" or "codec[size]:" line, its size a video's shorter side in pixels, 0 for none.
+type codecLine struct {
+	codec string
+	size  int
+}
+
+// parseCodecArgLines splits "codec:value" and "codec[size]:value" lines into values per target codec and size.
 //
 // Pass in [sharedvalidation.ValidateVideoCodec] or [sharedvalidation.ValidateAudioCodec].
-func parseCodecArgLines(lines []string, validate func(string) (string, error)) (byCodec map[string]string, err error) {
-	byCodec = make(map[string]string, len(lines))
+func parseCodecArgLines(lines []string, validate func(string) (string, error)) (byLine map[codecLine]string, err error) {
+	byLine = make(map[codecLine]string, len(lines))
 
 	// Check lines.
 	for _, line := range lines {
@@ -93,23 +139,51 @@ func parseCodecArgLines(lines []string, validate func(string) (string, error)) (
 			return nil, fmt.Errorf("line %q needs the codec it's for first, then ':'", line)
 		}
 
-		// Each codec named once.
-		if codec, err = validate(codec); err != nil {
+		// Take off a size, e.g. 1080 from "av1[1080p]".
+		var key codecLine
+		codec, size, sized := strings.Cut(codec, "[")
+		if sized {
+			if key.size, err = parseLineSize(size); err != nil {
+				return nil, fmt.Errorf("line %q should name a size in [ ] like 720, 1080p or 4k, e.g. %s[1080]", line, strings.TrimSpace(codec))
+			}
+		}
+
+		// Each codec and size named once.
+		if key.codec, err = validate(codec); err != nil {
 			return nil, err
 		}
-		if codec == "" {
+		if key.codec == "" {
 			return nil, fmt.Errorf("line %q has no codec before ':'", line)
 		}
 		value = strings.TrimSpace(value)
 		if value == "" {
 			return nil, fmt.Errorf("line %q has no value after ':'", line)
 		}
-		if _, ok := byCodec[codec]; ok {
-			return nil, fmt.Errorf("codec %q is named more than once, keep only one", codec)
+		if _, ok := byLine[key]; ok {
+			if key.size != 0 {
+				return nil, fmt.Errorf("%s[%d] is named more than once, keep only one", key.codec, key.size)
+			}
+			return nil, fmt.Errorf("codec %q is named more than once, keep only one", key.codec)
 		}
-		byCodec[codec] = value
+		byLine[key] = value
 	}
-	return byCodec, nil
+	return byLine, nil
+}
+
+// parseLineSize returns a line's size as a shorter side in pixels, e.g. 1080 from "1080p]" or 2160 from "4K]".
+func parseLineSize(size string) (int, error) {
+	size, closed := strings.CutSuffix(strings.TrimSpace(size), "]")
+	if !closed {
+		return 0, fmt.Errorf("size %q has no closing ]", size)
+	}
+	pixels, err := sharedvalidation.ValidateMaxResolution(size)
+	if err != nil {
+		return 0, err
+	}
+	if pixels == "" {
+		return 0, fmt.Errorf("[ ] holds no size")
+	}
+	return strconv.Atoi(pixels)
 }
 
 // ParseCodecMappings splits codec entries into one plain codec for everything else and per-source "from:to" pairs.
@@ -286,12 +360,14 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 			}
 			parsed.Passes = min(max(passes, 1), cmp.Or(sharedconsts.VideoCodecMaxPasses[codec], 1))
 		case bitrateOption:
-			if parsed.Bitrates != nil {
+			if parsed.Bitrate != "" {
 				return sharedmodels.EncoderArgs{}, fmt.Errorf("-b:v is set more than once in %s encoder args, keep only one", codec)
 			}
-			if parsed.Bitrates, err = parseBitrates(value); err != nil {
-				return sharedmodels.EncoderArgs{}, fmt.Errorf("invalid -b:v in %s encoder args: %w", codec, err)
+			bitrate, bitrateErr := parseBitrate(value)
+			if bitrateErr != nil {
+				return sharedmodels.EncoderArgs{}, fmt.Errorf("invalid -b:v in %s encoder args: %w", codec, bitrateErr)
 			}
+			parsed.Bitrate = strconv.FormatInt(bitrate, 10)
 		default: // vfOption, filterOption
 			if parsed.VideoFilter != "" {
 				return sharedmodels.EncoderArgs{}, fmt.Errorf("more than one video filter in %s encoder args, join them with ',' in one -vf", codec)
@@ -299,65 +375,76 @@ func parseEncoderArgs(codec, args string) (sharedmodels.EncoderArgs, error) {
 			parsed.VideoFilter = value
 		}
 	}
-
-	hasBitrate := false
-	for _, bitrate := range parsed.Bitrates {
-		hasBitrate = hasBitrate || bitrate > 0
-	}
-
-	// Some encoders need a target bitrate, not a quality, for more than one pass.
-	if _, needsBitrate := sharedconsts.MultiPassNeedsBitrate[codec]; needsBitrate && parsed.Passes > 1 {
-		if parsed.Quality != "" {
-			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with more than one pass, give a target bitrate with -b:v instead", codec)
-		}
-		if !hasBitrate {
-			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s needs a target bitrate (-b:v) for more than one pass", codec)
-		}
-	}
-
-	// These encoders use a quality or a target bitrate, not both: AV1's won't start, H.264's and HEVC's ignore the bitrate.
-	switch codec {
-	case sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC:
-		if parsed.Quality != "" && hasBitrate {
-			return sharedmodels.EncoderArgs{}, fmt.Errorf("%s can't use -crf with a target bitrate (-b:v), keep only one", codec)
-		}
-	}
 	return parsed, nil
 }
 
-// parseBitrates reads -b:v's value: one bitrate, or "resolution=bitrate" pairs joined by ',' (e.g. "720=1.5M,1080=3M").
-func parseBitrates(value string) (map[int]int64, error) {
-	if !strings.Contains(value, "=") {
-		bitrate, err := parseBitrate(value)
-		if err != nil {
-			return nil, err
+// checkRateControl returns an error if a set of args holds a quality or target bitrate its codec's encoder can't use.
+func checkRateControl(codec string, args sharedmodels.EncoderArgs) error {
+	hasBitrate := args.Bitrate != "" && args.Bitrate != "0"
+
+	// Some encoders need a target bitrate, not a quality, for more than one pass.
+	if _, needsBitrate := sharedconsts.MultiPassNeedsBitrate[codec]; needsBitrate && args.Passes > 1 {
+		if args.Quality != "" {
+			return fmt.Errorf("%s can't use -crf with more than one pass, give a target bitrate with -b:v instead", codec)
 		}
-		return map[int]int64{0: bitrate}, nil
+		if !hasBitrate {
+			return fmt.Errorf("%s needs a target bitrate (-b:v) for more than one pass", codec)
+		}
 	}
 
-	// One bitrate per resolution.
-	bitrates := make(map[int]int64)
-	for pair := range strings.SplitSeq(value, ",") {
-		res, rate, found := strings.Cut(strings.TrimSpace(pair), "=")
-		if !found {
-			return nil, fmt.Errorf("%q should be resolution=bitrate, e.g. 1080=3M", pair)
-		}
-		resolution, err := sharedvalidation.ValidateMaxResolution(res)
-		if err != nil || resolution == "" {
-			return nil, fmt.Errorf("%q should start with a resolution like 720, 1080p or 4k", pair)
-		}
-		pixels, err := strconv.Atoi(resolution)
-		if err != nil {
-			return nil, err
-		}
-		if _, named := bitrates[pixels]; named {
-			return nil, fmt.Errorf("%dp is named more than once, keep only one", pixels)
-		}
-		if bitrates[pixels], err = parseBitrate(rate); err != nil {
-			return nil, err
+	// Some encoders take a quality or a target bitrate, not both.
+	if _, either := sharedconsts.QualityOrBitrate[codec]; either && args.Quality != "" && hasBitrate {
+		return fmt.Errorf("%s can't use -crf with a target bitrate (-b:v), keep only one", codec)
+	}
+	return nil
+}
+
+// mergeSizeArgs returns a size line's args laid over its codec's plain line, the size line's winning wherever both set an option.
+func mergeSizeArgs(codec string, plain, size sharedmodels.EncoderArgs) sharedmodels.EncoderArgs {
+	merged := sharedmodels.EncoderArgs{
+		Quality:     cmp.Or(size.Quality, plain.Quality),
+		PixFmt:      cmp.Or(size.PixFmt, plain.PixFmt),
+		VideoFilter: cmp.Or(size.VideoFilter, plain.VideoFilter),
+		Passes:      cmp.Or(size.Passes, plain.Passes),
+		Bitrate:     cmp.Or(size.Bitrate, plain.Bitrate),
+		Args:        mergeArgs(plain.Args, size.Args),
+	}
+
+	// Where the encoder takes a quality or a target bitrate, a size line's one replaces the plain line's either.
+	if _, either := sharedconsts.QualityOrBitrate[codec]; either && (size.Quality != "" || size.Bitrate != "") {
+		merged.Quality = size.Quality
+		merged.Bitrate = size.Bitrate
+	}
+	return merged
+}
+
+// mergeArgs returns the plain line's args, less any option the size line also sets, followed by the size line's.
+func mergeArgs(plain, size []string) []string {
+	// Note the options the size line sets.
+	sizeOptions := make(map[string]bool, len(size))
+	for _, arg := range size {
+		if isOption(arg) {
+			sizeOptions[videoOption(arg)] = true
 		}
 	}
-	return bitrates, nil
+
+	// Keep the plain line's other options, each with its value.
+	var merged []string
+	keep := true
+	for _, arg := range plain {
+		if isOption(arg) {
+			keep = !sizeOptions[videoOption(arg)]
+		}
+		if keep {
+			merged = append(merged, arg)
+		}
+	}
+	return append(merged, size...)
+}
+
+// isOption reports whether an arg names an option rather than being a value, which may be a negative number like -1.
+func isOption(arg string) bool {
+	return len(arg) > 1 && arg[0] == '-' && (arg[1] < '0' || arg[1] > '9') && arg[1] != '.'
 }
 
 // parseBitrate reads a bitrate in bits per second, with k, M or G for thousands, millions or billions (e.g. 1500000 from "1.5M").

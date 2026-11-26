@@ -70,6 +70,13 @@ var MultiPassNeedsBitrate = map[string]struct{}{
 	VCodecMPEG2: {},
 }
 
+// QualityOrBitrate holds video codecs whose encoder takes a quality or a target bitrate, not both: AV1's won't start, H.264's and HEVC's ignore the bitrate.
+var QualityOrBitrate = map[string]struct{}{
+	VCodecAV1:  {},
+	VCodecH264: {},
+	VCodecHEVC: {},
+}
+
 // ValidAudioCodecs maps valid audio codec names.
 var ValidAudioCodecs = map[string]struct{}{
 	ACodecCopy:   {},

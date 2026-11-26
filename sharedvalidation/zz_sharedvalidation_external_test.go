@@ -11,14 +11,14 @@ import (
 
 // ******************************** Encoder args **************************************************************************************
 
-// parseLine returns a "codec:args" line's codec and args.
+// parseLine returns a "codec:args" line's args.
 func parseLine(t *testing.T, codec, line string) sharedmodels.EncoderArgs {
 	t.Helper()
 	parsed, err := sharedparsing.ParseVideoEncoderArgs([]string{line})
 	if err != nil {
 		t.Fatalf("%q: %v", line, err)
 	}
-	return parsed[codec]
+	return parsed[codec][0]
 }
 
 // TestValidateSoftwareEncoderArgs tests only a word where a software encoder takes a number is refused, as anything else might work on some FFmpeg version.

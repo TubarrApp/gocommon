@@ -19,14 +19,16 @@ func CheckEncoderSettings(s sharedmodels.EncoderSettings) error {
 		return err
 	}
 
-	// Check each codec's line, in a set order so the same settings always give the same error.
+	// Check each codec's lines, in a set order so the same settings always give the same error.
 	for _, codec := range slices.Sorted(maps.Keys(args)) {
-		if err := sharedvalidation.ValidateEncoderArgsUsed(codec, args[codec]); err != nil {
-			return err
-		}
-		if s.Software {
-			if err := sharedvalidation.ValidateSoftwareEncoderArgs(codec, args[codec]); err != nil {
+		for _, size := range slices.Sorted(maps.Keys(args[codec])) {
+			if err := sharedvalidation.ValidateEncoderArgsUsed(codec, args[codec][size]); err != nil {
 				return err
+			}
+			if s.Software {
+				if err := sharedvalidation.ValidateSoftwareEncoderArgs(codec, args[codec][size]); err != nil {
+					return err
+				}
 			}
 		}
 		if err := sharedvalidation.ValidateEncoderArgsCanRun(codec, plainVideo, videoPairs, s.OutputExt); err != nil {
