@@ -199,7 +199,8 @@ func parseCodecArgLines(lines []string, validate func(string) (string, error)) (
 }
 
 // parseResolutions returns the tiers a resolution in [ ] covers and how it's saved, e.g. 720 to 2160 and "720-2160"
-// from "720p-4K]". It's one tier, a range of them, or a tier and up, e.g. "1080]", "720-1080]" or "1440+]".
+// from "720p-4K]". It's one tier, a range of them, a tier and up, or every tier below one, e.g. "1080]", "720-1080]",
+// "1440+]" or "<720]".
 func parseResolutions(s string) (tiers []int, saved string, err error) {
 	s, closed := strings.CutSuffix(strings.TrimSpace(s), "]")
 	if !closed {
@@ -210,10 +211,11 @@ func parseResolutions(s string) (tiers []int, saved string, err error) {
 	// Read the lowest and highest tier.
 	low, high, isRange := strings.Cut(s, "-")
 	andUp := strings.Contains(s, "+")
-	if andUp && isRange {
-		return nil, "", fmt.Errorf("[%s] is a range and a resolution and up, use one, e.g. [720-1080] or [1440+]", s)
+	below := strings.Contains(s, "<")
+	if (isRange && andUp) || (below && (isRange || andUp)) {
+		return nil, "", fmt.Errorf("[%s] mixes forms, use one, e.g. [720-1080], [1440+] or [<720]", s)
 	}
-	lowTier, err := parseResolutionTier(strings.TrimSuffix(low, "+"))
+	lowTier, err := parseResolutionTier(strings.TrimPrefix(strings.TrimSuffix(low, "+"), "<"))
 	if err != nil {
 		return nil, "", err
 	}
@@ -222,6 +224,14 @@ func parseResolutions(s string) (tiers []int, saved string, err error) {
 	case andUp:
 		highTier = sharedconsts.VideoResolutions[len(sharedconsts.VideoResolutions)-1]
 		saved = strconv.Itoa(lowTier) + "+"
+	case below:
+		index := slices.Index(sharedconsts.VideoResolutions, lowTier)
+		if index == 0 {
+			return nil, "", fmt.Errorf("[%s] covers no resolution, as %d is the smallest", s, lowTier)
+		}
+		saved = "<" + strconv.Itoa(lowTier)
+		lowTier = sharedconsts.VideoResolutions[0]
+		highTier = sharedconsts.VideoResolutions[index-1]
 	case isRange:
 		if highTier, err = parseResolutionTier(high); err != nil {
 			return nil, "", err

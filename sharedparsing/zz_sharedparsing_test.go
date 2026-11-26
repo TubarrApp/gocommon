@@ -110,6 +110,10 @@ func TestParseCodecMappings(t *testing.T) {
 		}, true},
 		{[]string{"av1[4K]:h264", "av1:hevc"}, "", map[sharedmodels.FromCodec]string{from("av1", "", 2160): "h264", from("av1", "", 0): "hevc"}, true},
 		{[]string{"av1[720-1080]:h264", "av1[1080]:h264"}, "", map[sharedmodels.FromCodec]string{from("av1", "", 720): "h264", from("av1", "", 1080): "h264"}, true},
+		{[]string{"lc_av1[<720P]:copy", "lc_av1[720+]:av1"}, "", map[sharedmodels.FromCodec]string{
+			from("av1", low, 144): "copy", from("av1", low, 240): "copy", from("av1", low, 360): "copy", from("av1", low, 480): "copy",
+			from("av1", low, 720): "av1", from("av1", low, 1080): "av1", from("av1", low, 1440): "av1", from("av1", low, 2160): "av1", from("av1", low, 4320): "av1",
+		}, true},
 
 		// Fail states.
 		{[]string{"av1[720+]"}, "", nil, false},
@@ -245,6 +249,15 @@ func TestParseCodecValueLines(t *testing.T) {
 			map[codecLine]string{{"av1", 720}: "-crf 30", {"av1", 1080}: "-crf 30", {"hevc", 2160}: "-crf 26", {"hevc", 4320}: "-crf 26"},
 			false,
 		},
+		{
+			"below a resolution, next to it and up",
+			[]string{"av1[<720]:-crf 28", "av1[720+]:-crf 32"},
+			map[codecLine]string{
+				{"av1", 144}: "-crf 28", {"av1", 240}: "-crf 28", {"av1", 360}: "-crf 28", {"av1", 480}: "-crf 28",
+				{"av1", 720}: "-crf 32", {"av1", 1080}: "-crf 32", {"av1", 1440}: "-crf 32", {"av1", 2160}: "-crf 32", {"av1", 4320}: "-crf 32",
+			},
+			false,
+		},
 		{"no codec", []string{"-preset 6"}, nil, true},
 		{"args with colon but no codec", []string{"-vf scale=1280:-2"}, nil, true},
 		{"option with its own colon but no codec", []string{"-b:v 3M"}, nil, true},
@@ -257,6 +270,11 @@ func TestParseCodecValueLines(t *testing.T) {
 		{"empty resolution", []string{"av1[]:-crf 30"}, nil, true},
 		{"range the wrong way round", []string{"av1[1080-720]:-crf 30"}, nil, true},
 		{"range and up at once", []string{"av1[720-1080+]:-crf 30"}, nil, true},
+		{"below and up at once", []string{"av1[<720+]:-crf 30"}, nil, true},
+		{"below and a range at once", []string{"av1[<720-1080]:-crf 30"}, nil, true},
+		{"below the smallest", []string{"av1[<144]:-crf 30"}, nil, true},
+		{"below a resolution that isn't a tier", []string{"av1[<1000]:-crf 30"}, nil, true},
+		{"below a resolution overlapping it", []string{"av1[<720]:-crf 30", "av1[480]:-crf 28"}, nil, true},
 		{"resolution not closed", []string{"av1[1080:-crf 30"}, nil, true},
 		{"resolution with no codec", []string{"[1080]:-crf 30"}, nil, true},
 		{"empty codec", []string{":-crf 35"}, nil, true},
@@ -478,6 +496,7 @@ func TestNormalizeResolutions(t *testing.T) {
 		"hevc[4K]:-vf scale=-2:1080": "hevc[2160]:-vf scale=-2:1080",
 		"av1[720p - 4K]:-preset 8":   "av1[720-2160]:-preset 8",
 		"lc_h264[1440P+]:hevc":       "lc_h264[1440+]:hevc",
+		"lc_av1[< 720p]:copy":        "lc_av1[<720]:copy",
 		"[8k]:av1":                   "[4320]:av1",
 		"copy":                       "copy",
 		"av1[bad]:-crf 1":            "av1[bad]:-crf 1",
