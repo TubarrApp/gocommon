@@ -33,6 +33,9 @@ var ResolutionAlias = map[string]string{
 	"8k": "4320",
 }
 
+// VideoResolutions lists the resolution tiers by the shorter side, smallest first. A video is in the largest tier it reaches.
+var VideoResolutions = []int{144, 240, 360, 480, 720, 1080, 1440, 2160, 4320}
+
 // ValidCompressionLevels maps valid compression levels.
 var ValidCompressionLevels = map[string]CompressionLevel{
 	string(CompressionBlank):  CompressionBlank,

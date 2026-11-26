@@ -7,6 +7,7 @@ import "github.com/TubarrApp/gocommon/sharedconsts"
 type FromCodec struct {
 	Codec       string
 	Compression sharedconsts.CompressionLevel
+	Resolution  int // Resolution tier by the shorter side, e.g. 1080, 0 for any.
 }
 
 // EncoderArgs holds a target codec's encoder args, with the ones Metarr converts for GPU encoders taken out.

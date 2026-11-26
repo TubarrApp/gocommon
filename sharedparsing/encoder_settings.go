@@ -21,12 +21,12 @@ func CheckEncoderSettings(s sharedmodels.EncoderSettings) error {
 
 	// Check each codec's lines, in a set order so the same settings always give the same error.
 	for _, codec := range slices.Sorted(maps.Keys(args)) {
-		for _, size := range slices.Sorted(maps.Keys(args[codec])) {
-			if err := sharedvalidation.ValidateEncoderArgsUsed(codec, args[codec][size]); err != nil {
+		for _, resolution := range slices.Sorted(maps.Keys(args[codec])) {
+			if err := sharedvalidation.ValidateEncoderArgsUsed(codec, args[codec][resolution]); err != nil {
 				return err
 			}
 			if s.Software {
-				if err := sharedvalidation.ValidateSoftwareEncoderArgs(codec, args[codec][size]); err != nil {
+				if err := sharedvalidation.ValidateSoftwareEncoderArgs(codec, args[codec][resolution]); err != nil {
 					return err
 				}
 			}
@@ -41,7 +41,7 @@ func CheckEncoderSettings(s sharedmodels.EncoderSettings) error {
 	if err != nil {
 		return err
 	}
-	plainAudio, audioPairs, err := ParseCodecMappings(s.AudioCodecs, sharedvalidation.ValidateAudioCodec)
+	plainAudio, audioPairs, err := ParseAudioCodecMappings(s.AudioCodecs)
 	if err != nil {
 		return err
 	}
