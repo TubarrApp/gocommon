@@ -500,9 +500,136 @@ func TestNormalizeResolutions(t *testing.T) {
 		"[8k]:av1":                   "[4320]:av1",
 		"copy":                       "copy",
 		"av1[bad]:-crf 1":            "av1[bad]:-crf 1",
+		"av1[1080p]:HC<1.5m, mc<4M":  "av1[1080]:HC<1.5m, mc<4M",
 	} {
 		if got := NormalizeResolutions([]string{in}); !slices.Equal(got, []string{want}) {
 			t.Errorf("%q: got %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestParseVideoCompressionThresholds tests hc<, mc< and lc> are read per codec and resolution, and other forms are refused.
+func TestParseVideoCompressionThresholds(t *testing.T) {
+	tests := []struct {
+		name    string
+		lines   []string
+		want    map[string]map[int]sharedmodels.CompressionThresholds
+		wantErr bool
+	}{
+		{
+			"hc< and mc<, with or without spaces",
+			[]string{"h264:hc<2.5M,mc<5M", "hevc: hc < 1.5M, mc < 3M "},
+			map[string]map[int]sharedmodels.CompressionThresholds{"h264": {0: {HighBelow: 2500000, MediumBelow: 5000000}}, "hevc": {0: {HighBelow: 1500000, MediumBelow: 3000000}}},
+			false,
+		},
+		{
+			"lc> where low compression starts",
+			[]string{"h264:hc<3M,lc>7M"},
+			map[string]map[int]sharedmodels.CompressionThresholds{"h264": {0: {HighBelow: 3000000, MediumBelow: 7000000}}},
+			false,
+		},
+		{
+			"only lc>",
+			[]string{"h264:lc>7M"},
+			map[string]map[int]sharedmodels.CompressionThresholds{"h264": {0: {MediumBelow: 7000000}}},
+			false,
+		},
+		{
+			"only hc<",
+			[]string{"h264:hc<3M"},
+			map[string]map[int]sharedmodels.CompressionThresholds{"h264": {0: {HighBelow: 3000000}}},
+			false,
+		},
+		{
+			"all three in any order, mc< and lc> the same",
+			[]string{"h264:lc>6M,hc<3M,mc<6M"},
+			map[string]map[int]sharedmodels.CompressionThresholds{"h264": {0: {HighBelow: 3000000, MediumBelow: 6000000}}},
+			false,
+		},
+		{
+			"upper case and aliases",
+			[]string{"X265:HC<1500k,LC>3m"},
+			map[string]map[int]sharedmodels.CompressionThresholds{"hevc": {0: {HighBelow: 1500000, MediumBelow: 3000000}}},
+			false,
+		},
+		{
+			"resolutions beside a plain line",
+			[]string{"av1:hc<1.25M,mc<2.5M", "av1[2160]:lc>10M", "av1[<480]:hc<200k,lc>500k"},
+			map[string]map[int]sharedmodels.CompressionThresholds{"av1": {
+				0:    {HighBelow: 1250000, MediumBelow: 2500000},
+				144:  {HighBelow: 200000, MediumBelow: 500000},
+				240:  {HighBelow: 200000, MediumBelow: 500000},
+				360:  {HighBelow: 200000, MediumBelow: 500000},
+				2160: {MediumBelow: 10000000},
+			}},
+			false,
+		},
+		{"mc< and lc> apart", []string{"h264:mc<6M,lc>7M"}, nil, true},
+		{"hc< above lc>", []string{"h264:hc<7M,lc>3M"}, nil, true},
+		{"hc< at mc<", []string{"h264:hc<5M,mc<5M"}, nil, true},
+		{"hc< twice", []string{"h264:hc<3M,hc<4M"}, nil, true},
+		{"hc>", []string{"h264:hc>3M"}, nil, true},
+		{"lc<", []string{"h264:lc<3M"}, nil, true},
+		{"mc>", []string{"h264:mc>3M"}, nil, true},
+		{"= instead of <", []string{"h264:hc=2.5M,mc=5M"}, nil, true},
+		{"no comma", []string{"h264:hc<3M lc>6M"}, nil, true},
+		{"zero bitrate", []string{"h264:hc<0,lc>5M"}, nil, true},
+		{"bitrate not a number", []string{"h264:hc<fast,lc>5M"}, nil, true},
+		{"empty bitrate", []string{"h264:hc<,lc>5M"}, nil, true},
+		{"empty part", []string{"h264:hc<3M,,lc>5M"}, nil, true},
+		{"copy line", []string{"copy:hc<1M,mc<2M"}, nil, true},
+		{"audio codec", []string{"aac:hc<1M,mc<2M"}, nil, true},
+		{"resolution with no codec", []string{"[1080]:hc<1M,mc<2M"}, nil, true},
+		{"overlapping resolutions", []string{"av1[720+]:hc<1M,mc<2M", "av1[1080]:hc<2M,mc<4M"}, nil, true},
+	}
+
+	for _, tt := range tests {
+		got, err := ParseVideoCompressionThresholds(tt.lines)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
+			continue
+		}
+		if tt.wantErr {
+			continue
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: got %+v, want %+v", tt.name, got, tt.want)
+		}
+	}
+}
+
+// TestParseAudioCompressionThresholds tests hc<, mc< and lc> are read per audio codec, and resolutions are refused.
+func TestParseAudioCompressionThresholds(t *testing.T) {
+	tests := []struct {
+		name    string
+		lines   []string
+		want    map[string]sharedmodels.CompressionThresholds
+		wantErr bool
+	}{
+		{
+			"codecs and aliases",
+			[]string{"aac:hc<64k,mc<128k", "libopus:lc>128k"},
+			map[string]sharedmodels.CompressionThresholds{"aac": {HighBelow: 64000, MediumBelow: 128000}, "opus": {MediumBelow: 128000}},
+			false,
+		},
+		{"video resolution", []string{"aac[1080]:hc<64k,mc<128k"}, nil, true},
+		{"copy line", []string{"copy:hc<64k,mc<128k"}, nil, true},
+		{"video codec", []string{"hevc:hc<1M,mc<2M"}, nil, true},
+		{"codec named twice", []string{"aac:hc<64k,mc<128k", "aac:hc<32k,mc<64k"}, nil, true},
+		{"mc< below hc<", []string{"aac:hc<128k,mc<64k"}, nil, true},
+	}
+
+	for _, tt := range tests {
+		got, err := ParseAudioCompressionThresholds(tt.lines)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%s: error = %v, want error %v", tt.name, err, tt.wantErr)
+			continue
+		}
+		if tt.wantErr {
+			continue
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: got %+v, want %+v", tt.name, got, tt.want)
 		}
 	}
 }

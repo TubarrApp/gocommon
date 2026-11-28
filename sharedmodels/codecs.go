@@ -20,6 +20,13 @@ type EncoderArgs struct {
 	Args        []string // The rest, as typed.
 }
 
+// CompressionThresholds holds the bitrates, in bits per second, below which a stream has high or medium compression, 0 for
+// one not given.
+type CompressionThresholds struct {
+	HighBelow   int64 // From hc<.
+	MediumBelow int64 // From mc< or lc>. From it up is low compression.
+}
+
 // AudioEncoderArgs holds a target audio codec's encoder args, with -af, -ac and -ar taken out as typed for Metarr to add itself.
 type AudioEncoderArgs struct {
 	Filter     string   // From -af or -filter:a.

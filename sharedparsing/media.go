@@ -130,6 +130,54 @@ func ParseAudioEncoderArgs(lines []string) (map[string]sharedmodels.AudioEncoder
 	return parsed, nil
 }
 
+// ParseVideoCompressionThresholds parses "codec:hc<X,mc<Y" and "codec[resolution]:hc<X,mc<Y" lines into the bitrates below
+// which a video has high and medium compression, per source codec and then resolution tier, 0 for the plain line.
+func ParseVideoCompressionThresholds(lines []string) (map[string]map[int]sharedmodels.CompressionThresholds, error) {
+	byLine, err := parseCodecArgLines(lines, sharedvalidation.ValidateVideoCodec)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse each line's thresholds, refusing a "copy" line, as no video is in that codec.
+	parsed := make(map[string]map[int]sharedmodels.CompressionThresholds, len(byLine))
+	for line, value := range byLine {
+		if line.codec == sharedconsts.VCodecCopy {
+			return nil, fmt.Errorf("%q in video compression thresholds isn't a codec a video can be in, remove its line", line.codec)
+		}
+		if parsed[line.codec] == nil {
+			parsed[line.codec] = make(map[int]sharedmodels.CompressionThresholds)
+		}
+		if parsed[line.codec][line.resolution], err = parseCompressionThresholds(line.codec, value); err != nil {
+			return nil, err
+		}
+	}
+	return parsed, nil
+}
+
+// ParseAudioCompressionThresholds parses "codec:hc<X,mc<Y" lines into the bitrates below which an audio track has high and
+// medium compression, per source codec.
+func ParseAudioCompressionThresholds(lines []string) (map[string]sharedmodels.CompressionThresholds, error) {
+	byLine, err := parseCodecArgLines(lines, sharedvalidation.ValidateAudioCodec)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse each line's thresholds, refusing a "copy" line, as no audio is in that codec, and a resolution, as that's for video.
+	parsed := make(map[string]sharedmodels.CompressionThresholds, len(byLine))
+	for line, value := range byLine {
+		if line.codec == sharedconsts.ACodecCopy {
+			return nil, fmt.Errorf("%q in audio compression thresholds isn't a codec audio can be in, remove its line", line.codec)
+		}
+		if line.resolution != 0 {
+			return nil, fmt.Errorf("audio compression thresholds can't be set per video resolution, remove the [ ] from the %s line", line.codec)
+		}
+		if parsed[line.codec], err = parseCompressionThresholds(line.codec, value); err != nil {
+			return nil, err
+		}
+	}
+	return parsed, nil
+}
+
 // codecLine names a "codec:" or "codec[resolution]:" line by its codec and one resolution tier it covers, 0 for none.
 type codecLine struct {
 	codec      string
@@ -174,7 +222,7 @@ func parseCodecArgLines(lines []string, validate func(string) (string, error)) (
 			return nil, err
 		}
 		if name == "" && hasResolution {
-			return nil, fmt.Errorf("line %q needs the codec its args are for before the [ ], e.g. av1[%s]", line, saved)
+			return nil, fmt.Errorf("line %q needs the codec it's for before the [ ], e.g. av1[%s]", line, saved)
 		}
 		if name == "" {
 			return nil, fmt.Errorf("line %q has no codec before ':'", line)
@@ -630,6 +678,49 @@ func parseBitrate(s string) (int64, error) {
 		return 0, fmt.Errorf("bitrate %q is too low to encode a video, use at least 1k, or 0 for no target", s)
 	}
 	return bitrate, nil
+}
+
+// parseCompressionThresholds reads "hc<X", "mc<Y" and "lc>Y", split by commas, into the bitrates below which a stream has
+// high and medium compression. mc<Y and lc>Y both give where low compression starts.
+func parseCompressionThresholds(codec, value string) (sharedmodels.CompressionThresholds, error) {
+	var thresholds sharedmodels.CompressionThresholds
+	for _, part := range strings.Split(strings.ToLower(strings.ReplaceAll(value, " ", "")), ",") {
+		// Each part is a level, the side of the bitrate it's on, and the bitrate.
+		var condition, number string
+		switch {
+		case strings.HasPrefix(part, "hc<"), strings.HasPrefix(part, "mc<"), strings.HasPrefix(part, "lc>"):
+			condition = part[:3]
+			number = part[3:]
+		default:
+			return sharedmodels.CompressionThresholds{}, fmt.Errorf("%q in %s compression thresholds should be hc<, mc< or lc> and a bitrate, e.g. hc<2.5M,lc>5M", part, codec)
+		}
+		bitrate, err := parseBitrate(number)
+		if err != nil {
+			return sharedmodels.CompressionThresholds{}, fmt.Errorf("invalid %s in %s compression thresholds: %w", condition, codec, err)
+		}
+		if bitrate == 0 {
+			return sharedmodels.CompressionThresholds{}, fmt.Errorf("%s in %s compression thresholds needs a bitrate above 0", condition, codec)
+		}
+
+		// hc< gives where medium compression starts, and mc< or lc> where low does, with one bitrate.
+		if condition == "hc<" {
+			if thresholds.HighBelow != 0 {
+				return sharedmodels.CompressionThresholds{}, fmt.Errorf("%s compression thresholds %q set hc< more than once, keep only one", codec, value)
+			}
+			thresholds.HighBelow = bitrate
+			continue
+		}
+		if thresholds.MediumBelow != 0 && thresholds.MediumBelow != bitrate {
+			return sharedmodels.CompressionThresholds{}, fmt.Errorf("%s compression thresholds %q give low compression two starting bitrates, but mc< and lc> are the same border, keep one", codec, value)
+		}
+		thresholds.MediumBelow = bitrate
+	}
+
+	// Medium compression starts below where low does.
+	if thresholds.MediumBelow != 0 && thresholds.HighBelow >= thresholds.MediumBelow {
+		return sharedmodels.CompressionThresholds{}, fmt.Errorf("%s compression thresholds %q have hc< at or above where low compression starts", codec, value)
+	}
+	return thresholds, nil
 }
 
 // parseAudioEncoderArgs splits a codec's args, taking out -af, -ac and -ar for Metarr to add itself.
